@@ -1,6 +1,6 @@
 require("./lua/benbase")
 
-local token, srcds = require("./lua/token"), require("./lua/srcds/source-dedicated-server")( "C:/dedicatedserver/garrysmod/" )
+local token, srcds = require("./lua/token"), require("./lua/source-dedicated-server")( "C:/dedicatedserver/garrysmod/" )
 
 -- INITIALISE --
 local discordia = require("discordia")
