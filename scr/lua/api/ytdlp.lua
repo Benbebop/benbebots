@@ -2,7 +2,7 @@ local uv, fs, timer, appdata = require("uv"), require("fs"), require("timer"), r
 
 local max_file_size = 25e+6
 
-local assertResume = require("utils").assertResume
+local resumeYielded = benbebase.resumeYielded
 
 local ytdlp = {}
 ytdlp.__index = ytdlp
@@ -11,8 +11,8 @@ local dlDirectory = appdata.tempDirectory() .. "ytdlp/"
 fs.mkdirSync(dlDirectory)
 
 local nul = string.char( 0 )
-local dlTemplate = table.concat( {"%(progress.status)s","%(progress.filename)s","%(progress.tmpfilename)s","%(progress.downloaded_bytes)s","%(progress.total_bytes)s","%(progress.total_bytes_estimate)s","%(progress.elapsed)s","%(progress.eta)s","%(progress.speed)s","%(progress.fragment_index)s","%(progress.fragment_count)s",""}, string.char( 31 ) )
-local statusIndex = {{"status"}, {"filename"}, {"tmpfilename"}, {"downloadedBytes", true}, {"totalBytes", true}, {"totalBytesEstimate", true}, {"elapsed", true}, {"eta", true}, {"speed", true}, {"fragmentIndex"}, {"fragmentCount"}}
+local dlTemplate = table.concat( {"%(progress.status)s","%(info.title)s","%(info.ext)s","%(progress.filename)s","%(progress.tmpfilename)s","%(progress.downloaded_bytes)s","%(progress.total_bytes)s","%(progress.total_bytes_estimate)s","%(progress.elapsed)s","%(progress.eta)s","%(progress.speed)s","%(progress.fragment_index)s","%(progress.fragment_count)s",""}, string.char( 31 ) )
+local statusIndex = {{"status"}, {"title"}, {"extention"}, {"filename"}, {"tmpfilename"}, {"downloadedBytes", true}, {"totalBytes", true}, {"totalBytesEstimate", true}, {"elapsed", true}, {"eta", true}, {"speed", true}, {"fragmentIndex"}, {"fragmentCount"}}
 
 local function download( self, work, id )
 	
@@ -23,20 +23,18 @@ local function download( self, work, id )
 	
 	local stdout, stderr = uv.new_pipe(false), uv.new_pipe(false)
 	
-	local proc = uv.spawn( "bin/yt-dlp.exe", {stdio = {nil, stdout, stderr}, args = work.args}, function() assertResume( self.dlThreads[id] ) end )
+	local proc = uv.spawn( "bin/yt-dlp.exe", {stdio = {nil, stdout, stderr}, args = work.args}, function() resumeYielded( self.dlThreads[id] ) end )
 	
 	stdout:read_start( function(err, data)
 		if err then
-			proc:kill()
-			assertResume( self.dlThreads[id] )
+			resumeYielded( self.dlThreads[id] )
 		elseif data then
 			results = results .. data
 		end
 	end)
 	stderr:read_start( function(err, data)
 		if err then
-			proc:kill()
-			assertResume( self.dlThreads[id] )
+			resumeYielded( self.dlThreads[id] )
 		elseif data then
 			errors = errors .. data
 		end
@@ -66,8 +64,7 @@ local function download( self, work, id )
 			local size = status.totalBytes or status.totalBytesEstimate or status.downloadedBytes or 0
 			if size >= max_file_size then
 				errors = "file too large"
-				proc:kill()
-				assertResume( self.dlThreads[id] )
+				resumeYielded( self.dlThreads[id] )
 				return
 			end
 			if status then
@@ -83,7 +80,9 @@ local function download( self, work, id )
 	local id_str = tostring( id )
 	local id_length = #id_str
 	
-	coroutine.yield()
+	if errors == "" then coroutine.yield() end
+	
+	proc:kill()
 	
 	timer.clearInterval( update )
 	
@@ -141,10 +140,10 @@ function ytdlp.queue( self, options, allowNSFW, progress, onFinish )
 		
 		local stdout, stderr = uv.new_pipe(), uv.new_pipe()
 		
-		local proc = uv.spawn( "bin/yt-dlp.exe", {stdio = {nil, stdout, stderr}, args = simOptions}, function() assertResume( thread ) end )
+		local proc = uv.spawn( "bin/yt-dlp.exe", {stdio = {nil, stdout, stderr}, args = simOptions}, function() resumeYielded( thread ) end )
 		
-		stdout:read_start( function(err, data) if err then simErrors = "internalerror:ERRPIPE(" .. err .. ")" proc:kill() assertResume( thread ) elseif data then simOutput = simOutput .. data end end)
-		stderr:read_start( function(err, data) if err then simErrors = "internalerror:ERRPIPE(" .. err .. ")" proc:kill() assertResume( thread ) elseif data then simErrors = simErrors .. data end end)
+		stdout:read_start( function(err, data) if err then simErrors = "internalerror:ERRPIPE(" .. err .. ")" proc:kill() resumeYielded( thread ) elseif data then simOutput = simOutput .. data end end)
+		stderr:read_start( function(err, data) if err then simErrors = "internalerror:ERRPIPE(" .. err .. ")" proc:kill() resumeYielded( thread ) elseif data then simErrors = simErrors .. data end end)
 		
 		coroutine.yield()
 		

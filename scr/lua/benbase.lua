@@ -53,6 +53,82 @@ function BASE.assertDir( dir )
 	
 end
 
+-- stole this from gmod :( --
+function BASE.niceSize( size )
+
+	size = tonumber( size )
+
+	if ( size <= 0 ) then return "0"
+	elseif ( size < 1e+3 ) then return size .. " Bytes"
+	elseif ( size < 1e+6 ) then return math.floor( size / 1e+3 ) .. " KB"
+	elseif ( size < 1e+9 ) then return math.floor( size / 1e+6 ) .. " MB"
+	end
+
+	return math.floor( size / 1e+9 ) .. " GB"
+
+end
+
+local function pluralizeString( str, quantity )
+	return str .. ( ( quantity ~= 1 ) and "s" or "" )
+end
+
+-- this too --
+function BASE.niceTime( seconds )
+
+	if ( seconds == nil ) then return "a few seconds" end
+
+	if ( seconds < 60 ) then
+		local t = math.floor( seconds )
+		return t .. pluralizeString( " second", t )
+	end
+
+	if ( seconds < 60 * 60 ) then
+		local t = math.floor( seconds / 60 )
+		return t .. pluralizeString( " minute", t )
+	end
+
+	if ( seconds < 60 * 60 * 24 ) then
+		local t = math.floor( seconds / (60 * 60) )
+		return t .. pluralizeString( " hour", t )
+	end
+
+	if ( seconds < 60 * 60 * 24 * 7 ) then
+		local t = math.floor( seconds / ( 60 * 60 * 24 ) )
+		return t .. pluralizeString( " day", t )
+	end
+
+	if ( seconds < 60 * 60 * 24 * 365 ) then
+		local t = math.floor( seconds / ( 60 * 60 * 24 * 7 ) )
+		return t .. pluralizeString( " week", t )
+	end
+
+	local t = math.floor( seconds / ( 60 * 60 * 24 * 365 ) )
+	return t .. pluralizeString( " year", t )
+
+end
+
+local itterator = {}
+itterator.__call = function( self )
+	if self.i >= self.c then self.i = 0 end
+	self.i = self.i + 1
+	return string.rep(".", self.i)
+end
+
+function BASE.activeIndicator( maxDots )
+	
+	return setmetatable( {i = 0, c = maxDots}, itterator )
+	
+end
+
+function BASE.resumeYielded( thread )
+	
+	if coroutine.status( thread ) == "suspended" then
+		coroutine.resume( thread )
+	end
+	
+end
+
+
 -- DEBUG FUNCTIONS --
 local function getBinaryVersion( executable, argOverwrite )
 	

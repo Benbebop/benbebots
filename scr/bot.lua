@@ -54,9 +54,36 @@ local c = commands:new( "download", function( message, args )
 		if invalidStart then inQueue[message.author.id] = nil reply:setContent( "invalid quality string: " .. invalidStart .. " - " .. invalidEnd ) return end
 		if not format then inQueue[message.author.id] = nil reply:setContent( "format must be 'default', 'filesizefix', 'best', 'worst', 'ytbest', or 'ytworst'" ) return end
 		
+		local dots = benbebase.activeIndicator( 3 )
+		
 		local success, result = ytdlp:queue( {"-f", quality, "--recode-video", format, url}, function( stage )
 			
-			reply:setContent( stage )
+			if stage.status == "downloading" then
+				local str
+				if stage.title then
+					str = string.format("downloading your video \"%s\" ", stage.title)
+				else
+					str = "downloading your video "
+				end
+				str = str .. string.format("(%s) %s", stage.extention, benbebase.niceSize( stage.downloadedBytes ) )
+				if stage.totalBytes then
+					str = str .. string.format(" out of %s (%d%%)", benbebase.niceSize( stage.totalBytes ), stage.downloadedBytes / stage.totalBytes )
+				elseif stage.totalBytesEstimate then
+					str = str .. string.format(" out of ~%s (%d%%)", benbebase.niceSize( stage.totalBytesEstimate ), stage.downloadedBytes / stage.totalBytesEstimate )
+				end
+				if stage.speed then
+					str = str .. string.format(" at %s/S", benbebase.niceSize( stage.speed ) )
+				end
+				if stage.eta then
+					str = str .. string.format(", %s remaining", benbebase.niceTime( stage.eta ) )
+				end
+				str = str .. string.format(" %s", dots() )
+				reply:setContent( str )
+			elseif stage.status ~= "not started" then
+				reply:setContent( stage.status )
+			else
+				reply:setContent( "getting ready to download your video" )
+			end
 			
 		end, function( err, file )
 		
@@ -77,7 +104,7 @@ local c = commands:new( "download", function( message, args )
 		
 		end )
 		
-		message:reply("your video has been queued (in place " .. place .. ")")
+		reply:setContent("your video has been queued (in place " .. place .. ")")
 		
 		if not success then inQueue[message.author.id] = nil reply:setContent( result ) end
 		
@@ -101,7 +128,7 @@ client:on("messageCreate", function( message )
 	
 	if message.author.id == "565367805160062996" then
 		
-		message:addReaction("🐟")
+		message:addReaction("")
 		
 	end
 	
@@ -109,10 +136,10 @@ end)
 
 client:on("ready", function()
 	
-	local started = srcds:start( "sandbox" )
+	--[[local started = srcds:start( "sandbox" )
 	if started then
 		srcds:promptUserInputP2pId()
-	end
+	end]]
 	
 	benbebase.sendPrevError()
 	
