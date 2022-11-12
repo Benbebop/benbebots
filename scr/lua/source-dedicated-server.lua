@@ -247,7 +247,6 @@ function srds.start( self,  gamemode )
 	local thread = coroutine.running()
 	
 	local callback = watcher.watch(self.dir .. "garrysmod/data/", false, function(event, file)
-		p(event)
 		if event == 'create' then
 			if file == pstdin then
 				self.pstdio["in"] = true

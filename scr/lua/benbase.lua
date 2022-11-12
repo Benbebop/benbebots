@@ -47,6 +47,12 @@ function BASE.sendPrevError( append )
 	end
 end
 
+function BASE.assertDir( dir )
+	
+	fs.mkdir( dir )
+	
+end
+
 -- DEBUG FUNCTIONS --
 local function getBinaryVersion( executable, argOverwrite )
 	

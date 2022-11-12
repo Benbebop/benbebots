@@ -1,164 +1,180 @@
 local uv, fs, timer, appdata = require("uv"), require("fs"), require("timer"), require("../appdata")
 
-local assertResume = require("utils").assertResume
+local max_file_size = 25e+6
 
-local function assertContinue( self )
-	
-	self.threading.count = self.threading.count - 1
-	
-	if self.threading.count < self.threading.max then
-		
-		assertResume( self.instance )
-		
-	end
-	
-end
+local assertResume = require("utils").assertResume
 
 local ytdlp = {}
 ytdlp.__index = ytdlp
 
-local function downloadQueue( self )
+local dlDirectory = appdata.tempDirectory() .. "ytdlp/"
+fs.mkdirSync(dlDirectory)
+
+local nul = string.char( 0 )
+local dlTemplate = table.concat( {"%(progress.status)s","%(progress.filename)s","%(progress.tmpfilename)s","%(progress.downloaded_bytes)s","%(progress.total_bytes)s","%(progress.total_bytes_estimate)s","%(progress.elapsed)s","%(progress.eta)s","%(progress.speed)s","%(progress.fragment_index)s","%(progress.fragment_count)s",""}, string.char( 31 ) )
+local statusIndex = {{"status"}, {"filename"}, {"tmpfilename"}, {"downloadedBytes", true}, {"totalBytes", true}, {"totalBytesEstimate", true}, {"elapsed", true}, {"eta", true}, {"speed", true}, {"fragmentIndex"}, {"fragmentCount"}}
+
+local function download( self, work, id )
+	
+	table.insert( work.args, 1, "-o" ) table.insert( work.args, 2, dlDirectory .. id .. "_%(id)s_%(extractor_key)s.%(ext)s" )
+	table.insert( work.args, 1, "--progress-template" ) table.insert( work.args, 2, dlTemplate )
+	
+	local results, errors = "", ""
+	
+	local stdout, stderr = uv.new_pipe(false), uv.new_pipe(false)
+	
+	local proc = uv.spawn( "bin/yt-dlp.exe", {stdio = {nil, stdout, stderr}, args = work.args}, function() assertResume( self.dlThreads[id] ) end )
+	
+	stdout:read_start( function(err, data)
+		if err then
+			proc:kill()
+			assertResume( self.dlThreads[id] )
+		elseif data then
+			results = results .. data
+		end
+	end)
+	stderr:read_start( function(err, data)
+		if err then
+			proc:kill()
+			assertResume( self.dlThreads[id] )
+		elseif data then
+			errors = errors .. data
+		end
+	end)
+	
+	local update
+	
+	if work.progress then
+		
+		local u = function()
+			results = #results > 1000 and results:sub(-500, -1) or results
+			results = results:match("([^\n\r]+)%s*$") or ""
+			local status, i = {}, 0
+			for v in results:gmatch( "[^\31]+" ) do
+				i = i + 1
+				local index = statusIndex[i]
+				if not index then break end
+				if v == "NA" then
+					status[index[1]] = nil
+				elseif index[2] then
+					status[index[1]] = tonumber(v)
+				else
+					status[index[1]] = v
+				end
+			end
+			status.status = status.status or "not started"
+			local size = status.totalBytes or status.totalBytesEstimate or status.downloadedBytes or 0
+			if size >= max_file_size then
+				errors = "file too large"
+				proc:kill()
+				assertResume( self.dlThreads[id] )
+				return
+			end
+			if status then
+				coroutine.wrap(work.progress)( status )
+			end
+		end
+		
+		update = timer.setInterval(2500, u)
+		u()
+		
+	end
+	
+	local id_str = tostring( id )
+	local id_length = #id_str
+	
+	coroutine.yield()
+	
+	timer.clearInterval( update )
+	
+	local file = results:match("([^\"]+)\"%s*$")
+	
+	if work.onFinish then
+		if errors ~= "" then
+			work.onFinish( errors )
+		elseif not file then
+			work.onFinish( "somethin broke idk" )
+		else
+			work.onFinish( false, file )
+		end
+	end
+	
+	fs.unlink( file )
+	
+	table.remove( self.dlThreads, id )
+	
+	if self.mainThread then assertResume( self.mainThread ) end
+	
+end
+
+local function runQueue( self )
 	
 	repeat
 		
 		local work = self.q[1]
-		
 		table.remove(self.q, 1)
 		
-		local thread = coroutine.create(function()
-			
-			local results, errors = "", ""
-			
-			local stdout, stderr = uv.new_pipe(false), uv.new_pipe(false)
-			
-			local proc = uv.spawn( "bin/yt-dlp.exe", {stdio = {nil, stdout, stderr}, args = work.args}, function() assertContinue( thread ) end )
-			
-			stdout:read_start( function(err, data)
-				if err then
-					proc:kill()
-					assertContinue( thread )
-					coroutine.wrap(work.onFinish)( err )
-				elseif data then
-					results = results .. data
-				end
-			end)
-			stderr:read_start( function(err, data)
-				if err then
-					proc:kill()
-					assertContinue( thread )
-					coroutine.wrap(work.onFinish)( err )
-				elseif data then
-					errors = errors .. data
-				end
-			end)
-			
-			local u = function()
-				if #results > 1000 then results = results:sub(-500, -1) end
-				local status = results:match("[^\n\r]+%s*$")
-				if status then
-					coroutine.wrap(work.progress)( status )
-				end
-			end
-			
-			local update = timer.setInterval(2500, u)
-			u()
-			
-			coroutine.yield()
-			
-			local file = results:match("([^\"]+)\"%s*$")
-			
-			timer.clearInterval( update )
-			
-			if errors ~= "" then
-				work.onFinish( errors )
-			elseif not file then
-				work.onFinish( "somethin broke idk" )
-			else
-				work.onFinish( false, file )
-			end
-				
-			fs.unlink( file )
-			
-			assertContinue( self )
-			
-		end)
+		local i = #self.dlThreads + 1
 		
-		coroutine.resume( thread )
+		self.dlThreads[i] = coroutine.create(download)
+		coroutine.resume( self.dlThreads[i], self, work, i )
 		
-		self.threading.count = self.threading.count + 1
-		
-		benbebase.debugVars.ytdlp_threads = self.threading.count
-		
-		if self.threading.count >= self.threading.max then coroutine.yield() end
+		while #self.dlThreads >= self.maxThreads do coroutine.yield() end
 		
 	until #self.q <= 0
 	
-	self.instance = nil
+	self.mainThread = nil
 	
 end
 
-function ytdlp.queue( self, options, progress, onFinish )
+function ytdlp.queue( self, options, allowNSFW, progress, onFinish )
 	
-	table.insert( options, 1, "-o" ) table.insert( options, 2, appdata.tempDirectory() .. "%(id)s_%(extractor_key)s.%(ext)s" )
-	
-	local simSuccess, simResults = true, ""
+	local simErrors, simOutput = "", ""
 	
 	--check if valid video
 	do
+		
 		local thread = coroutine.running()
 		
 		local simOptions = {table.unpack(options)}
-		table.insert( simOptions, 3, "-s" )
+		table.insert( simOptions, 1, "--print" ) table.insert( simOptions, 2, "extractor_key" )
 		
-		local stderr = uv.new_pipe()
+		local stdout, stderr = uv.new_pipe(), uv.new_pipe()
 		
-		local proc = uv.spawn( "bin/yt-dlp.exe", {stdio = {nil, nil, stderr}, args = simOptions}, function() assertResume( thread ) end )
+		local proc = uv.spawn( "bin/yt-dlp.exe", {stdio = {nil, stdout, stderr}, args = simOptions}, function() assertResume( thread ) end )
 		
-		stderr:read_start( function(err, data)
-			
-			if err then
-				
-				simSuccess, simResults = false, "internalerror:ERRPIPE(" .. err .. ")"
-				proc:kill()
-				assertResume( thread )
-				
-			elseif data then
-				
-				simResults = simResults .. data
-				
-			end
-			
-		end)
+		stdout:read_start( function(err, data) if err then simErrors = "internalerror:ERRPIPE(" .. err .. ")" proc:kill() assertResume( thread ) elseif data then simOutput = simOutput .. data end end)
+		stderr:read_start( function(err, data) if err then simErrors = "internalerror:ERRPIPE(" .. err .. ")" proc:kill() assertResume( thread ) elseif data then simErrors = simErrors .. data end end)
 		
 		coroutine.yield()
 		
 	end
 	
-	if not simSuccess or simResults ~= "" then return false, simResults end
+	if simErrors ~= "" then return false, simResults end
 	
 	--table.insert( options, 3, "-q" )
-	table.insert( options, 3, "--newline" )
-	table.insert( options, 4, "--exec" ) table.insert( options, 5, "echo" )
+	table.insert( options, 1, "--newline" )
+	table.insert( options, 1, "--exec" ) table.insert( options, 2, "echo" )
 	
 	table.insert( self.q, {args = options, progress = progress, onFinish = onFinish} )
 	
-	if not self.instance then
+	if not self.mainThread then
 		
-		self.instance = coroutine.create(downloadQueue)
+		self.mainThread = coroutine.create(runQueue)
 		
-		coroutine.resume( self.instance, self )
+		coroutine.resume( self.mainThread, self )
 		
 	end
 	
-	return true
+	return true, #self.q
 	
 end
 
 function ytdlp.setMaxThreading( self, num )
 	
-	self.threading.max = math.max( num, 1 )
+	self.maxThreads = math.max( num, 1 )
 	
-	benbebase.debugVars.ytdlp_threads_max = self.threading.max
+	benbebase.debugVars.ytdlp_threads_max = self.maxThreads
 	
 end
 
@@ -166,7 +182,7 @@ function create()
 	
 	benbebase.debugVars.ytdlp_threads_max, benbebase.debugVars.ytdlp_threads = 1, 0
 	
-	return setmetatable( {q = {}, instance = nil, threading = {count = 0, max = 1}}, ytdlp )
+	return setmetatable( {q = {}, mainThread = nil, dlThreads = {}, maxThreads = 1}, ytdlp )
 	
 end
 
