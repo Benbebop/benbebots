@@ -17,4 +17,4 @@ Short list I know (it used to be alot bigger, check out the old repository if in
 
 In order to get Benbebot on your server you will need to reach out or be contacted by me, too bad so sad.
 
-As for Family Guy, he can go anywhere, in fact we encourage you to [add him to your server](https://discord.com/api/oauth2/authorize?client_id=941372431082348544&permissions=0&scope=bot). While Family Guy doesnt really need any permissions, its recomended you at least give him the regular member perms.
+As for Family Guy, he can go anywhere, in fact we encourage you to [add him to your server](https://discord.com/api/oauth2/authorize?client_id=1021287182641668096&permissions=0&scope=bot). While Family Guy doesnt really need any permissions, its recomended you at least give him the regular member perms.
