@@ -22,11 +22,11 @@ local ytdlp = require("./lua/api/ytdlp")()
 
 ytdlp:setMaxThreading( 10 )
 
-local formatOptions = {default = "webm", webm = "webm", mp4 = "mp4", mp3 = "mp4"}
+local formatOptions = {webm = {"webm"}, mp4 = {"mp4"}, mov = {"mov"}, mp3 = {"mp3", true}, wav = {"wav", true}, ogg = {"ogg", true}}
 
 local inQueue = {}
 
-local c = commands:new( "download", function( message, args )
+local c = commands:new( "download", function( message, arguments )
 	
 	if inQueue[message.author.id] then
 		
@@ -45,18 +45,27 @@ local c = commands:new( "download", function( message, args )
 				mention = true,
 			}
 		})
-	
-		local format, quality, url = args[2] and args[1], args[3] and args[2], args[3] or args[2] or args[1]
-		format, quality = formatOptions[format or "default"], quality or "bv[filesize<5M]*+ba/b[filesize<7M]*/w"
 		
-		local invalidStart, invalidEnd = quality:find("[^%w%*%[%]%%<%>%=%d%%/%+]")
+		local args = {}
 		
-		if invalidStart then inQueue[message.author.id] = nil reply:setContent( "invalid quality string: " .. invalidStart .. " - " .. invalidEnd ) return end
-		if not format then inQueue[message.author.id] = nil reply:setContent( "format must be 'default', 'filesizefix', 'best', 'worst', 'ytbest', or 'ytworst'" ) return end
+		local format, url = arguments[2] and arguments[1], arguments[2] or arguments[1]
+		local audio
+		
+		if format then
+			format, audio = unpack(formatOptions[format] or {})
+			
+			if not format then inQueue[message.author.id] = nil reply:setContent( "invalid media format" ) return end
+			
+			table.insert( args, "--recode-video" ) table.insert( args, format )
+		end
+		
+		table.insert( args, "-f" ) table.insert( args, audio and "ba[filesize<25M]*/b[filesize<25M]*/b" or "bv[filesize<25M]*+ba/b[filesize<25M]*/b" )
+		
+		table.insert( args, url )
 		
 		local dots = benbebase.activeIndicator( 3 )
 		
-		local success, result = ytdlp:queue( {"-f", quality, "--recode-video", format, url}, function( stage )
+		local success, result = ytdlp:queue( args, false, function( stage )
 			
 			if stage.status == "downloading" then
 				local str
@@ -86,7 +95,7 @@ local c = commands:new( "download", function( message, args )
 			end
 			
 		end, function( err, file )
-		
+			
 			inQueue[message.author.id] = nil
 		
 			if err then
@@ -104,9 +113,9 @@ local c = commands:new( "download", function( message, args )
 		
 		end )
 		
-		reply:setContent("your video has been queued (in place " .. place .. ")")
+		if not success then inQueue[message.author.id] = nil reply:setContent( result ) return end
 		
-		if not success then inQueue[message.author.id] = nil reply:setContent( result ) end
+		reply:setContent("your video has been queued (in place " .. place .. ")")
 		
 	end
 	

@@ -149,7 +149,7 @@ function ytdlp.queue( self, options, allowNSFW, progress, onFinish )
 		
 	end
 	
-	if simErrors ~= "" then return false, simResults end
+	if simErrors ~= "" then return false, simErrors end
 	
 	--table.insert( options, 3, "-q" )
 	table.insert( options, 1, "--newline" )

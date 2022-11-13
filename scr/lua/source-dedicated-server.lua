@@ -237,7 +237,7 @@ function srds.close( self )
 end
 
 -- start server and initialize functions and such --
-function srds.start( self,  gamemode )
+function srds.start( self )
 	
 	srds._reset( self )
 	
@@ -321,6 +321,16 @@ function srds.promptUserInputP2pId( self )
 	
 end
 
+-- https://www.youtube.com/watch?v=oFwYmeEuBWU
+
+local gamemodeCollections = {sandbox = "", slaveofgmod = ""}
+
+function srds.setGamemode( self, gamemode )
+	
+	
+	
+end
+
 return function( gameDir )
 	
 	return setmetatable({
@@ -331,7 +341,8 @@ return function( gameDir )
 		commandCallbacks = {},
 		dir = gameDir,
 		instance = nil,
-		watcherInstance = nil
+		watcherInstance = nil,
+		gamemode = "sandbox"
 	}, srds)
 	
 end
