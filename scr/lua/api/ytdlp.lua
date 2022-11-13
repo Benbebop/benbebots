@@ -14,6 +14,27 @@ local nul = string.char( 0 )
 local dlTemplate = table.concat( {"%(progress.status)s","%(info.title)s","%(info.ext)s","%(progress.filename)s","%(progress.tmpfilename)s","%(progress.downloaded_bytes)s","%(progress.total_bytes)s","%(progress.total_bytes_estimate)s","%(progress.elapsed)s","%(progress.eta)s","%(progress.speed)s","%(progress.fragment_index)s","%(progress.fragment_count)s",""}, string.char( 31 ) )
 local statusIndex = {{"status"}, {"title"}, {"extention"}, {"filename"}, {"tmpfilename"}, {"downloadedBytes", true}, {"totalBytes", true}, {"totalBytesEstimate", true}, {"elapsed", true}, {"eta", true}, {"speed", true}, {"fragmentIndex"}, {"fragmentCount"}}
 
+local function eraseThread( id )
+	
+	id = id .. "_"
+	local id_length = #id
+	
+	for name,fileType in fs.scandirSync(dlDirectory) do
+		if fileType == "file" then
+			
+			if name:sub(id_length) == id then
+				
+				p("test")
+				
+				fs.unlinkSync( dlDirectory .. name )
+				
+			end
+			
+		end
+	end
+	
+end
+
 local function download( self, work, id )
 	
 	table.insert( work.args, 1, "-o" ) table.insert( work.args, 2, dlDirectory .. id .. "_%(id)s_%(extractor_key)s.%(ext)s" )
@@ -77,9 +98,6 @@ local function download( self, work, id )
 		
 	end
 	
-	local id_str = tostring( id )
-	local id_length = #id_str
-	
 	if errors == "" then coroutine.yield() end
 	
 	proc:kill()
@@ -98,7 +116,7 @@ local function download( self, work, id )
 		end
 	end
 	
-	fs.unlink( file )
+	eraseThread( id )
 	
 	table.remove( self.dlThreads, id )
 	
