@@ -10,30 +10,13 @@ ytdlp.__index = ytdlp
 local dlDirectory = appdata.tempDirectory() .. "ytdlp/"
 fs.mkdirSync(dlDirectory)
 
+for name,fileType in fs.scandirSync(dlDirectory) do
+	fs.unlinkSync( dlDirectory .. name )
+end
+
 local nul = string.char( 0 )
 local dlTemplate = table.concat( {"%(progress.status)s","%(info.title)s","%(info.ext)s","%(progress.filename)s","%(progress.tmpfilename)s","%(progress.downloaded_bytes)s","%(progress.total_bytes)s","%(progress.total_bytes_estimate)s","%(progress.elapsed)s","%(progress.eta)s","%(progress.speed)s","%(progress.fragment_index)s","%(progress.fragment_count)s",""}, string.char( 31 ) )
 local statusIndex = {{"status"}, {"title"}, {"extention"}, {"filename"}, {"tmpfilename"}, {"downloadedBytes", true}, {"totalBytes", true}, {"totalBytesEstimate", true}, {"elapsed", true}, {"eta", true}, {"speed", true}, {"fragmentIndex"}, {"fragmentCount"}}
-
-local function eraseThread( id )
-	
-	id = id .. "_"
-	local id_length = #id
-	
-	for name,fileType in fs.scandirSync(dlDirectory) do
-		if fileType == "file" then
-			
-			if name:sub(id_length) == id then
-				
-				p("test")
-				
-				fs.unlinkSync( dlDirectory .. name )
-				
-			end
-			
-		end
-	end
-	
-end
 
 local function download( self, work, id )
 	
@@ -41,34 +24,24 @@ local function download( self, work, id )
 	table.insert( work.args, 1, "--progress-template" ) table.insert( work.args, 2, dlTemplate )
 	
 	local results, errors = "", ""
+	local status = {}
 	
 	local stdout, stderr = uv.new_pipe(false), uv.new_pipe(false)
 	
 	local proc = uv.spawn( "bin/yt-dlp.exe", {stdio = {nil, stdout, stderr}, args = work.args}, function() resumeYielded( self.dlThreads[id] ) end )
 	
+	local function k() proc:kill() stdout:read_stop() stderr:read_stop() end
+	
 	stdout:read_start( function(err, data)
 		if err then
-			resumeYielded( self.dlThreads[id] )
+			errors = err
+			k()
 		elseif data then
 			results = results .. data
-		end
-	end)
-	stderr:read_start( function(err, data)
-		if err then
-			resumeYielded( self.dlThreads[id] )
-		elseif data then
-			errors = errors .. data
-		end
-	end)
-	
-	local update
-	
-	if work.progress then
-		
-		local u = function()
 			results = #results > 1000 and results:sub(-500, -1) or results
 			results = results:match("([^\n\r]+)%s*$") or ""
-			local status, i = {}, 0
+			status = {}
+			local i = 0
 			for v in results:gmatch( "[^\31]+" ) do
 				i = i + 1
 				local index = statusIndex[i]
@@ -85,10 +58,26 @@ local function download( self, work, id )
 			local size = status.totalBytes or status.totalBytesEstimate or status.downloadedBytes or 0
 			if size >= max_file_size then
 				errors = "file too large"
-				resumeYielded( self.dlThreads[id] )
+				k()
 				return
 			end
-			if status then
+		end
+	end)
+	stderr:read_start( function(err, data)
+		if err then
+			errors = err
+			k()
+		elseif data then
+			errors = errors .. data
+		end
+	end)
+	
+	local update
+	
+	if work.progress then
+		
+		local u = function()
+			if status.status then
 				coroutine.wrap(work.progress)( status )
 			end
 		end
@@ -100,7 +89,7 @@ local function download( self, work, id )
 	
 	if errors == "" then coroutine.yield() end
 	
-	proc:kill()
+	stdout:read_stop() stderr:read_stop()
 	
 	timer.clearInterval( update )
 	
@@ -116,8 +105,6 @@ local function download( self, work, id )
 		end
 	end
 	
-	eraseThread( id )
-	
 	table.remove( self.dlThreads, id )
 	
 	if self.mainThread then assertResume( self.mainThread ) end
@@ -132,6 +119,21 @@ local function runQueue( self )
 		table.remove(self.q, 1)
 		
 		local i = #self.dlThreads + 1
+		
+		local id = i .. "_"
+		local id_length = #id
+		
+		for name,fileType in fs.scandirSync(dlDirectory) do
+			if fileType == "file" then
+				
+				if name:sub(1,id_length) == id then
+					
+					fs.unlinkSync( dlDirectory .. name )
+					
+				end
+				
+			end
+		end
 		
 		self.dlThreads[i] = coroutine.create(download)
 		coroutine.resume( self.dlThreads[i], self, work, i )
