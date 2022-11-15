@@ -110,7 +110,7 @@ function va.addVideo( self, id, callback, progress )
 	
 	local q, mV, mA = (self.settings.qualityMode == "worst") and "worst" or "best", self.settings.videoMaxSize and ("[filesize<" .. self.settings.videoMaxSize .. "]") or "", self.settings.audioMaxSize and ("[filesize<" .. self.settings.audioMaxSize .. "]") or ""
 	
-	self.downloadSession = uv.spawn("bin/yt-dlp.exe", {stdio = {nil, stdout}, args = {"-o", self.dir .. "temp.%(ext)s", "-f", q .. "video" .. mV .. "+" .. q .. "audio" .. mA, "--recode-video", "webm", id}}, function()
+	self.downloadSession = uv.spawn("bin/yt-dlp.exe", {stdio = {nil, stdout}, args = {"-o", self.dir .. "temp.%(ext)s", "-f", q .. "video" .. mV .. "+" .. q .. "audio" .. mA, "--recode-video", "mp4", id}}, function()
 		
 		self.downloadSession = nil
 		
