@@ -38,7 +38,10 @@ luac.out
 *.i*86
 *.x86_64
 *.hex
+*.bat
+*.cmd
 
+gmod/
 scr/token
 scr/gateway.json
 scr/discordia.log
@@ -46,3 +49,4 @@ scr/LICENSE.txt
 scr/deps/
 scr/makeassetfile.bat
 scr/makeassetfile.lua
+scr/resource/
