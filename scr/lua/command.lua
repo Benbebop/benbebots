@@ -23,7 +23,7 @@ function commandObject.addPermission( self, ... )
 	
 	if not self.parent[2][self.index].perms then self.parent[2][self.index].perms = discordia.Permissions() end
 	
-	for _,v in ipairs( ... ) do
+	for _,v in ipairs({ ... }) do
 		
 		self.parent[2][self.index].perms:enable( discordia.enums.permission[v] )
 		

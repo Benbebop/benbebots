@@ -30,7 +30,7 @@ local function download( self, work, id )
 	
 	local proc = uv.spawn( "bin/yt-dlp.exe", {stdio = {nil, stdout, stderr}, args = work.args}, function() resumeYielded( self.dlThreads[id] ) end )
 	
-	local function k() proc:kill() stdout:read_stop() stderr:read_stop() end
+	local function k() uv.kill( proc:get_pid() ) stdout:read_stop() stderr:read_stop() end
 	
 	stdout:read_start( function(err, data)
 		if err then

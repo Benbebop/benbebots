@@ -1,6 +1,13 @@
 require("./lua/benbase")
 
-local token, srcds = require("./lua/token"), require("./lua/source-dedicated-server")( "C:/dedicatedserver/garrysmod/" )
+local token, srcds, cfg = require("./lua/token"), require("./lua/source-dedicated-server"), require("./lua/config")
+
+cfg.load()
+cfg.update()
+
+p(config)
+
+srcds.setDirectory( "C:/dedicatedserver/garrysmod/" )
 
 -- INITIALISE --
 local discordia = require("discordia")
@@ -17,6 +24,27 @@ client:on("messageCreate", function(message)
 	commands:run( message )
 	
 end )
+
+local c = commands:new( "config", function( message, args )
+	if config[args[1]] ~= nil then
+		local value = args[2]
+		if value == "true" then
+			value = true
+		elseif value == "false" then
+			value = false
+		elseif tonumber(value) then
+			value = tonumber(value)
+		end
+		local preval = config[args[1]]
+		config[args[1]] = value
+		cfg.save()
+		message:reply("set config `" .. args[1] .. "` from `" .. tostring(preval) .. "` to `" .. tostring(value) .. "`")
+	else
+		message:reply("config does not exist")
+	end
+	
+end )
+c:addPermission("manageWebhooks")
 
 local ytdlp = require("./lua/api/ytdlp")()
 
@@ -129,6 +157,12 @@ local c = commands:new( "gmod", function( message, args )
 end )
 c:setHelp( "[<format> <quality>] <url>", "" )
 
+local c = commands:new( "sex", function( message )
+	
+	message.member:ban()
+	
+end )
+
 -- MISC --
 
 -- FISH REACT SOMEGUY --
@@ -143,14 +177,50 @@ client:on("messageCreate", function( message )
 	
 end)
 
+-- EVERYTHING
+
+local runningEveryones = 0
+
+client:on("messageCreate", function( message )
+	
+	if not config.enableEverything then return end
+	
+	if message.content:find("@everything") then
+		if runningEveryones >= 5 then return end
+		runningEveryones = runningEveryones + 1
+		local c = message.channel local g = c.guild
+		c:send("https://tenor.com/view/peng-ping-gif-25714269")
+		local str = ""
+		local iters = {{g.roles:iter(), "<@&", ">"}, {g.members:iter(), "<@", ">"}, {g.textChannels:iter(), "<#", ">"}, n = 3}
+		repeat
+			local index = math.random(iters.n)
+			local rand = iters[index]
+			local role = rand[1]()
+			
+			if not role then table.remove(iters, index) iters.n = iters.n - 1 else
+				local sequence = rand[2] .. role.id .. rand[3]
+			
+				if #str + #sequence > 2000 then
+					c:send(str)
+					str = sequence
+				else
+					str = str .. sequence
+				end
+			end
+		until iters.n <= 0
+		if #str > 0 then c:send(str) end
+		runningEveryones = math.max(runningEveryones - 1, 0)
+	end
+	
+end)
+
 client:on("ready", function()
 	
-	--[[local started = srcds:start( "sandbox" )
-	if started then
-		srcds:promptUserInputP2pId()
-	end]]
-	
 	benbebase.sendPrevError()
+	
+	--assert(srcds.launch( "sandbox" ))
+	
+	print("done")
 	
 end)
 
