@@ -150,25 +150,22 @@ c = commands:new( "download", function( message, arguments )
 end )
 c:setHelp( "[<format> <quality>] <url>", "download a video from a variety of sites, for a list of supported sites see https://ytdl-org.github.io/youtube-dl/supportedsites.html" )
 
-c = commands:new( "gmod", function( message, args )
-	
-	message:reply(srcds:sbpLink())
-	
-end )
-c:setHelp( "[<format> <quality>] <url>", "" )
-
 c = commands:new( "sex", function( message )
 	
 	message.member:ban()
 	
 end )
 
-c = commands:new( "gmod", function( message )
-	local success,err = srcds.launch( "sandbox" )
+c = commands:new( "gmod", function( message, args )
+	srcds.killServer()
+	local success,err = srcds.launch( args[1] or "sandbox", function()
+		client:getChannel("1012114692401004655"):send({embed = {description = "server shutdown"}})
+	end)
 	if success then 
 		client:getChannel("1012114692401004655"):send({embed = {title = "Benbebot Gmod Server Started", description = "you can use this link to join: " .. srcds.getJoinUrl()}})
+		message:reply("started server")
 	else
-		p(err)
+		message:reply("error starting server: " .. err)
 	end
 end )
 c:addPermission("manageWebhooks")

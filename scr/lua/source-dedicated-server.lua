@@ -19,7 +19,15 @@ function srcds.getJoinUrl()
 	return "steam://run/4000//" .. querystring.urlencode("+" .. joinString)
 end
 
+function srcds.killServer()
+	if proc then proc:kill() end
+end
+
+local gamemodeIndex = {sandbox = 0}
+
 function srcds.launch( gamemode, exitCallback )
+	
+	if not gamemodeIndex[gamemode] then return false, "gamemode does not exist" end
 	
 	if proc then return false end
 	
@@ -91,7 +99,7 @@ function srcds.launch( gamemode, exitCallback )
 	
 	-- RECIEVED PSTDIO --
 	
-	onExit = exitCallback
+	onExit = function() coroutine.wrap(exitCallback)() end
 	
 	return true
 	
