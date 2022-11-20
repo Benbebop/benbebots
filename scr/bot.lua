@@ -54,7 +54,7 @@ local formatOptions = {webm = {"webm"}, mp4 = {"mp4"}, mov = {"mov"}, mp3 = {"mp
 
 local inQueue = {}
 
-local c = commands:new( "download", function( message, arguments )
+c = commands:new( "download", function( message, arguments )
 	
 	if inQueue[message.author.id] then
 		
@@ -150,18 +150,28 @@ local c = commands:new( "download", function( message, arguments )
 end )
 c:setHelp( "[<format> <quality>] <url>", "download a video from a variety of sites, for a list of supported sites see https://ytdl-org.github.io/youtube-dl/supportedsites.html" )
 
-local c = commands:new( "gmod", function( message, args )
+c = commands:new( "gmod", function( message, args )
 	
 	message:reply(srcds:sbpLink())
 	
 end )
 c:setHelp( "[<format> <quality>] <url>", "" )
 
-local c = commands:new( "sex", function( message )
+c = commands:new( "sex", function( message )
 	
 	message.member:ban()
 	
 end )
+
+c = commands:new( "gmod", function( message )
+	local success,err = srcds.launch( "sandbox" )
+	if success then 
+		client:getChannel("1012114692401004655"):send({embed = {title = "Benbebot Gmod Server Started", description = "you can use this link to join: " .. srcds.getJoinUrl()}})
+	else
+		p(err)
+	end
+end )
+c:addPermission("manageWebhooks")
 
 -- MISC --
 
@@ -183,7 +193,7 @@ local runningEveryones = 0
 
 client:on("messageCreate", function( message )
 	
-	if not config.enableEverything then return end
+	if not config.enableEverything then message:delete() end
 	
 	if message.content:find("@everything") then
 		if runningEveryones >= 5 then return end
@@ -217,10 +227,6 @@ end)
 client:on("ready", function()
 	
 	benbebase.sendPrevError()
-	
-	--assert(srcds.launch( "sandbox" ))
-	
-	print("done")
 	
 end)
 

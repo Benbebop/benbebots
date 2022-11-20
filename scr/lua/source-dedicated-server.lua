@@ -14,9 +14,12 @@ local srcds = {}
 
 function srcds.setDirectory( dir ) gmodDirectory = dir end
 
+function srcds.getJoinUrl()
+	if not joinString then return false end
+	return "steam://run/4000//" .. querystring.urlencode("+" .. joinString)
+end
+
 function srcds.launch( gamemode, exitCallback )
-	
-	print("test")
 	
 	if proc then return false end
 	
@@ -31,38 +34,18 @@ function srcds.launch( gamemode, exitCallback )
 	
 	-- WAIT FOR P2P ID --
 	
-	local inMessage, message = false, ""
+	local p2pMessage
 	
-	local func = function(err, data)
-		print("test")
+	stdout:read_start( function(err, data)
 		if err or not data then return end
 		
-		if inMessage then
-			local fin = data:find("\r\n%-+")
-			if fin then 
-				message = message .. data:sub(1, fin)
-				--stdout:read_stop()
-				coroutine.resume( initThread )
-				print("attempted to resume first yield")
-			else
-				message = message .. data
-			end
-		else
-			local _, start = data:find("%-+ Steam P2P %-+%s*")
-			if start then
-				inMessage = true
-				message = data:sub(start, -1)
-				print("recieved p2p header")
-				func()
-			end
-		end
-	end
-	
-	stdout:read_start( func )
+		p2pMessage = data:match("`(connect.-)`")
+		if p2pMessage then coroutine.resume(initThread) end
+	end )
 	
 	-- WAIT FOR PSEUDOPIPE --
 	
-	local pipeDir = gmodDirectory .. "garrysmod/data/pseudopipe/"
+	--[[local pipeDir = gmodDirectory .. "garrysmod/data/pseudopipe/"
 	
 	file_event:start(pipeDir, {}, function(err, filename, events)
 		if events.changed then
@@ -83,35 +66,28 @@ function srcds.launch( gamemode, exitCallback )
 				file_event:stop()
 			end
 		end
-	end)
+	end)]]
 	
-	function onExit() stdout:read_stop() file_event:stop() print("attempted to resume first or second yield") coroutine.resume( initThread or pipeThread ) end
+	function onExit() stdout:read_stop() --[[file_event:stop()]] coroutine.resume( initThread or pipeThread ) end
 	
 	coroutine.yield()
 	initThread = nil
 	
-	print("first yield complete")
-	
 	-- RECIEVED P2P ID --
 	
-	if not message then return false, "couldn't locate p2p message" end --couldnt get p2p message for some reason
+	if not p2pMessage then return false, "couldn't locate p2p message" end --couldnt get p2p message for some reason
 	
-	local str = message:match("`(.-)`")
-	if not str then return false, "p2p message does not contain command" end -- p2p message didnt contain the command for some reason
+	joinString = p2pMessage
 	
-	joinString = querystring.urlencode(str)
-	
-	if not pipeThread then 
+	--[[if not pipeThread then 
 		pipeThread = coroutine.running()
 		coroutine.yield()
 	end
 	pipeThread = nil
 	
-	print("second yield complete")
-	
 	if pstdin and pstdout and pstderr then else
 		return false, "couldnt connect pseudopipes"
-	end
+	end]]
 	
 	-- RECIEVED PSTDIO --
 	
