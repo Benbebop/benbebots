@@ -15,7 +15,8 @@ local client = discordia.Client()
 
 benbebase.initialise( client, "benbebot" )
 local output = benbebase.output
-local commands = require("./lua/command")( "bbb", "benbebot" )
+local commandModule = require("./lua/command")
+local commands = commandModule( "bbb", "benbebot" )
 
 -- COMMANDS --
 
@@ -161,12 +162,19 @@ c = commands:new( "sex", function( message )
 	
 end )
 
-c = commands:new( "gamemodes", function( message )
-	message:reply( table.concat( srcds.getGamemodes(), ", " ) )
-end )
-c:setHelp( nil, "get a list of all gmod gamemodes supported by benbebot" )
+-- GARRYS MOD --
 
-c = commands:new( "gmod", function( message, _, argStr )
+local gmodCommands = commandModule( "gmod" )
+
+client:on("messageCreate", function(message)
+	
+	if message.channel.id == "1012114692401004655" then
+		gmodCommands:run( message )
+	end
+	
+end )
+
+c = gmodCommands:new( "start", function( message, _, argStr )
 	srcds.killServer()
 	local success,err = srcds.launch( argStr or "Sandbox", function()
 		client:getChannel("1012114692401004655"):send({embed = {description = "server shutdown"}})
@@ -181,17 +189,27 @@ end )
 c:addPermission("manageWebhooks")
 c:setHelp( "<gamemode>", "start gmod server" )
 
-c = commands:new( "getmaps", function( message )
+c = gmodCommands:new( "gamemodes", function( message )
+	message:reply( table.concat( srcds.getGamemodes(), ", " ) )
+end )
+c:setHelp( nil, "get a list of all gmod gamemodes supported by benbebot" )
+
+c = gmodCommands:new( "gamemodeinfo", function( message, args )
+	
+end )
+c:setHelp( "<map>", "get info about a gamemode" )
+
+c = gmodCommands:new( "getmaps", function( message )
 	message:reply( table.concat( srcds.getMaps(), ", " ) )
 end )
 c:setHelp( nil, "get a list of all current gmod server maps" )
 
-c = commands:new( "mapinfo", function( message, args )
+c = gmodCommands:new( "mapinfo", function( message, args )
 	
 end )
 c:setHelp( "<map>", "get info about a map" )
 
-c = commands:new( "setmap", function( message, args )
+c = gmodCommands:new( "setmap", function( message, args )
 	local reply = message:reply("setting gmod server map")
 	local success = srcds.setMap( args[1] )
 	if success == 1 then

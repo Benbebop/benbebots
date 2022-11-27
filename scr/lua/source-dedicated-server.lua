@@ -47,10 +47,11 @@ function srcds.setMap( map )
 end
 
 function srcds.getMaps()
+	if not addons then return false, "server must be started to fetch maplist" end
 	local maps = {}
 	for _,file in ipairs( addons ) do
 		local addon = gma.new( file )
-		for _,v in ipairs( addon:getMaps() ) do
+		for _,v in ipairs( addon:listMaps() ) do
 			table.insert( maps, v )
 		end
 		addon:close()

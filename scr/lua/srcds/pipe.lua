@@ -19,7 +19,6 @@ function pipe.sendSignal( self, signal, callback, ... )
 	for i,v in ipairs(signalIndex.host) do
 		if v[1] == signal then signalNum, signal = i, v break end
 	end
-	local data = string.pack( "HBs2", signalNum, ident, string.pack(v[2]) )
 	self.returnCallbacks[ident] = callback
 	local output = fs.openSync( self.dir .. "pipe_0.dat", "a" )
 	fs.writeSync( output, string.pack( "HBs2", signalNum, ident, string.pack(v[2]) ) )

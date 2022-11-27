@@ -51,7 +51,7 @@ function gma.new( self, file )
 		
 		entry.strName, offset = readString( file, offset )
 		entry.size = sunpack( "I8", fs.readSync( file, 8, offset ) ) offset = offset + 8
-		entry.CRC = sunpack( "L", fs.readSync( file, 4, offset ) ) offset = offset + 4
+		entry.CRC = sunpack( "L", fs.readSync( file, 4, offset ) ) offset = offset + 4 -- no idea what this is
 		entry.offset = eOffset
 		eOffset = eOffset + entry.size
 		
@@ -60,18 +60,18 @@ function gma.new( self, file )
 	end
 	
 	self.contentOffset = offset
-	self.fd = file
+	self.fds = file
 	
 	return setmetatable( self, gma )
 	
 end
 
-function gma.getMaps( self )
+function gma.listMaps( self )
 	local maps = {}
 	
 	for i,v in ipairs( self.entries ) do
 		if v.strName:sub(-4, -1) == ".bsp" then
-			table.insert(maps, v.strName:match("([^\\/]+)%.bsp$"))
+			table.insert(maps, {name = v.strName:match("([^\\/]+)%.bsp$"), file = v.strName})
 		end
 	end
 	
@@ -79,12 +79,36 @@ function gma.getMaps( self )
 	
 end
 
-function gma.getGamemodes( self )
+function gma.listGamemodes( self )
+	local gamemodes = {}
+	
+	for i,v in ipairs( self.entries ) do
+		if v.strName:sub(1, 10) == "gamemodes/" then
+			table.insert(maps, v.strName:match("([^\\/]+)%.txt$"))
+		end
+	end
+	
+	return gamemodes
 	
 end
 
 function gma.extractFile( self, file )
+	local entry
+	if type( file ) == "number" then
+		entry = self.entries[file]
+	else
+		for i,v in ipairs( self.entries ) do
+			if v.strName == file then
+				entry = v
+				break
+			end
+		end
+	end
+	return fs.readSync( self.fd, entry.size, entry.offset + self.contentOffset )
+end
 
+function gma.getGamemode( self, gamemode )
+	
 end
 
 function gma.close( self )
