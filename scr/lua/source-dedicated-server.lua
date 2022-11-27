@@ -1,13 +1,20 @@
-local uv, fs, timer, querystring = require("uv"), require("fs"), require("timer"), require("querystring")
+local uv, fs, timer, querystring, json, appdata = require("uv"), require("fs"), require("timer"), require("querystring"), require("json"), require("./appdata")
+
+local gma, pseudopipe = require("./srcds/gma"), require("./srcds/pipe")
 
 local stdin, stdout, stderr, file_event = uv.new_pipe(), uv.new_pipe(), uv.new_pipe(), uv.new_fs_event()
-local pstdin, pstdout, pstderr
-local proc, onExit, joinString
+local pipe
+local session, onExit, joinString
+local addons
 
 local gmodDirectory = ""
 
 local function resetVariables()
-	pstdin, pstdout, pstderr, proc, onExit, joinString = nil
+	if pipe then pipe:close() end pipe = nil
+	local pipeDir = gmodDirectory .. "garrysmod/data/pseudopipe/"
+	fs.unlinkSync(pipeDir .. "pipe_0.dat") fs.unlinkSync(pipeDir .. "pipe_1.dat") fs.unlinkSync(pipeDir .. "pipe_2.dat") fs.unlinkSync(pipeDir .. "pipe_init.dat")
+	appdata.delete( "gmod.sess" )
+	pstdin, pstdout, pstderr, pstdinit, session, onExit, joinString, addons = nil
 end
 
 local srcds = {}
@@ -20,25 +27,107 @@ function srcds.getJoinUrl()
 end
 
 function srcds.killServer()
-	if proc then proc:kill() end
+	if session then uv.kill(session) end
 end
 
-local gamemodeIndex = {sandbox = 0}
+function srcds.shutdownServer()
+	if not pipe then return false, "server pipe not established" end
+	local success = pipe:sendSignalSync( "shutdown", "host requested shutdown" )
+	if success == 1 then
+		srcds.killServer()
+		return true
+	else
+		return false
+	end
+end
+
+function srcds.setMap( map )
+	if not pipe then return false, "server pipe not established" end
+	return pipe:sendSignalSync( "set_map", map )
+end
+
+function srcds.getMaps()
+	local maps = {}
+	for _,file in ipairs( addons ) do
+		local addon = gma.new( file )
+		for _,v in ipairs( addon:getMaps() ) do
+			table.insert( maps, v )
+		end
+		addon:close()
+	end
+	return maps
+end
+
+local gamemodeIndex = json.parse(fs.readFileSync("lua/srcds/gamemodes.json"))
+
+function srcds.getGamemodes()
+	local gms = {}
+	for _,v in pairs( gamemodeIndex ) do
+		table.insert( gms, v[1] )
+	end
+	return gms
+end
+
+function srcds.runCommand( str )
+	if not pipe then return false, "server pipe not established" end
+	return pipe:sendSignalSync( "concommand", str )
+end
+
+local function checkresume( thread, pstdin, pstdout, pstderr, pstdinit )
+	
+	if joinString and pstdin and pstdout and pstderr and pstdinit then
+		coroutine.resume( thread )
+	end
+	
+end
+
+local function readInit()
+	
+	local init = fs.openSync( pstdinit )
+	
+	local fin = string.unpack( "L", fs.readSync( init, 4, 4 ) )
+	local cursor = 8
+	
+	local maps = {}
+	
+	while cursor < fin do
+		local wsid = string.unpack( "L", fs.readSync( init, 4, cursor ) ) cursor = cursor + 4
+		local len = string.unpack("B", fs.readSync( init, 1, cursor )) cursor = cursor + 1
+		local file = fs.readSync(init, len, cursor) cursor = cursor + len
+	end
+	
+	return maps
+	
+end
 
 function srcds.launch( gamemode, exitCallback )
 	
-	if not gamemodeIndex[gamemode] then return false, "gamemode does not exist" end
+	if session then return false end
 	
-	if proc then return false end
+	local workshopCollection, gamemodeStr
 	
-	local initThread, pipeThread
-	initThread = coroutine.running()
+	for index,gm in pairs(gamemodeIndex) do
+		if gamemode:lower():match(gm[1]:lower()) then
+			gamemodeStr, workshopCollection = index, gm
+			break
+		end
+	end
 	
-	proc = uv.spawn(gmodDirectory .. "SrcdsConRedirect.exe", {
-		stdio = {stdin, stdout, stderr}, 
-		args = {"+maxplayers", "20", "-console", "+gamemode", gamemode, "+map", "gm_construct", "-p2p"}, 
-		verbatim = true
+	if not gamemodeStr then return false, "gamemode doesnt exist" end
+	
+	p(gamemodeStr)
+	
+	resetVariables()
+	
+	local thread, pstdin, pstdout, pstderr, pstdinit = coroutine.running()
+	
+	local proc = uv.spawn(gmodDirectory .. "SrcdsConRedirect.exe", {
+		stdio = {stdin, stdout, stderr},
+		args = {"+maxplayers", "20", "-console", "+gamemode", gamemodeStr, "+map", workshopCollection[3] or "gm_construct", "+host_workshop_collection", workshopCollection[2], "-p2p"}, 
+		verbatim = true, detached = true--, cwd = gmodDirectory
 	}, function( ... ) if onExit then onExit( ... ) end resetVariables() end)
+	
+	session = proc:get_pid()
 	
 	-- WAIT FOR P2P ID --
 	
@@ -48,61 +137,80 @@ function srcds.launch( gamemode, exitCallback )
 		if err or not data then return end
 		
 		p2pMessage = data:match("`(connect.-)`")
-		if p2pMessage then coroutine.resume(initThread) end
+		if p2pMessage then
+			joinString = p2pMessage
+			checkresume( thread, pstdin, pstdout, pstderr, pstdinit )
+		end
 	end )
 	
 	-- WAIT FOR PSEUDOPIPE --
 	
-	--[[local pipeDir = gmodDirectory .. "garrysmod/data/pseudopipe/"
+	local pipeDir = gmodDirectory .. "garrysmod/data/pseudopipe/"
 	
 	file_event:start(pipeDir, {}, function(err, filename, events)
-		if events.changed then
+		if events.rename then
+			p(filename, filename == "pipe_0.dat", filename == "pipe_1.dat", filename == "pipe_2.dat")
 			if filename == "pipe_0.dat" then
 				pstdin = pipeDir .. filename
 			elseif filename == "pipe_1.dat" then
 				pstdout = pipeDir .. filename
 			elseif filename == "pipe_2.dat" then
 				pstderr = pipeDir .. filename
+			elseif filename == "pipe_init.dat" then
+				pstdinit = pipeDir .. filename
 			end
-			if pstdin and pstdout and pstderr then
-				if pipeThread then
-					coroutine.resume( pipeThread )
-					print("attempted to resume second yield")
-				else
-					pipeThread = true
-				end
-				file_event:stop()
-			end
+			checkresume( thread, pstdin, pstdout, pstderr, pstdinit )
 		end
-	end)]]
+	end)
 	
-	function onExit() stdout:read_stop() --[[file_event:stop()]] coroutine.resume( initThread or pipeThread ) end
+	-- YIELD UNTIL READY --
+	
+	function onExit() coroutine.resume( thread ) end
 	
 	coroutine.yield()
-	initThread = nil
 	
-	-- RECIEVED P2P ID --
+	stdout:read_stop() file_event:stop()
 	
-	if not p2pMessage then return false, "couldn't locate p2p message" end --couldnt get p2p message for some reason
+	if not (joinString and pstdin and pstdout and pstderr and pstdinit) then return end
 	
-	joinString = p2pMessage
+	pipe = pseudopipe( pipeDir )
 	
-	--[[if not pipeThread then 
-		pipeThread = coroutine.running()
-		coroutine.yield()
+	-- EXTRACT PSTDINIT --
+	
+	addons = {}
+	
+	local init = fs.openSync( pstdinit )
+	
+	local fin = string.unpack( "L", fs.readSync( init, 4, 4 ) )
+	local cursor = 8
+	
+	while cursor < fin do
+		local wsid = string.unpack( "L", fs.readSync( init, 4, cursor ) ) cursor = cursor + 4
+		local len = string.unpack("B", fs.readSync( init, 1, cursor )) cursor = cursor + 1
+		local file = fs.readSync(init, len, cursor) cursor = cursor + len
+		if file:find( "^%a:" ) then
+			table.insert(addons, file)
+		else
+			table.insert(addons, gmodDirectory .. "garrysmod/" .. file)
+		end
 	end
-	pipeThread = nil
 	
-	if pstdin and pstdout and pstderr then else
-		return false, "couldnt connect pseudopipes"
-	end]]
+	fs.closeSync( init )
 	
-	-- RECIEVED PSTDIO --
+	-- SAVE SESSION DATA --
+	
+	appdata.write( "gmod.sess", string.pack( "LI3zzz", uv.gettimeofday(), session, pstdin, pstdout, pstderr ) )
+	
+	-- FINISHED LOADING --
 	
 	onExit = function() coroutine.wrap(exitCallback)() end
 	
 	return true
 	
 end
+
+-- LOAD EXISTING SESSION --
+
+
 
 return srcds

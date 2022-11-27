@@ -1,6 +1,6 @@
 require("./lua/benbase")
 
-local token, srcds, cfg = require("./lua/token"), require("./lua/source-dedicated-server"), require("./lua/config")
+local token, srcds, cfg, statistics = require("./lua/token"), require("./lua/source-dedicated-server"), require("./lua/config"), require("./lua/statistics")
 
 cfg.load()
 cfg.update()
@@ -93,6 +93,8 @@ c = commands:new( "download", function( message, arguments )
 		
 		local dots = benbebase.activeIndicator( 3 )
 		
+		local bytes = 0
+		
 		local success, result = ytdlp:queue( args, false, function( stage )
 			
 			if stage.status == "downloading" then
@@ -116,6 +118,7 @@ c = commands:new( "download", function( message, arguments )
 				end
 				str = str .. string.format(" %s", dots() )
 				reply:setContent( str )
+				bytes = stage.totalBytes or stage.totalBytesEstimate
 			elseif stage.status ~= "not started" then
 				reply:setContent( stage.status )
 			else
@@ -137,6 +140,8 @@ c = commands:new( "download", function( message, arguments )
 						mention = true,
 					}
 				})
+				local s = fs.statSync( file )
+				statistics.downloadedVideo( bytes or s.size )
 			end
 		
 		end )
@@ -156,9 +161,14 @@ c = commands:new( "sex", function( message )
 	
 end )
 
-c = commands:new( "gmod", function( message, args )
+c = commands:new( "gamemodes", function( message )
+	message:reply( table.concat( srcds.getGamemodes(), ", " ) )
+end )
+c:setHelp( nil, "get a list of all gmod gamemodes supported by benbebot" )
+
+c = commands:new( "gmod", function( message, _, argStr )
 	srcds.killServer()
-	local success,err = srcds.launch( args[1] or "sandbox", function()
+	local success,err = srcds.launch( argStr or "Sandbox", function()
 		client:getChannel("1012114692401004655"):send({embed = {description = "server shutdown"}})
 	end)
 	if success then 
@@ -169,6 +179,29 @@ c = commands:new( "gmod", function( message, args )
 	end
 end )
 c:addPermission("manageWebhooks")
+c:setHelp( "<gamemode>", "start gmod server" )
+
+c = commands:new( "getmaps", function( message )
+	message:reply( table.concat( srcds.getMaps(), ", " ) )
+end )
+c:setHelp( nil, "get a list of all current gmod server maps" )
+
+c = commands:new( "mapinfo", function( message, args )
+	
+end )
+c:setHelp( "<map>", "get info about a map" )
+
+c = commands:new( "setmap", function( message, args )
+	local reply = message:reply("setting gmod server map")
+	local success = srcds.setMap( args[1] )
+	if success == 1 then
+		reply:setContent("successfully set gmod server map")
+	else
+		reply:setContent("failed to set gmod server map")
+	end
+end )
+c:addPermission("manageWebhooks")
+c:setHelp( "<map>", "set the map of the current gmod server" )
 
 -- MISC --
 
@@ -192,7 +225,7 @@ client:on("messageCreate", function( message )
 	
 	if not config.enableEverything then message:delete() end
 	
-	if message.content:find("@everything") then
+	if message.content:find("@%\\?everything") then
 		if runningEveryones >= 5 then return end
 		runningEveryones = runningEveryones + 1
 		local c = message.channel local g = c.guild
