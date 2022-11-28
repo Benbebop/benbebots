@@ -243,7 +243,19 @@ client:on("messageCreate", function( message )
 	
 	if not config.enableEverything then message:delete() end
 	
+	local toPing = false
+	
 	if message.content:find("@%\\?everything") then
+		toPing = true
+	elseif message.guild and not message.author.bot then
+		for user in message.mentionedUsers:iter() do
+			local member = message.guild:getMember(user.id)
+			
+			if member.name:lower():match("^%s*everything%s*$") then toPing = true break end
+		end
+	end
+	
+	if toPing then
 		if runningEveryones >= 5 then return end
 		runningEveryones = runningEveryones + 1
 		local c = message.channel local g = c.guild
