@@ -284,6 +284,16 @@ client:on("messageCreate", function( message )
 	
 end)
 
+-- GRABIFY
+
+client:on("messageCreate", function( message )
+	
+	if message.member and message.content:match("https?://grabify%.link/") then
+		message.member:setNickname("im trying to steal your ip")
+	end
+	
+end)
+
 client:on("ready", function()
 	
 	benbebase.sendPrevError()
