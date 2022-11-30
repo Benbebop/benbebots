@@ -57,4 +57,4 @@ wait
 
 If you ever encounter issues with the family guy bot, feel free to post them on this repository in the issues section. We are an ever improving enterprise and we want the best for out clientell.
 
-*LEGAL NOTICE: FAMILY GUY BOT IS IN NO WAY ASSOCIATED WITH FOX NETWORK OR FAMILY GUY*
+*LEGAL NOTICE: FAMILY GUY BOT IS IN NO WAY ASSOCIATED WITH FOX NETWORK OR FAMILY GUY, CONTACT THE TEAM ABOUT COPYWRITE HERE [dmca@booru.org](mailto:dmca@booru.org)*
