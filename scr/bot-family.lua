@@ -1,4 +1,8 @@
+require("./lua/benbase")
+
 local discordia, token, youtube, appdata, http, soap2day = require('discordia'), require("./lua/token"), require("./lua/api/youtube"), require("./lua/appdata"), require("coro-http"), require("./lua/api/soap2day")
+
+math.randomseed( os.time() )
 
 appdata.init({{"familyguyvids/"},{"familyguyvids/index.db", ""}})
 
@@ -10,8 +14,8 @@ local truncate = require("./lua/string").truncate
 
 local client = discordia.Client({cacheAllMembers = true})
 
-local base = require("./lua/benbase")( client, "familyguy" )
-local output = base.output
+benbebase.initialise( client, "familyguy" )
+local output = benbebase.output
 local commands = require("./lua/command")()
 
 local clock = discordia.Clock()
@@ -213,6 +217,15 @@ client:on('messageCreate', function(message)
 	end
 end)
 
+local canReacts = {"860934345677864961" = {"549112267913035787", "https?://"}}
+
+client:on('messageCreate', function(message)
+	local canReact = canReacts[message.id]
+	if canReact and canReact[1] == message.author.id and message.content:match(canReact[2]) then
+		message:addReaction("\uD83E\uDD6B")
+	end
+end )
+
 local send_period = 172800 * 4
 
 client:on("ready", function()
@@ -221,15 +234,7 @@ client:on("ready", function()
 	
 	send_delay_time = math.floor( send_period / #client.users )
 	
-	local f = appdata.get("errorhandle/error-family.log", "r")
-	if f then
-		local content = f:read("*a")
-		if content == "" then return end
-		local err, trace = content:match("^(.-)\nstack traceback:\n(.-)$")
-		output( err, "err", trace )
-		f:close()
-		os.remove(appdata.directory() .. "/errorhandle/error-family.log")
-	end
+	benbebase.sendPrevError("-family")
 	
 end)
 
