@@ -5,8 +5,6 @@ local token, srcds, cfg, statistics = require("./lua/token"), require("./lua/sou
 cfg.load()
 cfg.update()
 
-p(config)
-
 srcds.setDirectory( "C:/dedicatedserver/garrysmod/" )
 
 -- INITIALISE --
@@ -54,6 +52,8 @@ ytdlp:setMaxThreading( 10 )
 local formatOptions = {webm = {"webm"}, mp4 = {"mp4"}, mov = {"mov"}, mp3 = {"mp3", true}, wav = {"wav", true}, ogg = {"ogg", true}}
 
 local inQueue = {}
+
+local downloadStats = statistics( 0, 12, "LI8" )
 
 c = commands:new( "download", function( message, arguments )
 	
@@ -142,7 +142,7 @@ c = commands:new( "download", function( message, arguments )
 					}
 				})
 				local s = fs.statSync( file )
-				statistics.downloadedVideo( bytes or s.size )
+				downloadStats.increase( 1, bytes or s.size )
 			end
 		
 		end )
@@ -229,13 +229,15 @@ client:on("messageCreate", function( message )
 	
 	if message.author.id == "565367805160062996" then
 		
-		message:addReaction("")
+		message:addReaction("\uD83D\uDC1F")
 		
 	end
 	
 end)
 
 -- EVERYTHING
+
+local everythings = statistics( 12, 4, "L" )
 
 local runningEveryones = 0
 
@@ -280,16 +282,20 @@ client:on("messageCreate", function( message )
 		until iters.n <= 0
 		if #str > 0 then c:send(str) end
 		runningEveryones = math.max(runningEveryones - 1, 0)
+		everythings:increase( 1 )
 	end
 	
 end)
 
 -- GRABIFY
 
+local grabsSent = statistics( 16, 4, "L" )
+
 client:on("messageCreate", function( message )
 	
 	if message.member and message.content:match("https?://grabify%.link/") then
 		message.member:setNickname("im trying to steal your ip")
+		grabsSent:increase( 1 )
 	end
 	
 end)
@@ -297,6 +303,8 @@ end)
 client:on("ready", function()
 	
 	benbebase.sendPrevError()
+	
+	statistics( 20, 4, "L" ):increase( 1 )
 	
 end)
 

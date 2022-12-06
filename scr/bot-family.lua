@@ -1,6 +1,6 @@
 require("./lua/benbase")
 
-local discordia, token, youtube, appdata, http, soap2day = require('discordia'), require("./lua/token"), require("./lua/api/youtube"), require("./lua/appdata"), require("coro-http"), require("./lua/api/soap2day")
+local discordia, token, youtube, appdata, http, soap2day, statistics = require('discordia'), require("./lua/token"), require("./lua/api/youtube"), require("./lua/appdata"), require("coro-http"), require("./lua/api/soap2day"), require("./lua/statistics")
 
 math.randomseed( os.time() )
 
@@ -89,6 +89,8 @@ local send_delay_time = math.huge
 
 local sendDelay = 0
 
+local sentVideos = statistics( 24, 4, "L" )
+
 local function sendRandomVideo( user )
 	
 	local vindex = math.random(1, videoarchive.entries)
@@ -110,6 +112,10 @@ local function sendRandomVideo( user )
 	if not success then
 		
 		debugMessage:setContent("couldnt send message to " .. (user.name or "nul") .. " (" .. err .. ")")
+		
+	else
+		
+		sentVideos:increase( 1 )
 		
 	end
 	
