@@ -7,7 +7,7 @@ stat.__index = stat
 
 function stat.set( self, ... )
 	local fd = appdata.getFd( "statistics.db", "r+" )
-	fs.writeSync( fd, string.pack( self.packStr, ... ) )
+	fs.writeSync( fd, self.offset, string.pack( self.packStr, ... ) )
 	fs.closeSync( fd )
 end
 
@@ -17,7 +17,7 @@ function stat.increase( self, ... )
 	for i,v in ipairs({...}) do
 		content[i] = content[i] + v
 	end
-	fs.writeSync( fd, string.pack( self.packStr, unpack(content) ) )
+	fs.writeSync( fd, self.offset, string.pack( self.packStr, unpack(content) ) )
 	fs.closeSync( fd )
 end
 
