@@ -69,7 +69,11 @@ function m.replace( name, pattern, str )
 	f:close()
 end
 
-function m.delete( name, pattern, str )
+function m.getFd( name, mode )
+	return fs.openSync( dir .. "\\benbebot\\" .. name, mode )
+end
+
+function m.delete( name )
 	os.remove(dir .. "\\benbebot\\" .. name)
 end
 
