@@ -90,9 +90,8 @@ function sub_config.load( self )
 		elseif packIndex == 13 then
 			tbl[index] = string.unpack(packStr, str:sub(cursor, cursor + 7)) cursor = cursor + 8
 		elseif packIndex == 16 then
-			p(str:sub(1, cursor - 1), str:sub(cursor, cursor + 1), str:sub(cursor + 1, -1))
 			local len = string.unpack("H", str:sub(cursor, cursor + 1)) cursor = cursor + 2
-			tbl[index] = string.unpack(packStr, str:sub(cursor, cursor + len)) cursor = cursor + len + 1
+			tbl[index] = str:sub(cursor, cursor + len) cursor = cursor + len + 1
 		elseif packIndex == 17 then
 			tbl[index] = string.unpack(packStr, str:sub(cursor, cursor)) == 1 cursor = cursor + 1
 		end

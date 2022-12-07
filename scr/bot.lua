@@ -1,6 +1,6 @@
 require("./lua/benbase")
 
-local token, srcds, statistics, json = require("./lua/token"), require("./lua/source-dedicated-server"), require("./lua/statistics"), require("json")
+local token, srcds, statistics = require("./lua/token"), require("./lua/source-dedicated-server"), require("./lua/statistics")
 
 require("./lua/config")("benbebot")
 
@@ -23,7 +23,12 @@ client:on("messageCreate", function(message)
 	
 end )
 
-local configCheck = json.parse(fs.readFileSync("resources/config-update.json"))
+local configCheck
+
+do 
+	local json, fs = require("json"), require("fs")
+	configCheck = json.parse(fs.readFileSync("resource/config-update.json"))
+end
 
 local c = commands:new( "config", function( message, args )
 	local cfg = config[message.guild.id]
