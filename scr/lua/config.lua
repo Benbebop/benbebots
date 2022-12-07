@@ -1,66 +1,181 @@
-local appdata, json = require("./appdata"), require("json")
+local appdata, json, fs, uv = require("./appdata"), require("json"), require("fs"), require("uv")
 
-_G.config = _G.config or {}
+local typeIndex = {"B", "B", "H", "H", "L", "L", "I8", "I8", "j", "J", "T", "f", "d", "n", "z", "s2", "B"}
 
-local typeIndex = {"b", "B", "h", "H", "l", "L", "j", "J", "T", "f", "d", "n", "z", "s2", "B"}
+local config, sub_config = {}, {}
 
-local cfg = {}
+local function subMeta( path ) return {file = path, config = {}, immediate = uv.new_timer()} end
 
-function cfg.update()
-	local file = io.open( "resource/config-update.json", "rb" ) local update = json.parse( file:read( "*a" ) ) file:close()
-	for i,v in pairs(_G.config) do
-		if not update[i] then _G.config[i] = nil end
-	end
-	for i,v in pairs(update) do
-		if not _G.config[i] then _G.config[i] = v end
-	end
+function config.new( self, guild )
+	local sub = setmetatable( subMeta( rawget( self, "dir" ) .. guild .. ".lcfg" ), sub_config )
+	sub:save()
+	rawget( self, "configs" )[guild] = sub
+	return sub
 end
 
-function cfg.load()
-	local file = appdata.get( "global.lcfg", "rb" )
-	if not file then cfg.update() else
-		local nxt = file:read(1)
-		repeat
-			nxt = string.unpack("B", nxt)
-			local i = file:read( nxt )
-			local t = string.unpack("B", file:read(1))
-			local v
-			if t == 15 then
-				v = string.unpack(typeIndex[t], file:read(1))
-				v = v > 0
-			elseif t == 14 then
-				v = file:read( string.unpack("B", file:read(1)) )
-			else
-				v = file:read( string.unpack(typeIndex[t], file:read(8)) )
-			end
-			_G.config[i] = v
-			nxt = file:read(1)
-		until not nxt
-		file:close()
-	end
-end
-
-function cfg.save()
-	local file = appdata.get( "global.lcfg", "wb" )
-	for i,v in pairs(_G.config) do
-		local t = type(v)
-		if t == "boolean" then
-			t = 15
-			v = v and 1 or 0
-		elseif t == "string" then
-			t = 14
-		elseif t == "number" then
-			if math.floor(v) == v then
-				t = 7
-			else
-				t = 12
-			end
-		else
-			t = nil
+function config.get( self, guild )
+	local configs = rawget( self, "configs" )
+	if configs[index] then
+		return configs[index]
+	else
+		local sub = setmetatable( subMeta( rawget( self, "dir" ) .. guild .. ".lcfg" ), sub_config )
+		if sub:load() then
+			configs[guild] = sub
+			return sub
 		end
-		if t then file:write( string.pack("s1B" .. typeIndex[t], i, t, v) ) end
 	end
-	file:close()
 end
 
-return cfg
+function config.getAll( self, index )
+	local results = {}
+	for i,v in pairs(rawget( self, "configs" )) do
+		results[i] = rawget( v, config )[index]
+	end
+	return results
+end
+
+function config.getAllArray( self, index )
+	local results = {}
+	for i,v in pairs(rawget( self, "configs" )) do
+		table.insert( results, rawget( v, config )[index] )
+	end
+	return results
+end
+
+function config.load( self )
+	local dir = rawget( self, "dir" )
+	for f,t in fs.scandirSync( dir ) do
+		if t == "file" and f:sub(-5, -1) == ".lcfg" then
+			local sub = setmetatable( subMeta( dir .. f ), sub_config )
+			if sub:load() then
+				local configs = rawget( self, "configs" )
+				local name = f:sub(1, -6)
+				if name == "_default" then
+					configs["0"] = sub
+				else
+					configs[name] = sub
+				end
+			end
+		end
+	end
+end
+
+local version = string.pack("H", 1)
+
+function sub_config.load( self )
+	local file = rawget( self, "file" )
+	local fd = fs.openSync(file, "r")
+	if not fd then return {} end
+	if fs.readSync(fd, 4, 0) ~= "LCFG" then return nil end
+	if fs.readSync(fd, 2, 4) ~= version then return nil end
+	fs.closeSync(fd) local str = fs.readFileSync(file)
+	local len, cursor, tbl = #str, 7, {}
+	while cursor < len do
+		local l = string.unpack("B", str:sub(cursor, cursor)) cursor = cursor + 1
+		local index = str:sub(cursor, cursor + l) cursor = cursor + l
+		local packIndex = string.unpack("B", str:sub(cursor, cursor)) cursor = cursor + 1
+		local packStr = typeIndex[packIndex]
+		
+		local sign = packIndex <= 8 and ((packIndex % 2) == 0 and 1 or -1)
+		
+		if packIndex == 0 then
+		elseif packIndex <= 2 then
+			tbl[index] = string.unpack(packStr, str:sub(cursor, cursor)) * sign cursor = cursor + 1
+		elseif packIndex <= 4 then
+			tbl[index] = string.unpack(packStr, str:sub(cursor, cursor + 1)) * sign cursor = cursor + 2
+		elseif packIndex <= 6 then
+			tbl[index] = string.unpack(packStr, str:sub(cursor, cursor + 3)) * sign cursor = cursor + 4
+		elseif packIndex <= 8 then
+			tbl[index] = string.unpack(packStr, str:sub(cursor, cursor + 7)) * sign cursor = cursor + 8
+		elseif packIndex == 13 then
+			tbl[index] = string.unpack(packStr, str:sub(cursor, cursor + 7)) cursor = cursor + 8
+		elseif packIndex == 16 then
+			p(str:sub(1, cursor - 1), str:sub(cursor, cursor + 1), str:sub(cursor + 1, -1))
+			local len = string.unpack("H", str:sub(cursor, cursor + 1)) cursor = cursor + 2
+			tbl[index] = string.unpack(packStr, str:sub(cursor, cursor + len)) cursor = cursor + len + 1
+		elseif packIndex == 17 then
+			tbl[index] = string.unpack(packStr, str:sub(cursor, cursor)) == 1 cursor = cursor + 1
+		end
+	end
+	rawset( self, "config", tbl )
+	return true
+end
+
+function config.save( self )
+	for _,v in ipairs(rawget( self, "configs" )) do
+		v:save()
+	end
+end
+
+function sub_config.save( self )
+	local str = {string.pack("c4c2", "LCFG", version)}
+	for i,v in pairs(rawget( self, "config" )) do
+		table.insert(str, string.pack("s1", i))
+		local packIndex = 0
+		if type(v) == "number" then
+			if math.floor(v) ~= v then
+				if v < 256 then
+					packIndex = 2
+				elseif v < 65536 then
+					packIndex = 4
+				elseif v < 4294967296 then
+					packIndex = 6
+				else
+					packIndex = 8
+				end
+				if v > 0 then packIndex = packIndex - 1 end
+				v = math.abs(v)
+			else
+				packIndex = 13
+			end
+		elseif type(v) == "string" then
+			packIndex = 16
+		elseif type(v) == "boolean" then
+			packIndex = 17
+		elseif type(v) == "nil" then
+			packIndex = 0
+		end
+		table.insert(str, string.pack("B" .. (typeIndex[packIndex] or ""), packIndex, v))
+	end
+	fs.writeFileSync(rawget( self, "file" ), table.concat(str))
+end
+
+config.__index = function( self, index )
+	if tonumber( index ) then
+		local config = config.get( self, index )
+		if not config then
+			config = config.new( self, guild )
+		end
+		return config
+	else
+		return config[index]
+	end
+end
+
+sub_config.__index = function( self, index )
+	return sub_config[index] or rawget( self, "config" )[index]
+end
+
+sub_config.__newindex = function( self, index, value )
+	rawget( self, "config" )[index] = value
+	p(self)
+	local immediate = rawget( self, "immediate" )
+	immediate:stop()
+	immediate:start( 0, 0, function()
+		sub_config.save( self )
+	end)
+end
+
+return function( append )
+	
+	local dir = "configs-" .. append .. "/"
+	
+	appdata.init({{dir},{dir .. "_default.lcfg", string.pack("c4c2", "LCFG", version)}})
+	
+	_G.config = _G.config or setmetatable({dir = appdata.path( dir ), configs = {}}, config)
+	
+	_G.config:load()
+	
+	return _G.config
+	
+end

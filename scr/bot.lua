@@ -1,9 +1,8 @@
 require("./lua/benbase")
 
-local token, srcds, cfg, statistics = require("./lua/token"), require("./lua/source-dedicated-server"), require("./lua/config"), require("./lua/statistics")
+local token, srcds, statistics, json = require("./lua/token"), require("./lua/source-dedicated-server"), require("./lua/statistics"), require("json")
 
-cfg.load()
-cfg.update()
+require("./lua/config")("benbebot")
 
 srcds.setDirectory( "C:/dedicatedserver/garrysmod/" )
 
@@ -24,8 +23,11 @@ client:on("messageCreate", function(message)
 	
 end )
 
+local configCheck = json.parse(fs.readFileSync("resources/config-update.json"))
+
 local c = commands:new( "config", function( message, args )
-	if config[args[1]] ~= nil then
+	local cfg = config[message.guild.id]
+	if configCheck[args[1]] ~= nil then
 		local value = args[2]
 		if value == "true" then
 			value = true
@@ -34,9 +36,8 @@ local c = commands:new( "config", function( message, args )
 		elseif tonumber(value) then
 			value = tonumber(value)
 		end
-		local preval = config[args[1]]
-		config[args[1]] = value
-		cfg.save()
+		local preval = cfg[args[1]]
+		cfg[args[1]] = value
 		message:reply("set config `" .. args[1] .. "` from `" .. tostring(preval) .. "` to `" .. tostring(value) .. "`")
 	else
 		message:reply("config does not exist")
@@ -229,7 +230,7 @@ client:on("messageCreate", function( message )
 	
 	if message.author.id == "565367805160062996" then
 		
-		message:addReaction("\uD83D\uDC1F")
+		message:addReaction("\xEE\x80\x99")
 		
 	end
 	
@@ -243,7 +244,7 @@ local runningEveryones = 0
 
 client:on("messageCreate", function( message )
 	
-	if not config.enableEverything then message:delete() end
+	if not config[message.guild.id].enableEverything then message:delete() end
 	
 	local toPing = false
 	
