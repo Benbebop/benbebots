@@ -50,7 +50,6 @@ local c = commands:new( "config", function( message, args )
 	
 end )
 c:addPermission("manageWebhooks")
-c:addRequirement("guild")
 
 local ytdlp = require("./lua/api/ytdlp")()
 

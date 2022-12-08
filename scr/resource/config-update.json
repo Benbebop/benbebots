@@ -1,5 +1,7 @@
 {
 	"enableEverything":false,
 	
-	"gmodServerChannel":"0"
+	"gmodServerChannel":"0",
+	"gmodJoinMessages":false,
+	"gmodDeathMessages":false
 }
