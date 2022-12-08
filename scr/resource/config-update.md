@@ -4,7 +4,7 @@
 
 Enable @\everyone functionality
 
-#Garrys Mod
+# Garrys Mod
 
 `gmodServerChannel` string
 
