@@ -1,6 +1,6 @@
 require("./lua/benbase")
 
-local token, srcds, statistics = require("./lua/token"), require("./lua/source-dedicated-server"), require("./lua/statistics")
+local token, srcds, statistics, fs = require("./lua/token"), require("./lua/source-dedicated-server"), require("./lua/statistics"), require("fs")
 
 require("./lua/config")("benbebot")
 
@@ -26,21 +26,21 @@ end )
 local configCheck
 
 do 
-	local json, fs = require("json"), require("fs")
+	local json = require("json")
 	configCheck = json.parse(fs.readFileSync("resource/config-update.json"))
 end
 
 local c = commands:new( "config", function( message, args )
-	local cfg = config[message.guild.id]
-	if configCheck[args[1]] ~= nil then
+	local templateVal = configCheck[args[1]]
+	if templateVal ~= nil then
 		local value = args[2]
-		if value == "true" then
-			value = true
-		elseif value == "false" then
-			value = false
-		elseif tonumber(value) then
+		local templateType = type(templateVal)
+		if templateType == "boolean" then
+			value = value == "true"
+		elseif templateType == "number" then
 			value = tonumber(value)
 		end
+		local cfg = config[message.guild.id]
 		local preval = cfg[args[1]]
 		cfg[args[1]] = value
 		message:reply("set config `" .. args[1] .. "` from `" .. tostring(preval) .. "` to `" .. tostring(value) .. "`")
@@ -50,6 +50,7 @@ local c = commands:new( "config", function( message, args )
 	
 end )
 c:addPermission("manageWebhooks")
+c:addRequirement("guild")
 
 local ytdlp = require("./lua/api/ytdlp")()
 
@@ -148,7 +149,7 @@ c = commands:new( "download", function( message, arguments )
 					}
 				})
 				local s = fs.statSync( file )
-				downloadStats.increase( 1, bytes or s.size )
+				downloadStats:increase( 1, bytes or s.size )
 			end
 		
 		end )
@@ -249,7 +250,7 @@ local runningEveryones = 0
 
 client:on("messageCreate", function( message )
 	
-	if not config[message.guild.id].enableEverything then message:delete() end
+	if not config[message.guild.id].enableEverything then return end
 	
 	local toPing = false
 	

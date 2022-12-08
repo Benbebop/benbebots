@@ -1,3 +1,5 @@
 {
-	"enableEverything":false
+	"enableEverything":false,
+	
+	"gmodServerChannel":"0"
 }

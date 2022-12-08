@@ -72,7 +72,7 @@ function sub_config.load( self )
 	local len, cursor, tbl = #str, 7, {}
 	while cursor < len do
 		local l = string.unpack("B", str:sub(cursor, cursor)) cursor = cursor + 1
-		local index = str:sub(cursor, cursor + l) cursor = cursor + l
+		local index = str:sub(cursor, cursor + l - 1) cursor = cursor + l
 		local packIndex = string.unpack("B", str:sub(cursor, cursor)) cursor = cursor + 1
 		local packStr = typeIndex[packIndex]
 		
@@ -91,7 +91,7 @@ function sub_config.load( self )
 			tbl[index] = string.unpack(packStr, str:sub(cursor, cursor + 7)) cursor = cursor + 8
 		elseif packIndex == 16 then
 			local len = string.unpack("H", str:sub(cursor, cursor + 1)) cursor = cursor + 2
-			tbl[index] = str:sub(cursor, cursor + len) cursor = cursor + len + 1
+			tbl[index] = str:sub(cursor, cursor + len - 1) cursor = cursor + len
 		elseif packIndex == 17 then
 			tbl[index] = string.unpack(packStr, str:sub(cursor, cursor)) == 1 cursor = cursor + 1
 		end
@@ -131,6 +131,7 @@ function sub_config.save( self )
 			packIndex = 16
 		elseif type(v) == "boolean" then
 			packIndex = 17
+			v = v and 1 or 0
 		elseif type(v) == "nil" then
 			packIndex = 0
 		end
@@ -157,7 +158,6 @@ end
 
 sub_config.__newindex = function( self, index, value )
 	rawget( self, "config" )[index] = value
-	p(self)
 	local immediate = rawget( self, "immediate" )
 	immediate:stop()
 	immediate:start( 0, 0, function()
