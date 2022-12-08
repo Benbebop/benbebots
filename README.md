@@ -13,7 +13,7 @@ If you have just added Benbebot or are looking to, here is all the stuff he can 
 * @\everything
 	ping every role, member and channel in a server
 
-Short list I know (it used to be alot bigger, check out the old repository if intrested).
+Short list I know (it used to be alot bigger, check out the [old repository](https://github.com/Benbebop/BenbebotOld) if intrested).
 
 # Adding Benbebot bots to your server
 
