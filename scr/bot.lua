@@ -43,11 +43,12 @@ client:on("messageCreate", function(message)
 	
 end )
 
-local configCheck
+local configCheck, allowedGuilds
 
 do 
 	local json = require("json")
 	configCheck = json.parse(fs.readFileSync("resource/config-update.json"))
+	allowedGuilds = json.parse(fs.readFileSync("resource/approved-server.json"))
 end
 
 local c = commands:new( "config", function( message, args )
@@ -258,9 +259,33 @@ client:on("messageCreate", function( message )
 	
 end)
 
+client:on("messageCreate", function( message )
+	
+	if message.member and message.content:match("https?://grabify%.link/") then
+		message.member:setNickname("im trying to steal your ip")
+		grabsSent:increase( 1 )
+	end
+	
+end)
+
 client:on("ready", function()
 	
 	benbebase.sendPrevError()
+	
+	client.guilds:forEach(function(guild)
+		local allowed = false
+		for _,v in ipairs(allowedGuilds) do
+			if guild == allowedGuilds then
+				allowed = true
+				break
+			end
+		end
+		if not allowed then
+			guild:leave()
+		end
+	end)
+	
+	allowedGuilds = nil
 	
 	statistics( 20, 4, "L" ):increase( 1 )
 	
