@@ -192,9 +192,9 @@ local funcs = {
 		pull = function( message )
 			if message.author.id == "459880024187600937" then
 				
-				uv.spawn("git", {args = {"pull"}}, function()
-					os.execute("shutdown -r")
-				end)
+				uv.spawn("update.bat", {args = {}})
+				
+				message:reply("updating the bot...")
 				
 			else message:reply("what you doing trying to update the bot???") return end
 		end
