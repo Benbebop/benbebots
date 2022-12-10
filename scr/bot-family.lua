@@ -223,14 +223,14 @@ client:on('messageCreate', function(message)
 	end
 end)
 
-local canReacts = {"860934345677864961" = {"549112267913035787", "https?://"}}
+local canReacts = {["860934345677864961"] = {"549112267913035787", "https?://"}}
 
-client:on('messageCreate', function(message)
+--[[client:on('messageCreate', function(message)
 	local canReact = canReacts[message.id]
 	if canReact and canReact[1] == message.author.id and message.content:match(canReact[2]) then
 		message:addReaction("\uD83E\uDD6B")
 	end
-end )
+end )]]
 
 local send_period = 172800 * 4
 
