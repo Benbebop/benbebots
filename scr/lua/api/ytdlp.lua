@@ -57,7 +57,7 @@ local function download( self, work, id )
 			status.status = status.status or "not started"
 			local size = status.totalBytes or status.totalBytesEstimate or status.downloadedBytes or 0
 			if size >= max_file_size then
-				errors = "file too large"
+				errors = "file too large (" .. size .. ")"
 				k()
 				return
 			end
