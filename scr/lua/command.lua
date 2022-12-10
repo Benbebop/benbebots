@@ -19,15 +19,27 @@ function commandObject.setPublic( self, bool )
 	
 end
 
-function commandObject.addPermission( self, ... )
+local function enablePerms( self, index, ... )
 	
-	if not self.parent[2][self.index].perms then self.parent[2][self.index].perms = discordia.Permissions() end
+	if not self.parent[2][self.index][index] then self.parent[2][self.index][index] = discordia.Permissions() end
 	
 	for _,v in ipairs({ ... }) do
 		
-		self.parent[2][self.index].perms:enable( discordia.enums.permission[v] )
+		self.parent[2][self.index][index]:enable( discordia.enums.permission[v] )
 		
 	end
+	
+end
+
+function commandObject.userPermission( self, ... )
+	
+	enablePerms( self, "perms", ... )
+	
+end
+
+function commandObject.requiredPermissions( self, ... )
+	
+	enablePerms( self, "requires", ... )
 	
 end
 
@@ -101,7 +113,7 @@ function commandIndex._parse( self, str )
 	
 end
 
-function commandIndex.run( self, message )
+function commandIndex.run( self, message, me )
 	
 	local name, args, argstr = commandIndex._parse( self, message.content )
 	if not name then return end
@@ -109,6 +121,16 @@ function commandIndex.run( self, message )
 	local command = self[2][findCommand( self[2], name )]
 	if not command then return end
 	
+	if command.requires then
+		
+		local perm, other = command.perms, me:getPermissions(message.channel)
+		
+		if perm:intersection(other) ~= perm then
+			message:reply("This command cannot be executed because benbebot does not have the required permissions. (" .. table.concat( other:complement( perm ):toArray(), ", " ) .. ")")
+			return
+		end
+		
+	end
 	if command.perms then
 		
 		local perm, other = command.perms, message.member:getPermissions(message.channel)
@@ -138,7 +160,7 @@ function commandIndex.runString( self, str )
 	
 end
 
-function create( prefix )
+function create( client, prefix )
 	
 	return setmetatable({prefix, {}}, commandIndex)
 	
