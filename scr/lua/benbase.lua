@@ -189,16 +189,36 @@ local funcs = {
 		}, uptime = function( message ) message:reply(tostring(uv.uptime())) end,
 		virtualmemory = function( message ) message:reply(tostring(uv.get_free_memory() / 1e+9) .. "GB") end
 	}, git = {
-		pull = function( message )
+		update = function( message )
 			if message.author.id == "459880024187600937" then
 				
-				uv.spawn("update.bat", {args = {}})
+				local reply = message:reply("updating the bot...")
 				
-				message:reply("updating the bot...")
+				uv.spawn("update.bat", {args = {}}, function()
+					reply:setContent("finished, reloading... ")
+					
+					os.exit()
+				end)
+				
+			else message:reply("what you doing trying to update the bot???") return end
+		end, pull = function( message )
+			if message.author.id == "459880024187600937" then
+				
+				local reply = message:reply("pulling the bot...")
+				
+				uv.spawn("update.bat", {args = {}}, function()
+					reply:setContent("finished")
+				end)
 				
 			else message:reply("what you doing trying to update the bot???") return end
 		end
-	}
+	}, restart = function(message)
+		if message.author.id == "459880024187600937" then
+			message:reply("restarting...")
+		
+			os.execute("shutdown -r")
+		end
+	end
 }
 
 local function parseCommand( message )

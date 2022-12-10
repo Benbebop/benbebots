@@ -2,4 +2,4 @@ cd ..
 
 git pull
 
-shutdown -r
+exit
