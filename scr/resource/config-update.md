@@ -4,9 +4,13 @@
 
 Enable @\everyone functionality
 
+`updatesChannel` discord_id
+
+A channel to send benbebot updates to
+
 # Garrys Mod
 
-`gmodServerChannel` string
+`gmodServerChannel` discord_id
 
 Which channel to send gmod server updates to
 

@@ -1,5 +1,6 @@
 {
 	"enableEverything":false,
+	"updatesChannel":"0",
 	
 	"gmodServerChannel":"0",
 	"gmodJoinMessages":false,

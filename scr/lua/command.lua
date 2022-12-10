@@ -121,7 +121,7 @@ function commandIndex.run( self, message, me )
 	local command = self[2][findCommand( self[2], name )]
 	if not command then return end
 	
-	if command.requires then
+	if command.requires and me then
 		
 		local perm, other = command.perms, me:getPermissions(message.channel)
 		

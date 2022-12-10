@@ -4,10 +4,10 @@ local typeIndex = {"B", "B", "H", "H", "L", "L", "I8", "I8", "j", "J", "T", "f",
 
 local config, sub_config = {}, {}
 
-local function subMeta( path ) return {file = path, config = {}, immediate = uv.new_timer()} end
+local function subMeta( path, defaults ) return {file = path, config = {}, defaults = defaults or {}, immediate = uv.new_timer()} end
 
 function config.new( self, guild )
-	local sub = setmetatable( subMeta( rawget( self, "dir" ) .. guild .. ".lcfg" ), sub_config )
+	local sub = setmetatable( subMeta( rawget( self, "dir" ) .. guild .. ".lcfg", rawget( self, "defaults" ).config ), sub_config )
 	sub:save()
 	rawget( self, "configs" )[guild] = sub
 	return sub
@@ -15,10 +15,12 @@ end
 
 function config.get( self, guild )
 	local configs = rawget( self, "configs" )
-	if configs[index] then
+	if guild == "default" or guild == "_default" then
+		return nil
+	elseif configs[index] then
 		return configs[index]
 	else
-		local sub = setmetatable( subMeta( rawget( self, "dir" ) .. guild .. ".lcfg" ), sub_config )
+		local sub = setmetatable( subMeta( rawget( self, "dir" ) .. guild .. ".lcfg", rawget( self, "defaults" ).config ), sub_config )
 		if sub:load() then
 			configs[guild] = sub
 			return sub
@@ -46,7 +48,7 @@ function config.load( self )
 	local dir = rawget( self, "dir" )
 	for f,t in fs.scandirSync( dir ) do
 		if t == "file" and f:sub(-5, -1) == ".lcfg" then
-			local sub = setmetatable( subMeta( dir .. f ), sub_config )
+			local sub = setmetatable( subMeta( dir .. f, rawget( self, "defaults" ).config ), sub_config )
 			if sub:load() then
 				local configs = rawget( self, "configs" )
 				local name = f:sub(1, -6)
@@ -107,6 +109,7 @@ function config.save( self )
 end
 
 function sub_config.save( self )
+	(rawget( self, "immediate" ) or uv.new_timer()):stop()
 	local str = {string.pack("c4c2", "LCFG", version)}
 	for i,v in pairs(rawget( self, "config" )) do
 		table.insert(str, string.pack("s1", i))
@@ -140,11 +143,17 @@ function sub_config.save( self )
 	fs.writeFileSync(rawget( self, "file" ), table.concat(str))
 end
 
+function config.setDefaults( self, set )
+	local defaults = rawget( self, "defaults" )
+	defaults.config = set
+	sub_config.save( defaults )
+end
+
 config.__index = function( self, index )
 	if tonumber( index ) then
 		local config = config.get( self, index )
 		if not config then
-			config = config.new( self, guild )
+			config = config.new( self, index )
 		end
 		return config
 	else
@@ -153,7 +162,7 @@ config.__index = function( self, index )
 end
 
 sub_config.__index = function( self, index )
-	return sub_config[index] or rawget( self, "config" )[index]
+	return sub_config[index] or rawget( self, "config" )[index] or rawget( self, "defaults" )[index]
 end
 
 sub_config.__newindex = function( self, index, value )
@@ -171,7 +180,14 @@ return function( append )
 	
 	appdata.init({{dir},{dir .. "_default.lcfg", string.pack("c4c2", "LCFG", version)}})
 	
-	_G.config = _G.config or setmetatable({dir = appdata.path( dir ), configs = {}}, config)
+	dir = appdata.path( dir )
+	
+	_G.config = _G.config or setmetatable({dir = dir, configs = {}}, config)
+	
+	local default = {file = dir .. "_default.lcfg"}
+	sub_config.load( default )
+	
+	rawset(_G.config, "defaults", default)
 	
 	_G.config:load()
 	

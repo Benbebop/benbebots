@@ -24,7 +24,7 @@ local client = discordia.Client()
 benbebase.initialise( client, "benbebot" )
 local output = benbebase.output
 local commandModule = require("./lua/command")
-local commands = commandModule( client, "bbb", "benbebot" )
+local commands = commandModule( "bbb", "benbebot" )
 
 -- RUN SERVER SPECIFIC STUFF --
 
@@ -39,7 +39,7 @@ end
 
 client:on("messageCreate", function(message)
 	
-	commands:run( message )
+	commands:run( message, client.user )
 	
 end )
 
@@ -50,6 +50,8 @@ do
 	configCheck = json.parse(fs.readFileSync("resource/config-update.json"))
 	allowedGuilds = json.parse(fs.readFileSync("resource/approved-server.json"))
 end
+
+config:setDefaults( configCheck )
 
 local c = commands:new( "config", function( message, args )
 	local templateVal = configCheck[args[1]]
@@ -275,7 +277,7 @@ client:on("ready", function()
 	client.guilds:forEach(function(guild)
 		local allowed = false
 		for _,v in ipairs(allowedGuilds) do
-			if guild == allowedGuilds then
+			if guild.id == v then
 				allowed = true
 				break
 			end
