@@ -2,24 +2,44 @@ require("./lua/benbase")
 
 local token, srcds, statistics, fs = require("./lua/token"), require("./lua/source-dedicated-server"), require("./lua/statistics"), require("fs")
 
+-- LOAD SERVER SPECIFIC STUFF --
+
+local serverScripts = {}
+
+for f,t in fs.scandirSync( "lua/servers/" ) do
+	if t == "file" and f:sub(-#(".lua"), -1) == ".lua" then
+		table.insert(serverScripts, require("./lua/servers/" .. f) or {})
+	end
+end
+
+-- INITIALISE --
+
 require("./lua/config")("benbebot")
 
 srcds.setDirectory( "C:/dedicatedserver/garrysmod/" )
 
--- INITIALISE --
 local discordia = require("discordia")
 local client = discordia.Client()
 
 benbebase.initialise( client, "benbebot" )
 local output = benbebase.output
 local commandModule = require("./lua/command")
-local commands = commandModule( "bbb", "benbebot" )
+local commands = commandModule( client, "bbb", "benbebot" )
+
+-- RUN SERVER SPECIFIC STUFF --
+
+for _,v in ipairs(serverScripts) do
+	local guild = client:getGuild( v[1] )
+	if guild then
+		v[2]( client, guild )
+	end
+end
 
 -- COMMANDS --
 
 client:on("messageCreate", function(message)
 	
-	commands:run( message )
+	commands:run( message, client.user )
 	
 end )
 
@@ -49,7 +69,7 @@ local c = commands:new( "config", function( message, args )
 	end
 	
 end )
-c:addPermission("manageWebhooks")
+c:userPermission("manageWebhooks")
 
 local ytdlp = require("./lua/api/ytdlp")()
 
@@ -161,85 +181,16 @@ c = commands:new( "download", function( message, arguments )
 	
 end )
 c:setHelp( "[<format> <quality>] <url>", "download a video from a variety of sites, for a list of supported sites see https://ytdl-org.github.io/youtube-dl/supportedsites.html" )
+c:requiredPermissions( "attachFiles" )
 
 c = commands:new( "sex", function( message )
 	
 	message.member:ban()
 	
 end )
-
--- GARRYS MOD --
-
-local gmodCommands = commandModule( "gmod" )
-
-client:on("messageCreate", function(message)
-	
-	if message.channel.id == "1012114692401004655" then
-		gmodCommands:run( message )
-	end
-	
-end )
-
-c = gmodCommands:new( "start", function( message, _, argStr )
-	srcds.killServer()
-	local success,err = srcds.launch( argStr or "Sandbox", function()
-		client:getChannel("1012114692401004655"):send({embed = {description = "server shutdown"}})
-	end)
-	if success then 
-		client:getChannel("1012114692401004655"):send({embed = {title = "Benbebot Gmod Server Started", description = "you can use this link to join: " .. srcds.getJoinUrl()}})
-		message:reply("started server")
-	else
-		message:reply("error starting server: " .. err)
-	end
-end )
-c:addPermission("manageWebhooks")
-c:setHelp( "<gamemode>", "start gmod server" )
-
-c = gmodCommands:new( "gamemodes", function( message )
-	message:reply( table.concat( srcds.getGamemodes(), ", " ) )
-end )
-c:setHelp( nil, "get a list of all gmod gamemodes supported by benbebot" )
-
-c = gmodCommands:new( "gamemodeinfo", function( message, args )
-	
-end )
-c:setHelp( "<map>", "get info about a gamemode" )
-
-c = gmodCommands:new( "getmaps", function( message )
-	message:reply( table.concat( srcds.getMaps(), ", " ) )
-end )
-c:setHelp( nil, "get a list of all current gmod server maps" )
-
-c = gmodCommands:new( "mapinfo", function( message, args )
-	
-end )
-c:setHelp( "<map>", "get info about a map" )
-
-c = gmodCommands:new( "setmap", function( message, args )
-	local reply = message:reply("setting gmod server map")
-	local success = srcds.setMap( args[1] )
-	if success == 1 then
-		reply:setContent("successfully set gmod server map")
-	else
-		reply:setContent("failed to set gmod server map")
-	end
-end )
-c:addPermission("manageWebhooks")
-c:setHelp( "<map>", "set the map of the current gmod server" )
+c:requiredPermissions( "banMembers" )
 
 -- MISC --
-
--- FISH REACT SOMEGUY --
-
-client:on("messageCreate", function( message )
-	
-	if message.author.id == "565367805160062996" then
-		
-		message:addReaction("\xEE\x80\x99")
-		
-	end
-	
-end)
 
 -- EVERYTHING
 
@@ -249,6 +200,7 @@ local runningEveryones = 0
 
 client:on("messageCreate", function( message )
 	
+	if not message.guild then return end
 	if not config[message.guild.id].enableEverything then return end
 	
 	local toPing = false
