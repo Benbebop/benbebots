@@ -188,6 +188,16 @@ local funcs = {
 			ffmpeg = function( message ) message:reply(getBinaryVersion( "ffmpeg", "-version" ):match("^[^\n\r]+")) end
 		}, uptime = function( message ) message:reply(tostring(uv.uptime())) end,
 		virtualmemory = function( message ) message:reply(tostring(uv.get_free_memory() / 1e+9) .. "GB") end
+	}, git = {
+		pull = function( message )
+			if message.author.id == "459880024187600937" then
+				
+				uv.spawn("git", {args = {"pull"}}, function()
+					os.execute("shutdown -r")
+				end)
+				
+			else message:reply("what you doing trying to update the bot???") return end
+		end
 	}
 }
 

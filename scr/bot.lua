@@ -31,7 +31,7 @@ local commands = commandModule( client, "bbb", "benbebot" )
 for _,v in ipairs(serverScripts) do
 	local guild = client:getGuild( v[1] )
 	if guild then
-		v[2]( client, guild )
+		v[2]( client, guild, config[v[1]] )
 	end
 end
 
@@ -39,7 +39,7 @@ end
 
 client:on("messageCreate", function(message)
 	
-	commands:run( message, client.user )
+	commands:run( message )
 	
 end )
 

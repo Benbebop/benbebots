@@ -2,7 +2,7 @@ local server_id = "822165179692220476"
 
 local commandModule = require("../command")
 
-local function main( client, guild )
+local function main( client, guild, l_config )
 	
 	-- FISH REACT SOMEGUY --
 	

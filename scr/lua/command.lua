@@ -160,7 +160,7 @@ function commandIndex.runString( self, str )
 	
 end
 
-function create( client, prefix )
+function create( prefix )
 	
 	return setmetatable({prefix, {}}, commandIndex)
 	
