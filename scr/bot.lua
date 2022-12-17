@@ -186,6 +186,17 @@ end )
 c:setHelp( "[<format> <quality>] <url>", "download a video from a variety of sites, for a list of supported sites see https://ytdl-org.github.io/youtube-dl/supportedsites.html" )
 c:requiredPermissions( "attachFiles" )
 
+local multiplayer = require("./lua/multiplayer.lua")
+
+c = commands:new( "play", function( message, args )
+	
+	if not (message.member and message.member.voiceChannel) then return end
+	
+	multiplayer.new( message.member.voiceChannel ):add( args[1] )
+	
+end )
+c:requiredPermissions( "connect", "speak" )
+
 c = commands:new( "sex", function( message )
 	
 	message.member:ban()
