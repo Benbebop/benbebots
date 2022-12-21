@@ -157,15 +157,7 @@ local funcs = {
 		permissions = function( message )
 			if not message.guild then message:reply("error?NO_GUILD") return end
 			
-			local str = ""
-			
-			for _,v in ipairs(message.guild.me:getPermissions(message.channel):toArray()) do
-				
-				str = str .. "[" .. v .. "]"
-				
-			end
-			
-			message:reply( str )
+			message:reply( "[" .. table.concat(message.guild.me:getPermissions(message.channel):toArray(), "][") .. "]" )
 			
 		end, userCount = function( message )
 			
