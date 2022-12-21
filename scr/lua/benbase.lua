@@ -195,9 +195,7 @@ local funcs = {
 				local reply = message:reply("updating the bot...")
 				
 				uv.spawn("update.bat", {args = {}}, function()
-					reply:setContent("finished, reloading... ")
-					
-					os.exit()
+					coroutine.wrap(function() reply:setContent("finished, reloading... ") os.exit() end)()
 				end)
 				
 			else message:reply("what you doing trying to update the bot???") return end
@@ -207,7 +205,7 @@ local funcs = {
 				local reply = message:reply("pulling the bot...")
 				
 				uv.spawn("update.bat", {args = {}}, function()
-					reply:setContent("finished")
+					coroutine.wrap(function() reply:setContent("finished") end)()
 				end)
 				
 			else message:reply("what you doing trying to update the bot???") return end
