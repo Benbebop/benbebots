@@ -1,6 +1,6 @@
 require("./lua/benbase")
 
-local token, srcds, statistics, fs = require("./lua/token"), require("./lua/source-dedicated-server"), require("./lua/statistics"), require("fs")
+local token, statistics, fs = require("./lua/token"), require("./lua/statistics"), require("fs")
 
 -- LOAD SERVER SPECIFIC STUFF --
 
@@ -16,8 +16,6 @@ end
 
 require("./lua/config")("benbebot")
 
-srcds.setDirectory( "C:/dedicatedserver/garrysmod/" )
-
 local discordia = require("discordia")
 local client = discordia.Client()
 
@@ -25,15 +23,6 @@ benbebase.initialise( client, "benbebot" )
 local output = benbebase.output
 local commandModule = require("./lua/command")
 local commands = commandModule( "bbb", "benbebot" )
-
--- RUN SERVER SPECIFIC STUFF --
-
-for _,v in ipairs(serverScripts) do
-	local guild = client:getGuild( v[1] )
-	if guild then
-		v[2]( client, guild, config[v[1]] )
-	end
-end
 
 -- COMMANDS --
 
@@ -204,6 +193,13 @@ c = commands:new( "sex", function( message )
 end )
 c:requiredPermissions( "banMembers" )
 
+c = commands:new( "ip", function( message, args )
+	
+	
+	
+end )
+
+
 -- MISC --
 
 -- EVERYTHING
@@ -301,6 +297,15 @@ client:on("ready", function()
 	allowedGuilds = nil
 	
 	statistics( 20, 4, "L" ):increase( 1 )
+	
+	-- RUN SERVER SPECIFIC STUFF --
+
+	for _,v in ipairs(serverScripts) do
+		local guild = client:getGuild( v[1] )
+		if guild then
+			v[2]( client, guild, config[v[1]] )
+		end
+	end
 	
 end)
 
