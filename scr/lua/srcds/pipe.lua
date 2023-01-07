@@ -21,7 +21,7 @@ function pipe.sendSignal( self, signal, callback, ... )
 	end
 	self.returnCallbacks[ident] = callback
 	local output = fs.openSync( self.dir .. "pipe_0.dat", "a" )
-	fs.writeSync( output, string.pack( "HBs2", signalNum, ident, string.pack(v[2]) ) )
+	fs.writeSync( output, string.pack( "HBs2", signalNum, ident, string.pack(v[2], ... ) ) )
 	fs.closeSync( output )
 end
 

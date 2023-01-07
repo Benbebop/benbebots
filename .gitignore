@@ -38,10 +38,9 @@ luac.out
 *.i*86
 *.x86_64
 *.hex
-*.bat
+# *.bat
 *.cmd
 
-gmod/
 scr/token
 scr/gateway.json
 scr/discordia.log
@@ -49,4 +48,9 @@ scr/LICENSE.txt
 scr/deps/
 scr/makeassetfile.bat
 scr/makeassetfile.lua
-scr/resource/
+*/test*.lua
+*/c/*
+src/libs/*
+src/resource/*
+scr/bin/steam_api.json
+scr/bin/steam_api_flat.h

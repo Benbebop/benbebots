@@ -34,20 +34,19 @@ function main( client, guild, l_config )
 	
 	-- VERIFY IP ADDRESSES --
 	
+	local rdap = require("../api/rdap.lua")
+	
 	client:on("messageCreate", function(message)
+		if (message.guild or {}).id ~= server_id then return end
 		local p1, p2, p3, p4 = message.content:match("(%d+)%.(%d+)%.(%d+)%.(%d+)")
 		p1, p2, p3, p4 = tonumber(p1), tonumber(p2), tonumber(p3), tonumber(p4)
 		
 		if not (p1 and p2 and p3 and p4) then return end
 		
 		if p1 <= 255 and p2 <= 255 and p3 <= 255 and p4 <= 255 then
-			local header, body = http.request("get", "https://rdap.arin.net/registry/ip/" .. table.concat({ p1, p2, p3, p4 }, "."))
+			local exists = rdap.ipExists( table.concat({ p1, p2, p3, p4 }, ".") )
 			
-			if header.code ~= 200 or not body then return end
-			
-			local result = json.parse(body)
-			
-			if result.status[1] == "reserved" then return end
+			if exists or exists == nil then return end
 			--[[https.get({
 				hostname = "rdap.arin.net",
 				path = "registry/ip/" .. table.concat({ p1, p2, p3, p4 }, ".")
