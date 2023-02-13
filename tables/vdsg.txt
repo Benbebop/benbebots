@@ -1,0 +1,223 @@
+23 	Use a Chemistry Station to create useful chems and medicines.  
+24 	You can use a Cooking Station to create recipes from the various ingredients you find, like wild plants and meat from slain creatures.  
+25 	Use a Weapon Workbench to make useful modifications to most of your weapons.  
+26 	Use an Armor Workbench to modify your armor and increase its resistances. 
+27 	Use a Power Armor Station to repair and make modifications to your Power Armor.  
+28 	Every time you level up, your Health increases and you get to choose a new perk.  
+29 	At a Weapons Workbench, you can change the mods in the Receiver, Barrel, Grip, Magazine, Sight and Muzzle Slots of most guns. 
+30 	Pre-war checkpoints, scattered throughout the Commonwealth, are a great place to find Fusion Cores.  
+31 	To talk to a person, activate them while standing up. To attempt a pickpocket, activate them while in Sneak mode.  
+32 	Successful attacks in V.A.T.S. build your Critical meter. Once the meter is filled, you can unleash a devastating attack. **REPEATED VDSG CATALOGUE ENTRY, ALSO LISTED AS No. 6639** 
+33 	When you steal an item, the owner will generally attempt to take it back from you. If they can't, they may attack.  
+34 	Buffout is a powerful steroid that gained popularity with athletes before the Great War. It grants temporary bonuses to Strength, Endurance and maximum Health. 
+37 	Originally developed by the United States military to increase soldiers' combat effectiveness, Psycho grants the user increased Damage output and Damage Resistance for a limited period of time.  
+42 	Created before the war as a general performance enhancer, X-Cell never got out of the prototype stage, but was widely distributed on the black market. It boosts ever SPECIAL attribute for a limited period of time, but is highly addictive.  
+44 	Med-X is a powerful pain killer that effectively increases Damage Resistance for a limited period of time. 
+47 	Doctors, located in most settlements, provide a variety of services. They can heal all wounds (including crippled limbs), sure radiation damage and cure addictions to chems and alcohol. Most of them also sell medical supplies.  
+48 	Want to change your hairstyle? Visit a barber in one of the major settlements. 
+49 	Tired of the same old look? A reconstructive surgeon can give you a whole new face... 
+50 	If you have too many quest targets, check the Quests section of your Pip-Boy to see if you have more than one active quest. In the Miscellaneous category, you can turn each objective on or off.  
+51 	When you get a new quest, it will not become active unless you have no other active quests. Check the Quests section in your Pip-Boy to see which quests are active.  
+52 	Most shops are open during daylight hours, and closed at night.  
+53 	If a companion goes down in combat, use a Stimpak on them to bring them back in the fight. 
+54 	A suppressor will reduce both the sound and recoil of a gun.  
+55 	Muzzle brakes and compensators help reduce the recoil on automatic weapons.  
+56 	Adhesive is rare, and used to create nearly every mod. 
+62 	The Courser Chip is the key to infiltrating the Institute. But first, it must be decoded... 
+120 	Is the struggle of this world merely a pleasant game for you? Do you long for a more brutal take on a life lived post apocalypse? If you answered, Yes and yes!", Survival difficulty is for you! 
+561 	A new player in the Commonwealth, the Rust Devils are a Raider gang with a taste for technology and the smarts to use it. They frequently destroy robots just so they can utilize their scavenged parts. 
+632 	The Robot Workbench allows for the construction of a wide range of robots... Including combinations never approved by General Atomics International or RobCo! 
+1829 	The higher the Happiness of your workshop settlements, the more productive their settlers. 
+2489 	In the year 2077, the world was destroyed by nuclear fire. Very few managed to escape to the safety of the Vaults. 
+2752 	Some creatures, like the Mirelurk King, Chameleon Deathclaw and Sentry Bot, can utilize stealth to turn themselves almost invisible and ambush unwary prey. 
+2786 	Once you discover a location, you can use your map to fast travel back to it. Normally, you must be outside to do so, but there are exceptions.  
+2787 	To enter and exit the Institute, simply fast travel to and from using the map. This ability is only available if you stay in the Institute's good graces... 
+2788 	Diamond City's non-denominational All Faiths Chapel offers services and counseling for all of Diamond City's residents, regardless of religion. 
+2790 	Diamond City's newspaper, Publick Occurrences, gets it name from the first newspaper ever published in Boston, in 1690. 
+2791 	Diamond City Radio broadcasts the most popular music before the war, as well as more recent news stories. 
+2793 	At the Mega Surgery Centre, Diamond City residents can undergo facial reconstruction, if they tire of the same old look. 
+2794 	The Colonial Taphouse is Diamond City’s upscale tavern, where the settlement’s more wealthy residents drink, socialize, and generally look down on everyone else. 
+2795 	The Diamond City Schoolhouse offers a free education to all of the settlement’s children, regardless of family or social status. 
+2801 	Built in the remnants of an old subway station, the Third Rail offers live jazz, stiff drinks, and a good chance to meet bad people. 
+2805 	In Goodneighbor, taking the law into your own hands isn't only allowed, it's expected. The settlement has one overriding rule - respect of others, or face the consequences.  
+2807 	Endurance is a measure of your overall physical fitness. It affects your total Health and the Action Point drain from sprinting.  
+2806 	If there’s one place in the entire Commonwealth where people don’t fear the Institute, it’s Goodneighbour. They love the freedom their community provides, and would do anything necessary to defend it. 
+2808 	Strength is a measure of your raw physical power. It affects how much you can carry, and determines the effectiveness of all melee attacks.  
+2809 	Perception is your sense of environmental awareness and affects the hit chance in V.A.T.S. 
+2810 	Charisma is your ability to charm and convince others. It affects your success to persuade in dialogue and prices when you barter.  
+2811 	Intelligence is a measure of your overall mental acuity, and affects the number of Experience Points earned. 
+2812 	Agility is a measure of your overall finesse and reflexes. It determines your Action Points in V.A.T.S. and your ability to sneak. ** DUPLICATE CATALOGUE NO. ** 
+2812 	Guns with long barrels have increased accuracy while aimed, but decreased accuracy when shot "from the hip." ** DUPLICATE CATALOGUE NO. ** 
+2813 	Weapon mods that increase weight also increase the time it takes to aim.  
+2814 	Want to significantly increase your weapon's melee damage? Add a bayonet. 
+2815 	Most Mirelurks are heavily armoured and resistant to most forms of damage, but their faces are vulnerable.  
+2816 	Super Mutants are stronger and more resilient than humans, and consider themselves the Commonwealth's superior race. 
+2817 	Institute synths come in a variety of models, from the skeletal Gen 1 to the advanced Gen 3, which is indistinguishable from a human. 
+3691 	The Radium Rifle irradiates bullets as they are fired, causing ballistic damage, with an extra kick of radiation damage that is deadly to humans.  
+4218 	No one knows just how powerful the Railroad is, or if they even possess the means to defeat their sworn enemy - the Institute.  
+4224 	A "heavy" is a Railroad agent tasked with bringing the fight directly to the Institute. Their training prepares them for the most difficult and dangerous assignments available.  
+4235 	The Minutemen first rose to prominence in the year 2180, when they defended Diamond City against a horde of Super Mutant attackers.  
+4236 	Like the Minutemen of the Revolutionary era, the modern day Minutemen are dedicated to defending the people of Massachusetts, at a minute's notice.  
+4572 	With the Bloody Mess perk, you'll do more damage in combat, and enemies will often explode into a gory paste when they die. 
+4600 	Vim was a drink popular in New England and it was a point of pride that the locals drank it rather than the wider known Nuka Cola 
+4966 	The Commonwealth is a dangerous place, but tends to get considerably more dangerous the farther south you travel... 
+4967 	The meat obtained from many of the Wasteland's animals can be specially prepared at Cooking Stations, and turned into food items that can heal radiation damage and provide unique bonuses.  
+5138 	Because of its size, the Sentry Bot Generates a significant amount of heat. During combat, it will occasionally enter a "cooldown" state. When this happens. the Sentry Bot's back panel will open, exposing its Fusion Core... and presenting the best moment to strike.  
+5139 	Robots tend to get more dangerous as they are more damaged. When both their arms are disabled, most robots will then charge at an opponent while initiating a self-destruct sequence, and explode in a fiery final attack.  
+5141 	In combat, the police model of Protectron relies on strong melee attacks and a painful electric shock. 
+5845 	Mole Rats often travel underground and then burst through the surface to ambush their prey.  
+5846 	The Commonwealth is occasionally plagued by radiation storms that blow in from the Glowing Sea, far to the southwest.  
+5847 	Originally "The Commonwealth of Massachusetts," the state became known only as "The Commonwealth" after the Great War of 2077.  
+5849 	Those who reserved spots in Vault 111 had no idea they would be cryogenically frozen. In fact, almost every Vault was actually a secret social experiment conducted by Vault-Tec.  
+5850 	The Assaultron robot was constructed by RobCo and sold to the U.S. military as a frontline wartime combatant. It is fast and deadly at close range, and employs a devastating laser at a distance. Some units can even employ stealth technology. 
+5851 	One of the Wasteland's most disgusting creatures, the Bloatfly shoots its maggots as projectiles, and often explodes upon death.  
+5852 	Not only do Bloodbugs suck the blood of their victims, but they will often shoot it back at them, causing distorted vision.  
+5853 	The fiercest flying insect in the Commonwealth, the Stingwing strikes relentlessly with its poisoned stinger.  
+5854 	No creature represents the danger of the Wasteland as much as the Deathclaw, which uses razor-sharp claws to rip apart its prey... in seconds.  
+5855 	The Wasteland is home to a variety of dogs, from vicious wild curs to trained attack hounds.  
+5856 	While they can easily be mistaken for zombies, Feral Ghouls are actually horribly irradiated humans whose brains have rotted away, causing madness.  
+5857 	The Gunners are the Commonwealth's most well organized mercenary group. Unscrupulous and highly skilled, they will take any contact... if the price is right.  
+5858 	The Mister Gutsy was created by General Atomics International as a combat alternative to its domestic Mister Handy robot.  
+5859 	Created by General Atomics International as a domestic servant robot, Mister Handy is equipped with tools that can be used as weapons, if the need arises.  
+5860 	Super Mutants are often accompanied by Mutant Hounds, monstrous dogs that are just as dangerous as their masters. 
+5861 	The RobCo Protectron was constructed for a multitude of civil service applications, from security to firefighting.  
+5862 	Radiation has mutated the common Emperor Scorpion into the deadly Radscorpion, one of the Wasteland's fiercest predators. Beware its claws and poisoned stinger.  
+5863 	The hideously mutated, two-headed Radstag is a pathetic creature that will likely run at the first sign of contact. But if forced to fight, it can prove a deadly opponent.  
+5864 	Raiders are the scourge of the Wasteland, in the Commonwealth and everywhere else. Loosely organized, with a power hierarchy based on pure ruthlessness, they will attack anyone at any time... for any reason. 
+6239 	If there's a skull displayed next to an enemy's name, it means they're several levels higher than you, and may be difficult to defeat in combat. In such cases, running away and returning when you're stronger might be the wisest course of action. 
+6639 	Successful attacks in V.A.T.S. build your Critical meter. Once the meter is filled, you can unleash a devastating attack. **REPEATED VDSG CATALOGUE ENTRY, ALSO LISTED AS No. 32** 
+6640 	You can alter the weapons and attire of most companions by accessing the trade menu in dialogue.  
+6641 	If you'd like to adventure alone, or with someone else, you can dismiss your current companion by speaking with them.  
+6642 	Each companion has their own likes and dislikes. Some actions will earn their respect. Others, their disappointment.  
+7210 	Luck is a measure of your general good fortune, and affects the recharge rate of Critical Hits.  
+7318 	The Sentry Bot is one of the most dangerous robots ever created, and utilizes a variety of heavy weapons systems to destroy its enemies. Upon death, it will erupt in a devastating explosion.  
+7319 	Automated Turrets will track and attack their targets relentlessly, but can often be reprogrammed from a nearby computer terminal.  
+7320 	Originally named by the descendants of those held in Chinese internment camps before the Great War, the Yau Guai is a ferocious mutated bear. 
+7321 	All across the United States, in the aftermath of the Great War, the bottle caps of Nuka-Cola are the most commonly used currency.  
+7322 	Nuka-Cola, the most popular American soda before the war, manufactured so many bottles that the drink can still be found and enjoyed now, more than 200 years later.  
+7324 	The Miss Nanny robot was created by General Atomics International as the female equivalent of the Mister Handy. As such, it carries similar built-in armaments.  
+7325 	Many people in the Commonwealth view the Institute as the "boogyman," living in the shadows, striking out anywhere, at anytime.  
+7342 	In the years before the war, Arcjet Systems was a successful military and civilian aerospace contractor, specializing in communications and propulsion systems. 
+7326 	For the people of the Commonwealth, the idea of someone they know being replaced by an Institute synth is a very real threat.  
+7327 	According to local history, the Institute formed from the remains of C.I.T., the Commonwealth Institute of Technology. But the college itself has lain in ruins for more than two centuries.  
+7328 	Long ago, when the Institute created their first synths, they attempted to work peacefully with the people of the Commonwealth. Mutual mistrust ended that relationship quickly. 
+7329 	Press and hold the Pip-Boy button to turn on its light and illuminate dark areas.  
+7336 	The old Cambridge Police Station has been occupied by the Brotherhood of Steel, and now serves as an important listening post and resupply depot.  
+7343 	Before the Great War, Mass Fusion was Boston's premiere utility, providing power to all of Massachusetts.  
+7920 	The Marine wetsuit and Tactical Helmet were designed for nighttime reconnaissance operations.  
+8431 	Every issue of Le Coiffe you collect adds a new, unique hairstyle, available at any barber. 
+8432 	Each instalment of the U.S Covert Operations Manual you collect adds a rand in the Infiltration perk, which grants you a slight increase to your sneak chance. 
+8433 	Every issue of The Massachusetts Surgical journal you collect adds a slight increase to enemy limb damage.  
+8434 	Every issue of Grognak the Barbarian you collect adds a rank to the Barbarian perk, which grants a slight increase to melee and unarmed damage.  
+8435 	Every issue of Guns and Bullets you collect adds a rank in the Marksman perk, which grants a slight increase to Critical hit damage.  
+8436 	Every issue of Live & Love you collect adds a unique bonus for companions, like increased damage or more health. 
+8437 	Every issue of Tales of a Junktown Jerky Vendor you collect adds a rank in the Junktown vendor perk, which slightly improves prices with merchants.  
+8438 	Every issue of Tumblers Today you collect slightly increases the "sweet spot" when lockpicking. 
+8439 	Every issue of Tesla Science Magazine you collect adds a rank in the Tesla Science perk, which grants a slight increase to Critical hit damage with Energy weapons.  
+8440 	Each issue of Robco Fun includes a holotape containing a unique game, which can be played on your Pip-Boy or any terminal. 
+8441 	Every issue of Astoundingly Awesome Tales you collect adds a version of the Astoundingly Awesome perk, which grants a unique bonus, like more damage inflicted at night or improved radiation resistance.  
+8442 	Every issue of The Unstoppables you collect adds a rank in the Unstoppable perk, which grants a slight increase to the chance that an enemy attack will do no damage.  
+8443 	Every issue of the Wasteland Survival Guide you collect adds a version of the Wasteland Survival perk, which grants a unique bonus, like faster swim speed or double meat on slain animals. 
+8444 	Every issue of Hot Rodder you collect adds a new, unique paint job for your Power Armor, available at any Power Armor Station.  
+8445 	Every issue of Picket Fences you collect adds a new, unique element to construct at any Workshop. 
+8446 	Every issue of Taboo Tattoos you collects adds a new, unique facial tattoo, available at any facial reconstruction surgeon.  
+8447 	Every issue of Total Hack you collect adds a new, unique functionality to certain terminals, like the ability to control spotlights or turrets.  
+8474 	Before the war, Vault-Tec began construction of Vault 114 inside Boston's Park Street subway station. The project was never completed, but that matters little to the gangsters who have taken up residence there. 
+8478 	The Courser Chip is the key to infiltrating the Institute. But first, it must be decoded... 
+8481 	The Aquaboy and Aquagirl perk allows you to breathe underwater, remove radiation damage while swimming, and may even make you undetectable while submerged. 
+8763 	Diamond City, the "Great Greeen Jewel" of the Commonwealth, is the area's largest and most secure settlement.  
+8832 	The RobCo Pip-Boy is the ultimate in personal computing devices.  
+8843 	Every installment of the Wasteland Survival Guide you collect adds a version of the Wasteland Survival perk, which grants a unique bonus, like faster swim speed and double meat on slain animals. 
+8477 	Free your mind. 
+8482 	The Cannibal perk grants the ability to feast on humanoid corpses to restore lost health. 
+8995 	With the Animal Friend Perk, you can aim at animals with your gun and attempt to pacify them. Higher ranks grant the ability to incite them to attack, or allow you to issue specific commands 
+8996 	The Armorer perk grants access to more effective armor mods.  
+9001 	The Black Widow and Lady Killer perks grant bonus damage against members of the opposite sex, and make it easier to persuade them in dialogue.  
+9215 	With the Fortune Finder perk, you'll find more and more caps in containers.  
+9216 	Feeling lucky? You should! With the Four Leaf Clover perk, each hit in V.A.T.S. has a chance to fill your critical meter.  
+9218 	With the Grim Reaper's Sprint perk, kills in V.A.T.S. have a chance to restore all depleted Action Points, and may even fill the Critical Hit meter.  
+9220 	With the Gun Fu perk, the more enemies you target and hit in V.A.T.S., the more damage they increasingly take. You might even score a free Critical Hit.  
+9225 	With the Inspiration perk, your companions can gain a variety of bonuses, like greater cobat damage, immuity to friendly fire, and increased carrying capacity.  
+9228 	The Lead Belly perk reduces, or even eliminates, radiation damage from eating or drinking.  
+9229 	The Life Giver perk raised your maximum health, and can even lead to regeneration. 
+9231 	The Locksmith perk allows you to open increasingly difficult locks, and may even prevent your picks from breaking.  
+9233 	The Mister Sandman perk allows you to instantly kill a sleeping person, and may improve the damage inflicted with silenced weapons.  
+9234 	With the Moving Target perk, you gain increased Damange Resistance and Energy resistance while sprinting.  
+9238 	The Ninja perk improves the damange of both ranged and melee sneak attacks. 
+9241 	The Party Boy and Party Girl perks remove the threat of alcohol addiction. They may also double the effects of alcohol, and increase your Luck.  
+9255 	With the Sniper perk, you can hold your breath longer while aiming. Higher ranks add a chance of knockdown with single-shot scoped weapons, and a bonus to headshots in V.A.T.S.  
+9258 	With the Strong Back perk, you can carry additional weight, and may even gain the abilities to run and fast travel while encumbered.  
+9270 	The Gun Nut perk grants access to more effective gun mods.  
+9344 	Grown attached to a weapon? Give it a custom name at any Weapons Workbench. 
+9519 	Heavy guns are generally large, bulky and exceedingly powerful. They include, but are limited to, the Broadsider, Fatman, Flamer, Gatling Laser, Minigun and Missile Launcher.  
+9520 	Automatic weapons fire continuously as their trigger is pulled. They include, but are not limited to, Submachine Gun, and versions of the Assault Rifle and Combat Rifle.  
+9521 	Rifles are generally long, of average size, and require two hands to fire. They include, but are not limited to, the Assault Rifle, Combat Rifle, Combat Shotgun, Double-Barrel Shotgun, Hunting Rifle, Laser Musket and Submachine Gun.  
+9522 	Semi-automatic and bolt action weapons fire one shot with each pull of their tigger. They include, but are not limited to, the Alien Blaster, Double-Barrel Shotgun, Gauss Rifle, Hunting Rifle, Laser Musket and Pipe Revolver. 
+9523 	Pistols are generally small, and require one hand to fire. They include, but are not limited to, the 10mm, .44, Alien Blaster and Gamma Gun. 
+9524 	Across the Commonwealth, some of the fiercest Raider leaders have scavenged old suits of Power Armor and restored them to full working order.  
+9525 	The T-51 series of Power Armor was the pinnacle of mechanized protection before the Great War. First introduced in the Battle of Anchorage, it is highly valued today for its increased protective capabilities. 
+9526 	The T-45 series was the first version of Power Armor ever employed on the battlefield but the U.S. Military. Many suits remain active in the Wasteland today, and provide their wearers with substantial protection. 
+9527 	The T-60 series of Power Armor saw extensive use by the United States Army after the Battle of Anchorage. In fact, soldiers in T-60 Power Armor were among those trying to retain order on October 23, 2077 - the day America fell to atomic war... 
+9528 	The X-01 series of Power Armor was specially engineered and employed by the remnants of the U.S. military after the Great War, and offers increased protection over the older, pre-war models.  
+9548 	The firefighter model of Protectron is equipped with an internal cryo gun it can utilize in any combat situation.  
+9549 	The medic model of Protectron was designed to use its hands as a defibrillator. In combat, it utilizes this ability as a painful shock attack.  
+9550 	The construction model of Protectron was built to take damage. Some versions also come equipped with an internal nail gun, which they can utilize in combat.  
+9683 	 
+9585 	Unassigned people at settlements will automatically scavenge for the resources you'll need to build things. 
+9586 	With the Local Leader perk, you can link two workshops with a supply line. They will then share food, water and any resources needed for building.  
+9668 	The Gamma Gun emits radiation that is deadly to humans but ineffective against almost all Ghouls, robots and Wasteland creatures.  
+9669 	The ripper is a small, handheld, militarize chainsaw that saw extensive use in the armed conflicts before the Great War. 
+9670 	Want to prevent an enemy from fleeing? Cripple the legs.  
+9671 	You can run faster with your weapon holstered, and fastest when sprinting.  
+9672 	Heavier weapons typically deal more damage, but take up more weight in your inventory, and slow you down when they're equipped. 
+9673 	Zooming in with a ranged weapon slows you down, but improves your accuracy.  
+9674 	Crouching will both improve your accuracy, and activate sneak mode. 
+9675 	If you start a fight you can't finish, try putting away your weapon. There's a slight chance your opponent just might forgive you... 
+9676 	The Commonwealth lacks any sort of institutional justice system. Criminal wrongdoing is dealt with harshly, and usually ends when the perpetrator or victim lies dead. 
+9677 	You can restore Health by using a Stimpak, eating food, visiting a doctor, drinking from a water source, or sleeping in a bed. 
+9678 	Sleeping in any bed will fully restore your Health and heal any crippled body parts. 
+9679 	Drinking from a water source is always a tactical choice - you will usually restore Health, but raises your radiation level.  
+9680 	Sleeping in a rented or owned bed will give you a "Well Rested" bonus that boosts your earned XP for for a limited time. **IN GAME TEXT ERROR** 
+9681 	Combat too hard or too easy? You can change the game's difficulty at any time.  
+9682 	Use the Pip-Boy to tune into different radio stations. If you close the Pip-Boy while the radio is on, it will continue playing until you go back into the Pip-Boy and turn it off. 
+9684 	Running is noisier than walking and makes you easier to detect. To effectively sneak, stay low and slow. 
+9685 	Your chances of successfully using stealth – and staying hidden – are affected by a variety of factors, like light level, noise generated, clothing wright, and enemies’ line of sight. 
+9686 	While it's great for illuminating dark areas, the light generated from your Pip-Boy light actually makes you less stealthy. If you want to effectively sneak, turn it off.  
+9687 	The Stealth Boy is a personal device that generates a modulating refraction field. Using it effectively renders the wearer invisible for a short period of time. 
+9688 	The higher the difficulty setting, the greater your chance of finding Legendary items.  
+9689 	If the conspiracy theorists are to be believed, Earth has been visited by an alien species on several occasions. These "Zetans" are said to be armed with powerful energy beam weapons that can completely disintegrate enemies.  
+9690 	Specially constructed from the severed appendage of a dead Deathclaw, the Deathclaw Gauntlet allows its user to viciously slash at enemies for incredibly high damage. 
+9691 	The Super Sledge is a rocket-enhanced sledgehammer, capable of dealing a tremendous amount of damage. 
+9692 	The Flamer is specially engineered flamethrower suited for extended combat engagements. It delivers sustained energy damage and come completely immolate a target.  
+9693 	The Laser Musket combines high-tech energy damage with Revolutionary style. Each crank of its handle loads addition Fusion Cell ammo, and the weapon can be cranked multiple times to increase the damage of a single shot. 
+9694 	The Gauss Rifle uses magnetic induction to propel a projectile at incredible, and devastating speed. Each shot can be "charged" for a maximum damage by keeping the trigger held in for a moment before releasing.  
+9695 	While capable of dealing a massive amount of ballistics damage in a short period of time, the Minigun needs a moment to "spin up" before it can be fired.  
+9696 	While capable of dealing a devastating amount of energy damage in a short period of time, the Laser Gatling needs a moment to "spin up" before it can be fired 
+9697 	Melee attacks on enemies can stagger them, interrupting their attacks. 
+9698 	Actively blocking against a melee attacker might cause them to recoil, and render their attach useless. **POSSIBLY A DOUBLE ENTRY. RESEARCHING** 
+9699 	Actively blocking against a melee attacker might cause them to recoil, and render their attach useless. **POSSIBLY A DOUBLE ENTRY. RESEARCHING** 
+9700 	Weapons and creatures can deliver four different types of damage: Ballistic, Energy, Radiation and Poison. Some enemies are naturally resistant against certain forms of damage, but specialized armor can also offer the same protection.  
+9701 	Use the bash button to deliver a melee attack with any ranged weapon 
+9702 	Some weapons can completely disintegrate or "gooify" an enemy upon death. Don't worry - you can still retrieve any loot from their pile of ashes. Or... puddle.  
+9703 	Because of the "spread" inherent in this class of weapon, shotguns do more damage the closer they are to the target. 
+9704 	Pipe weapons are crude, low-tech, widely available... and highly modifiable. They are favored by the Commonwealth's Raider groups. 
+9705 	A favorite of the gangster-like Triggermen, the Submachine Gun is a rapid-fire automatic weapon with a high ammo capacity.  
+9706 	There are a variety of grenades available in the Commonwealth, from the high-tech Plasma Grenade to the custom-made Baseball Grenade.  
+9707 	To throw a grenade or Molotov cocktail, first equip it, and then hold the Bash/Power Attack button.  
+9708 	The Broadsider is the answer to the age-old question: "Would it be fun to walk around and shoot people with a portable naval cannon?" Yes. Yes it would.  
+9709 	Small, dependable, reasonably powerful and widely available, the 10mm Pistol has been staple of Wasteland combat since the bombs first fell. 
+9710 	Laser rifles and pistols deal powerful energy damage, and can completely disintegrate defeated foes.  
+9711 	Plasma rifles and pistols deal even more energy damage than laser weapons, and can “gooify” defeated foes. 
+9712 	When you set off a hostile mine, it will begin beeping a rapid countdown before exploding. If you're quick enough, you can activate the mine within that time to disarm it.  
+9713 	The Syringer is a rare, custom-made weapon that can shoot modified medical syringes at an enemy, who then suffers the effects of whatever chemical is in the syringe.  
+9714 	Sick of carrying around all that useless stuff? Load it into the Junk Jet and shoot it at unsuspecting enemies. You haven't lived until you've killed someone with a teddy bear.  
+9715 	The Railway Rifle is a rare, custom-made weapon that shoots railway spikes at such a high velocity, they can sever body parts and pin them to walls. 
+9716 	The Fat Man is perhaps the most devastating infantry weapon ever unleashed upon the modern battlefield - a hand-held catapult that launches portable nuclear bombs.  
+9720 	Power Armor can be enhanced with a variety of mods that add specialized functionality, like a jet boost, Tesla damage field, explosive impact landing, integrated Stealth Boy, and auto Stimpaks. 
+9721 	Leather Armor offers additional protection against energy damage.  
+9722 	The Vault Suit and a few other pieces of clothing like Long Johns and Raider Leathers, are thin enough to be worn underneath additional pieces of armor.  
+9723 	Metal Armor offers additional protection against ballistic damage.  
+9724 	Combat Armor offers balanced protection against both energy and ballistics damage.  
+9725 	The Crylator is a powerful prototype rifle that can completely freeze enemies.  
+9985 	Need to pass some time in a hurry? Using any piece of unowned furniture will allow you to "Wait" for up to 24 hours.  
+9986 	Every Workbench, Crafting Station and Modding Station in a single settlement shares resources. Using one will grant you access to anything placed in the others.  

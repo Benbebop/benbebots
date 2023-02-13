@@ -1,0 +1,11 @@
+[users]
+maurice=s737050175683690567
+msg_target=s737050175683690567
+
+[channels]
+test_channel=s998495920343765012
+maurice_rw=s998573822397657190
+dm_output=s998604273829031976
+
+[misc]
+wave_cooldown=30

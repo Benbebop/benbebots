@@ -1,0 +1,51 @@
+;numbers that are prefixed with an s are pure number string values. ignore this as it is handled by the bot.
+
+[static]
+myGuild=s822165179692220476
+myId=s941372431082348544
+max_output_len=4048
+max_foot_len=2048
+c_bot=s832289651074138123
+c_announcement=s823397621887926272
+
+[channels]
+bot_output=s832289651074138123
+announcement=s832289651074138123
+role_giver=s822174811694170133
+game_server_output=s1012114692401004655
+seventysix_channel=s1014278943416791161
+
+[misc]
+coc_clan_id=2Q2Y88JV8
+motd=true
+suspend_holiday=false
+le_troll_larry=false
+goblin_mode=false
+
+[roles]
+;active_member is the role that will be given to people when they are active in the server
+active_member=s981300421035446292
+school_announcment=s920088237568032768
+dankmemer_mute=s951697964177428490
+company_CEO=s931740892245684254
+company_employee=s930996065329631232
+company_autorole=true
+gang_weed=s880305120263426088
+gang_weed_autorole=true
+day_identifier=s989905880243929088
+seventysix_role=s1014278434547052734
+
+[users]
+larry=s463065400960221204
+diego=s823215010461384735
+ben=s459880024187600937
+dankmemer=s270904126974590976
+paul=s565367805160062996
+arcane=s0
+vective=s696137215851364422
+
+[audioplayer]
+;percent chance of playing sound effect every second, supports up to 2 decimal places
+frequency=50
+;audioplayer sound: badtotheboner.pcm, stalker.pcm, horse.pcm, random, custom
+sound=badtotheboner.pcm

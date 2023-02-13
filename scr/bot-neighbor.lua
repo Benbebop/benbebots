@@ -1,1 +1,0 @@
-local command = require("./lua/command.lua")

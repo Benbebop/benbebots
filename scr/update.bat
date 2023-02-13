@@ -1,5 +1,0 @@
-cd ..
-
-git pull
-
-exit

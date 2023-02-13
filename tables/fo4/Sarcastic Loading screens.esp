@@ -1,0 +1,11 @@
+{
+	"Categories" : 
+	[
+		"Gameplay",
+		"Misc",
+		"UI"
+	],
+	"Description" : "Adds sarcastic loading screens to the game, that replace the vanilla loading screen messages. Will be updated with more as time goes on.",
+	"Language" : 0,
+	"Title" : "Sarcastic Loading Screens"
+}
