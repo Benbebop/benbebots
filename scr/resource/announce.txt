@@ -1,0 +1,5 @@
+Hello family fans. Sadly we have some bad news. 
+
+Family guy bot will be shutting down some time this year due to the upcoming decomission of the discord api v7 (https://github.com/discord/discord-api-docs/discussions/4657). Worry not for family guy bot development is not concluding, there are plans to move from the depricated Discordia 2.0 api to something newer at some point.
+
+We hope that family guy bot will provide you with laughs and gaffs for the next couple of months. See you in the future!

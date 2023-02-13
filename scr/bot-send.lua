@@ -1,6 +1,6 @@
 require("./lua/benbase")
 
-local discordia, tokens, appdata, fs = require('discordia'), require("./lua/token"), require("./lua/appdata"), require("fs")
+local discordia, tokens, appdata, json, fs = require('discordia'), require("./lua/token"), require("./lua/appdata"), require("json"), require("fs")
 
 local commands = require("./lua/command")( "%-%-" )
 
@@ -63,6 +63,16 @@ end)
 
 commands:new("dm", function( _, _, arg )
 	channel = client:getUser(arg:match("(%d+)")):getPrivateChannel().id
+end)
+
+commands:new("dma", function( _, _, arg )
+	local server, content = arg:match( "^.-(%d+)%s*(.-)$" )
+	p(arg, server, content)
+	io.write( "\n" )
+	for member in client:getGuild(server).members:iter() do
+		member.user:send( content )
+		io.write( "sent to ", member.name, ". " )
+	end
 end)
 
 commands:new("takeover", function( arg )
@@ -199,6 +209,22 @@ commands:new("images", function( arg )
 			table.insert(tbl, f)
 		end
 	until not f
+end)
+
+commands:new("printGuilds", function( _, args )
+	client.guilds:forEach(function(guild)
+		print(guild.name, guild.id)
+	end)
+end)
+
+commands:new("printChannels", function( _, args )
+	client:getGuild(args[1]).textChannels:forEach(function(channel)
+		print(channel.name, channel.id)
+	end)
+end)
+
+commands:new("sendFile", function( _, args )
+	client:getChannel(channel):send(fs.readFileSync(args[1]))
 end)
 
 client:on('ready', function()

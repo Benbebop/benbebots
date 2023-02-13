@@ -1,0 +1,11 @@
+{
+	"title"		:	"Benbebot Server Content",
+	"type"		:	"ServerContent",
+	"tags"		:	[ "fun", "movie" ],
+	"ignore"	:
+	[
+		"*.psd",
+		"*.vcproj",
+		"*.svn*"
+	]
+}
