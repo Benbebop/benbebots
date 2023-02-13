@@ -1,1 +1,0 @@
-local timezone = {HST = -3, AKST = -2, PST = -1, MST = 0, CST = 1, EST = 2}

@@ -1,7 +1,0 @@
-source	eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiIsImtpZCI6IjI4YTMxOGY3LTAwMDAtYTFlYi03ZmExLTJjNzQzM2M2Y2NhNSJ9.eyJpc3MiOiJzdXBlcmNlbGwiLCJhdWQiOiJzdXBlcmNlbGw6Z2FtZWFwaSIsImp0aSI6ImE2YjBkYzlmLWI5OGMtNDFjNy05Y2I5LTYxZjg4YzY2ZmIwZCIsImlhdCI6MTY0ODY1OTg1OCwic3ViIjoiZGV2ZWxvcGVyL2E1OWVhMGI3LTYyNzItN2UzMC1kOWY5LWI2M2RmYmY5N2Q3NiIsInNjb3BlcyI6WyJjbGFzaCJdLCJsaW1pdHMiOlt7InRpZXIiOiJkZXZlbG9wZXIvc2lsdmVyIiwidHlwZSI6InRocm90dGxpbmcifSx7ImNpZHJzIjpbIjE5OS4yMTYuMTA1LjI3IiwiNTAuOTMuODQuMzYiXSwidHlwZSI6ImNsaWVudCJ9XX0.1Ep2cAGWbIDZgCYT9PGNOmhpEcTCbKf-UemJfuUfU4wXbY6z2-nnmQZ_ZH6PatpX5tEQFFwNVmSpiBGikB_lCw
-
-typ	JWT
-alg	HS512
-kid	28a318f7-0000-a1eb-7fa1-2c7433c6cca5
-
-payload	{"iss":"supercell","aud":"supercell:gameapi","jti":"a6b0dc9f-b98c-41c7-9cb9-61f88c66fb0d","iat":1648659858,"sub":"developer/a59ea0b7-6272-7e30-d9f9-b63dfbf97d76","scopes":["clash"],"limits":[{"tier":"developer/silver","type":"throttling"},{"cidrs":["50.93.84.36","199.216.105.27"],"type":"client"}]}
