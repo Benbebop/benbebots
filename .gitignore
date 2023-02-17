@@ -42,6 +42,16 @@ luac.out
 # Luvit
 deps/
 
+# Discordia
+*.log
+gateway.json
+
 # Benbebots
 .tokens
-tokens.meta.txt
+.tokens.meta.txt
+bin/srcdsconredirect
+
+# Vim
+*~
+*.swp
+*.ud

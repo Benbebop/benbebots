@@ -10,3 +10,9 @@
 [submodule "deps/discordia-commands"]
 	path = deps/discordia-commands
 	url = https://github.com/Benbebop/discordia-commands
+[submodule "bin/yt-dlp"]
+	path = bin/yt-dlp
+	url = https://github.com/yt-dlp/yt-dlp
+[submodule "bin/phantomjs"]
+	path = bin/phantomjs
+	url = https://github.com/ariya/phantomjs

@@ -1,5 +1,5 @@
 function read( index )
-	local lines = io.lines(".token")
+	local lines = io.lines(".tokens")
 	
 	local token
 	for i=1,index do
