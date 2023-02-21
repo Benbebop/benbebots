@@ -24,7 +24,7 @@ if false then -- DOWNLOAD COMMAND --
 
 end
 
-if false then -- SERVER COMMAND --
+do -- SERVER COMMAND --
 	local command = client:newSlashCommand("server", "1068640496139915345"):setDescription("start a server")
 	local start = command:addOption( enums.applicationCommandOptionType.subCommandGroup, "start" ):setDescription("start a new server")
 	
@@ -41,24 +41,24 @@ if false then -- SERVER COMMAND --
 	end )
 end
 
-client:on("ready", function()
-	client:getChannel("1075203623073632327"):getMessage("1077041796779094096"):send(
+do -- AUTO ROLES --
+	
+	client:on("ready", function()
+		client:getChannel("1075203623073632327"):getMessage("1077041796779094096"):setContent(
 [[@everyone You know how this works
-<@&1075196966654451743> \240\159\165\185 - major updates involving the bots
-<@&1068664164786110554> \240\159\142\174 - game server events
-<@&1075245976543056013> \240\159\135\181\240\159\135\177 - polls involving this server
-<@&1072698350836662392> \240\159\152\180 - get pinged when the bot's pfps are updated]]
-	)
-end)
+	<@&1075196966654451743> :face_holding_back_tears: - major updates involving the bots
+	<@&1068664164786110554> :video_game: - game server events
+	<@&1075245976543056013> :flag_pl: - polls involving this server
+	<@&1072698350836662392> :sleeping: - get pinged when the bot's pfps are updated]]
+		)
+	end)
 
-local rolesIndex = {
-	["\240\159\165\185"] = "1075196966654451743",
-	["\240\159\142\174"] = "1068664164786110554",
-	["\240\159\135\181\240\159\135\177"] = "1075245976543056013",
-	["\240\159\152\180"] = "1075196966654451743",
-}
-
-do -- ADD ROLES --
+	local rolesIndex = {
+		["\240\159\165\185"] = "1075196966654451743",
+		["\240\159\142\174"] = "1068664164786110554",
+		["\240\159\135\181\240\159\135\177"] = "1075245976543056013",
+		["\240\159\152\180"] = "1072698350836662392",
+	}
 	
 	local function add(_, messageId, hash, userId)
 		if messageId == "1077041796779094096" then
