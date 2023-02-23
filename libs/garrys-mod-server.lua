@@ -1,4 +1,4 @@
-local uv, fs, json, timer = require("uv"), require("fs"), require("json"), require("timer")
+local uv, fs, json, timer, appdata = require("uv"), require("fs"), require("json"), require("timer"), require("appdata")
 local discordia = require("discordia")
 
 local gamemodes = json.parse(fs.readFileSync("resource/gamemodes.json"))
@@ -9,6 +9,16 @@ local function insertArg( tbl, arg, value ) table.insert(tbl, tostring(arg)) tab
 local gms, get, set = discordia.class("GarrysmodServer")
 
 function gms:__init( directory )
+	local init = appdata.readFileSync( "gm.session" )
+	if init then
+		init = {string.unpack("LLLLLLL", init)}
+		
+		self._procId = init[1]
+		
+		self._stdin, self._stdout, self._stderr = uv.new_pipe(), uv.new_pipe(), uv.new_pipe()
+		self._stdin:open(init[2]) self._stdout:open(init[3]) self._stderr:open(init[4])
+	end
+	
 	self._dir = directory
 end
 
@@ -96,17 +106,25 @@ function gms:start( gm, map )
 	table.insert(args, "-p2p")
 	
 	-- spawn process --
-	local stdin, stdout, stderr = uv.new_pipe(), uv.new_pipe(), uv.new_pipe()
-	self._proc = uv.spawn(uv.cwd() .. "\\bin\\srcdspipe.exe", {stdio = {stdin, stdout, stderr}, cwd = self._dir, args = args}, function()
+	self._stdin, self._stdout, self._stderr = uv.new_pipe(), uv.new_pipe(), uv.new_pipe()
+	self._proc = uv.spawn(uv.cwd() .. "\\bin\\srcdspipe.exe", {stdio = {self._stdin, self._stdout, self._stderr}, cwd = self._dir, args = args, detached = true}, function()
+		appdata.unlinkSync( "gm.session" )
+		
 		if self._waitingForServer then
 			local err = self._errbuff[1] and table.concat(self._errbuff)
 			for _,v in ipairs(self._waitingForServer) do coroutine.resume(v, nil, err or "server closed") end
 		end
 	end)
 	
+	appdata.writeFileSync( "gm.session", string.pack("LLLLLLL", 
+		self._proc:get_pid(), 
+		stdin:fileno(), stdout:fileno(), stderr:fileno(),
+		0, 0, 0)
+	)
+	
 	self._outbuff, self._errbuff = {}, {}
 	
-	stdout:read_start(function(err, chunk)
+	self._stdout:read_start(function(err, chunk)
 		assert(not err, err)
 		if not chunk then return end
 		table.insert(self._outbuff, chunk)
@@ -115,9 +133,10 @@ function gms:start( gm, map )
 		if not joinStr then return end
 		for _,v in ipairs(self._waitingForServer) do coroutine.resume(v, joinStr) end
 		self._waitingForServer = nil
+		appdata.appendFileSync( "gm.session", string.pack("s1", joinStr) )
 	end)
 	
-	stderr:read_start(function(err, chunk)
+	self._stderr:read_start(function(err, chunk)
 		assert(not err, err)
 		if not chunk then return end
 		table.insert(self._errbuff, chunk)
@@ -131,9 +150,9 @@ function gms:waitForServer( timeout )
 	local running = coroutine.running()
 	table.insert(self._waitingForServer, running)
 	local t = timer.setTimeout(timeout * 1000, function() coroutine.resume( running, nil, "server start timed out" ) end)
-	local r = coroutine.yield()
+	local r = {coroutine.yield()}
 	timer.clearTimeout(t)
-	return r
+	return unpack(r)
 end
 
 function gms:getConsole()
