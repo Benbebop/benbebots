@@ -50,6 +50,7 @@ gateway.json
 .tokens
 .tokens.meta.txt
 bin/srcdsconredirect
+autorun/
 
 # Vim
 *~

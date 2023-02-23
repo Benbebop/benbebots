@@ -1,0 +1,7 @@
+[
+	{"gamemode" : "sandbox",
+		"name" : "Sandbox",
+		"pattern" : "^%s*sandbox%s*$",
+		"default_map" : "gm_construct",
+	}
+]

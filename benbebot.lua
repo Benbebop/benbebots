@@ -1,8 +1,13 @@
 local discordia = require("discordia") require("discordia-interactions") require("discordia-commands")
+local timer = require("timer")
+local readToken = require("read-token")
+local querystring = require("querystring")
 local enums = discordia.enums
 
 local client = discordia.Client()
 client:enableAllIntents()
+
+local error_footer = {text = "Report this error at https://github.com/Benbebop/benbebots/issues."}
 
 if false then -- DOWNLOAD COMMAND --
 	local command = client:newSlashCommand("download"):setDescription("download a video from a variety of sites")
@@ -25,14 +30,62 @@ if false then -- DOWNLOAD COMMAND --
 end
 
 do -- SERVER COMMAND --
+	local serverChannel
+	
 	local command = client:newSlashCommand("server", "1068640496139915345"):setDescription("start a server")
 	local start = command:addOption( enums.applicationCommandOptionType.subCommandGroup, "start" ):setDescription("start a new server")
 	
 	local server = start:addOption( enums.applicationCommandOptionType.subCommand, "garrysmod" ):setDescription("new garrysmod server")
 	server:addOption( enums.applicationCommandOptionType.string, "gamemode" ):setDescription("gamemode to start the server on"):setRequired( true )
 	server:addOption( enums.applicationCommandOptionType.string, "map" ):setDescription("map to start the server on")
-	server:callback( function( interaction )
-		print("1")
+	
+	local gmodCommands = {
+		command:addOption( enums.applicationCommandOptionType.subCommand, "stop" ):setDescription("kill and exit the running gmod server"):setEnabled(false)
+	}
+	
+	local gms = require("garrys-mod-server")( "A:\\benbebots\\server\\garrysmod\\" )
+	gms:setToken( readToken(2) )
+	
+	server:callback( function( interaction, args )
+		start:setEnabled( false )
+		local gamemode, err = gms:start( args.gamemode, args.map )
+		
+		if err then interaction:reply({embed = {description = err, footer = error_footer}}, true) start:setEnabled( true ) return end
+		
+		interaction:reply({embed = {title = "Starting Garrysmod Server", description = "please wait"}})
+		local m = interaction:getReply()
+		
+		local store = gms:getConsole() or ""
+		m:setEmbed({title = "Starting Garrysmod Server", description = "```\n" .. store:match("([^\n]+)%s*$") .. "\n```"})
+		
+		local t = timer.setInterval(1000, function() coroutine.wrap(function()
+			local console = gms:getConsole() or ""
+			if console ~= store then
+				store = console
+				m:setEmbed({title = "Starting Garrysmod Server", description = "```\n" .. store:match("([^\n]+)%s*$") .. "\n```"})
+			end
+		end)() end)
+		
+		local joinString, err = gms:waitForServer( 120 )
+		
+		timer.clearInterval(t)
+		
+		if err then m:setEmbed({title = "There was an error starting your server", description = err, footer = error_footer}) start:setEnabled( true ) return end
+		
+		for _,v in ipairs(gmodCommands) do v:setEnabled(true) end
+		
+		serverChannel = interaction.channel
+		
+		m:reply({content = " <&@1078165125598547988> ", embed = {
+			title = "Started Garrysmod Server", description = string.format("To join manually you can type `%s` into the gmod console.\nYou can also use this link to launch gmod and join automatically:\nsteam://run/4000//%s/", joinString, querystring.urlencode("+" .. joinString)),
+			fields = {
+				{name = "Gamemode", value = gamemode.name}
+			}}
+		})
+		
+		gms:onExit( function()
+			serverChannel:send({embed = {description = "garrysmod server shutdown", footer = error_footer}})
+		end )
 	end )
 	
 	server = start:addOption( enums.applicationCommandOptionType.subCommand, "minecraft" ):setDescription("new minecraft server")
@@ -84,4 +137,4 @@ do -- AUTO ROLES --
 	
 end
 
-client:run("Bot " .. require("read-token")(1))
+client:run("Bot " .. readToken(1))
