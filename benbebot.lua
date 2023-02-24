@@ -30,8 +30,7 @@ if false then -- DOWNLOAD COMMAND --
 
 end
 
-if false then -- SERVER COMMAND --
-	local serverChannel
+do -- GAME SERVER COMMAND --
 	
 	local command = client:newSlashCommand("server", "1068640496139915345"):setDescription("start a server")
 	local start = command:addOption( enums.applicationCommandOptionType.subCommandGroup, "start" ):setDescription("start a new server")
@@ -39,6 +38,8 @@ if false then -- SERVER COMMAND --
 	local server = start:addOption( enums.applicationCommandOptionType.subCommand, "garrysmod" ):setDescription("new garrysmod server")
 	server:addOption( enums.applicationCommandOptionType.string, "gamemode" ):setDescription("gamemode to start the server on"):setRequired( true )
 	server:addOption( enums.applicationCommandOptionType.string, "map" ):setDescription("map to start the server on")
+	
+	local serverChannel, serverMessage
 	
 	local gmodCommands = {
 		command:addOption( enums.applicationCommandOptionType.subCommand, "stop" ):setDescription("kill and exit the running gmod server"):setEnabled(false)
@@ -48,6 +49,7 @@ if false then -- SERVER COMMAND --
 	gms:setToken( readToken(2) )
 	
 	server:callback( function( interaction, args )
+		interaction:replyDeferred()
 		start:setEnabled( false )
 		local gamemode, err = gms:start( args.gamemode, args.map )
 		
@@ -56,16 +58,16 @@ if false then -- SERVER COMMAND --
 		interaction:reply({embed = {title = "Starting Garrysmod Server", description = "please wait"}})
 		local m = interaction:getReply()
 		
-		local store = gms:getConsole() or ""
-		m:setEmbed({title = "Starting Garrysmod Server", description = "```\n" .. store:match("([^\n]+)%s*$") .. "\n```"})
-		
-		local t = timer.setInterval(1000, function() coroutine.wrap(function()
+		local function updateMessage()
 			local console = gms:getConsole() or ""
 			if console ~= store then
 				store = console
-				m:setEmbed({title = "Starting Garrysmod Server", description = "```\n" .. store:match("([^\n]+)%s*$") .. "\n```"})
+				m:setEmbed({title = "Starting Garrysmod Server", description = "```\n" .. (store:match("([^\n]+)%s*$") or "starting srcds") .. "\n```"})
 			end
-		end)() end)
+		end
+		
+		updateMessage()
+		local t = timer.setInterval(1000, function() coroutine.wrap(updateMessage)() end)
 		
 		local joinString, err = gms:waitForServer( 120 )
 		
@@ -77,17 +79,52 @@ if false then -- SERVER COMMAND --
 		
 		serverChannel = interaction.channel
 		
-		m:reply({content = " <@&1078165125598547988> ", embed = {
+		serverMessage = serverChannel:send({content = " <@&1068664164786110554> ", embed = {
 			title = "Started Garrysmod Server", description = string.format("To join manually you can type `%s` into the gmod console.\nYou can also use this link to launch gmod and join automatically:\nsteam://run/4000//%s/", joinString, querystring.urlencode("+" .. joinString)),
 			fields = {
-				{name = "Gamemode", value = gamemode.name}
+				{name = "Gamemode", value = gamemode.name},
+				{name = "Map", value = gms.map},
+				{name = "Players", value = string.format("%d/%d", gms.playerCount, gms.playerMax)}
 			}}
 		})
 		
-		gms:onExit( function()
-			serverChannel:send({embed = {description = "garrysmod server shutdown", footer = prevError.error_footer}})
-		end )
+		m:delete()
 	end )
+	
+	local function updatePlayerCount()
+		if not serverMessage then return end
+		serverMessage.fields[3].value = string.format("%d/%d", gms.playerCount, gms.playerMax)
+		serverMessage:setEmbed( serverMessage.embed )
+	end
+	
+	gms:on( "playerJoined", function( name )
+		serverChannel:send({embed = {
+			description = string.format("`%s` joined the server", name)
+		}})
+		updatePlayerCount()
+	end )
+	
+	gms:on( "playerLeft", function( name )
+		serverChannel:send({embed = {
+			description = string.format("`%s` left the server", name)
+		}})
+		updatePlayerCount()
+	end )
+	
+	gms:on( "exit", function()
+		if not (serverChannel and serverMessage) then return end
+		serverMessage.embed.description = "this server has already shutdown, sorry if ya missed it!"
+		serverMessage:setEmbed( serverMessage.embed )
+		serverMessage = nil
+		
+		serverChannel:send({embed = {description = "garrysmod server shutdown", footer = prevError.error_footer}})
+		serverChannel = nil
+	end )
+	
+	local addons = command:addOption( enums.applicationCommandOptionType.subCommandGroup, "addons" ):setDescription("manage server addons")
+	
+	local addAddon = addons:addOption( enums.applicationCommandOptionType.subCommand, "add" ):setDescription("add a new addon to the garrysmod server")
+	local removeAddon = addons:addOption( enums.applicationCommandOptionType.subCommand, "remove" ):setDescription("add a new addon to the garrysmod server")
 	
 	server = start:addOption( enums.applicationCommandOptionType.subCommand, "minecraft" ):setDescription("new minecraft server")
 	server:callback( function( interaction )

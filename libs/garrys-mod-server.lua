@@ -1,12 +1,14 @@
 local uv, fs, json, timer, appdata = require("uv"), require("fs"), require("json"), require("timer"), require("appdata")
 local discordia = require("discordia")
 
+local Emitter = discordia.class.classes.Emitter
+
 local gamemodes = json.parse(fs.readFileSync("resource/gamemodes.json"))
 assert(gamemodes, "failed to parse gamemode json")
 
 local function insertArg( tbl, arg, value ) table.insert(tbl, tostring(arg)) table.insert(tbl, tostring(value)) end
 
-local gms, get, set = discordia.class("GarrysmodServer")
+local gms, get, set = discordia.class("GarrysmodServer", Emitter)
 
 function gms:__init( directory )
 	local init = appdata.readFileSync( "gm.session" )
@@ -20,88 +22,59 @@ function gms:__init( directory )
 	end
 	
 	self._dir = directory
+	self._playerMax = 32
+	
+	Emitter.__init(self)
+	
+	self:on( "consoleOutput", function( line )
+		p(line)
+	end )
+end
+
+function get.running( self )
+	return not not (self._proc or self._procId)
+end
+
+function get.gamemode( self )
+	return self._gamemode
+end
+
+function get.map( self )
+	return self._map
+end
+
+function get.playerCount( self )
+	return self._playerCount or 0 
+end
+
+function get.playerMax( self )
+	return self._playerMax or 0
 end
 
 function gms:setToken( token )
 	self._gslt = token
 end
 
--- cooler way of doing it but it doesnt work
---[[function gms:start( gamemode, map )
-	self._gamemode, self._map = gamemode, map
-	
-	self._waitingForServer = {}
-	
-	-- source, the quirky bastard, needs special little things for getting con output. shout out Megalan https://web.archive.org/web/20160811192923/https://facepunch.com/showthread.php?t=1181915
-	self._hfile, self._hparent, self._hchild = uv.new_pipe(), uv.new_pipe(), uv.new_pipe()
-	self._hfilebuff, self._hparentbuff, self._hchildbuff = {}, {}, {}
-	local args = {"-console",
-		"-HFILE", self._hfile:fileno(), "-HPARENT", self._hparent:fileno(), "-HCHILD", self._hchild:fileno(),
-		"+gamemode", self._gamemode, "+map", self._map or "gm_construct", 
-	}
-	
-	if self._gslt then insertArg(args, "+sv_setsteamaccount", self._gslt) end
-	
-	table.insert(args, "-p2p")
-	
-	self._proc = uv.spawn(self._dir .. "srcds.exe", {stdio = {0, 1, 2}, args = args}, function()
-		self._hfile:shutdown() self._hparent:shutdown() self._hchild:shutdown()
-		
-		for _,v in ipairs(self._waitingForServer) do coroutine.resume(v, nil, "program exited") end
-		self._waitingForServer = nil
-	end)
-	
-	self._hfile:read_start(function(err, chunk)
-		if err then
-			error("HFILEREADERROR: " .. err)
-		elseif chunk then
-			p("HFILE", chunk)
-			table.insert(self._hfilebuff, chunk)
-		else
-			self._hfilebuff = nil
-		end
-	end)
-	
-	self._hparent:read_start(function(err, chunk)
-		if err then
-			error("HPARENTREADERROR: " .. err)
-		elseif chunk then
-			p("HPARENT", chunk)
-			table.insert(self._hparentbuff, chunk)
-		else
-			self._hparentbuff = nil
-		end
-	end)
-	
-	self._hchild:read_start(function(err, chunk)
-		if err then
-			error("HCHILDREADERROR: " .. err)
-		elseif chunk then
-			p("HCHILD", chunk)
-			table.insert(self._hchildbuff, chunk)
-		else
-			self._hchildbuff = nil
-		end
-	end)
-end]]
-
 function gms:start( gm, map )
 	gm = gm:lower()
 	self._waitingForServer = {}
 	
 	-- get gamemode --
-	local gamemode
+	self._gamemode = nil
 	for _,v in ipairs(gamemodes) do
 		if string.match(gm, v.pattern) then
-			gamemode = v
+			self._gamemode = v
 			break
 		end
 	end
-	if not gamemode then return nil, "invalid gamemode" end
+	if not self._gamemode then return nil, "invalid gamemode" end
+	
+	self._map = map or self._gamemode.default_map or "gm_construct"
 	
 	-- create args --
-	local args = {"-console", "+gamemode", gamemode.gamemode, "+map", map or gamemode.default_map or "gm_construct"}
-	if gamemode.collection then insertArg(args, "+host_workshop_collection", gamemode.collection) end
+	local args = {"-console", "+gamemode", self._gamemode.gamemode, "+map", self._map}
+	if self._gamemode.collection then insertArg(args, "+host_workshop_collection", self._gamemode.collection) end
+	if self._playerMax then insertArg(args, "+maxplayers", self._playerMax) end
 	if self._gslt then insertArg(args, "+sv_setsteamaccount", self._gslt) end
 	table.insert(args, "-p2p")
 	
@@ -113,27 +86,38 @@ function gms:start( gm, map )
 		if self._waitingForServer then
 			local err = self._errbuff[1] and table.concat(self._errbuff)
 			for _,v in ipairs(self._waitingForServer) do coroutine.resume(v, nil, err or "server closed") end
+		else
+			self:emit("exit")
 		end
 	end)
 	
 	appdata.writeFileSync( "gm.session", string.pack("LLLLLLL", 
 		self._proc:get_pid(), 
-		stdin:fileno(), stdout:fileno(), stderr:fileno(),
+		self._stdin:fileno(), self._stdout:fileno(), self._stderr:fileno(),
 		0, 0, 0)
 	)
 	
-	self._outbuff, self._errbuff = {}, {}
+	self._outbuff, self._errbuff, self._linebuff = {}, {}, {}
 	
 	self._stdout:read_start(function(err, chunk)
 		assert(not err, err)
 		if not chunk then return end
 		table.insert(self._outbuff, chunk)
-		if not self._waitingForServer then return end
 		local joinStr = table.concat(self._outbuff):match("%-%sSteam%sP2P%s%-.-`(.-)`")
 		if not joinStr then return end
 		for _,v in ipairs(self._waitingForServer) do coroutine.resume(v, joinStr) end
 		self._waitingForServer = nil
 		appdata.appendFileSync( "gm.session", string.pack("s1", joinStr) )
+		self._stdout:read_stop()
+		self._stdout:read_start(function(err, chunk)
+			table.insert(self._linebuff, chunk)
+			
+			for _,v in table.concat(self._linebuff):gmatch("^([^\n]+)%s*$") do
+				self._linebuff = {}
+				
+				self:emit( "consoleOutput", v )
+			end
+		end)
 	end)
 	
 	self._stderr:read_start(function(err, chunk)

@@ -12,8 +12,7 @@ function pe.getError( name )
 	local errorName, traceback1, traceback2 = err:match("^%s*(.-)%s*stack%straceback:%s*(.-)%s*stack%straceback:%s*(.-)%s*$")
 	
 	return {embed = {
-		title = errorName,
-		description = string.format("```\n%s\n```\n```\n%s\n```", traceback1, traceback2),
+		description = string.format("%s\n%s", errorName, traceback1),
 		footer = pe.error_footer,
 		timestamp = discordia.Date():toISO('T', 'Z')
 	}}
