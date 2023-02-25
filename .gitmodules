@@ -16,3 +16,6 @@
 [submodule "bin/phantomjs"]
 	path = bin/phantomjs
 	url = https://github.com/ariya/phantomjs
+[submodule "deps/fs-watcher"]
+	path = deps/fs-watcher
+	url = https://github.com/TohruMKDM/fs-watcher
