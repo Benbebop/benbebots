@@ -1,7 +1,7 @@
 local discordia, appdata = require("discordia"), require("appdata")
 
 local pe = {}
-pe.error_footer = {text = "Report this error at https://github.com/Benbebop/benbebots/issues."}
+pe.error_footer = {text = "Report this error at https://github.com/Benbebop/benbebots/issues"}
 
 function pe.getError( name )
 	local file = string.format("logs/err_%s.log", name)
