@@ -53,13 +53,15 @@ do -- GAME SERVER COMMAND --
 		start:setEnabled( false )
 		local err = gms:start( args.gamemode, args.map )
 		
+		if err then interaction:reply("invalid gamemode") return end
+		
 		interaction:reply({embed = {
 			title = "Starting Your Garry's Mod Server",
 			description = "```\n```"
 		}})
 		
 		serverInit = interaction:getReply()
-		serverChannel = serverInit.channel
+		serverChannel = serverInit.channel or client:getChannel(serverInit.channelId)
 	end )
 	
 	local inprogress = false
@@ -69,6 +71,10 @@ do -- GAME SERVER COMMAND --
 		serverInit.embed.description = string.format("```\n%s\n```", line)
 		serverInit:setEmbed(serverInit.embed)
 		inprogress = false
+	end)
+	gms:on("consoleOutput", function(line)
+		if not serverMessage then return end
+		serverChannel:send(line)
 	end)
 	
 	gms:on("ready", function(gamemode, joinString)
@@ -80,27 +86,9 @@ do -- GAME SERVER COMMAND --
 			description = string.format("To join manually you can type `%s` into the gmod console.\nYou can also use this link to launch gmod and join automatically:\nsteam://run/4000//%s/", joinString, querystring.urlencode("+" .. joinString)),
 			fields = {
 				{name = "Gamemode", value = gamemode.name, inline = true},
-				{name = "Map", value = gms.map, inline = true},
-				{name = "Players", value = string.format("%d/%d", gms.playerCount, gms.playerMax)}
+				{name = "Map", value = gms.map, inline = true}
 			}
 		}})
-	end)
-	
-	local function updatePlayerCount()
-		serverMessage.embed.fields[3].value = string.format("%d/%d", gms.playerCount, gms.playerMax)
-		serverMessage:setEmbed(serverMessage.embed)
-	end
-	
-	gms:on("playerJoined", function(name)
-		if not (serverChannel and serverMessage) then return end
-		updatePlayerCount()
-		serverChannel:send({embed = {description = string.format("`%s` joined", name)}})
-	end)
-	
-	gms:on("playerLeft", function(name)
-		if not (serverChannel and serverMessage) then return end
-		updatePlayerCount()
-		serverChannel:send({embed = {description = string.format("`%s` left", name)}})
 	end)
 	
 	gms:on("exit", function()

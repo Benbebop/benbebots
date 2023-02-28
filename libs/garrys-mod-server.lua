@@ -24,10 +24,6 @@ function gms:__init( directory )
 		self._playerCount = 0
 	end)
 	
-	--[[Accepting P2P request from p2p:76561198116417548.
-Client "Men" connected (p2p:76561198116417548).
-Dropped Men from server (Disconnect by user.)]]
-	
 	self:on("consoleOutput", function(line)
 		local event = line:match("^%s*Client%s\"(.+)\"%sconnected%s%b()%s*$")
 		if event then self._playerCount = math.min(self._playerMax, self._playerCount + 1) self:emit("playerJoined", joined) return end
