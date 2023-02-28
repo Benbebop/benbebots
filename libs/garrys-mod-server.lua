@@ -1,4 +1,4 @@
-local uv, fs, json, timer, appdata = require("uv"), require("fs"), require("json"), require("timer"), require("appdata")
+local uv, fs, json, timer, readline, appdata = require("uv"), require("fs"), require("json"), require("timer"), require("readline"), require("appdata")
 local discordia = require("discordia")
 
 local Emitter = discordia.class.classes.Emitter
@@ -11,24 +11,29 @@ local function insertArg( tbl, arg, value ) table.insert(tbl, tostring(arg)) tab
 local gms, get, set = discordia.class("GarrysmodServer", Emitter)
 
 function gms:__init( directory )
-	local init = appdata.readFileSync( "gm.session" )
-	if init then
-		init = {string.unpack("LLLLLLL", init)}
-		
-		self._procId = init[1]
-		
-		self._stdin, self._stdout, self._stderr = uv.new_pipe(), uv.new_pipe(), uv.new_pipe()
-		self._stdin:open(init[2]) self._stdout:open(init[3]) self._stderr:open(init[4])
-	end
-	
 	self._dir = directory
 	self._playerMax = 32
 	
 	Emitter.__init(self)
 	
-	self:on( "consoleOutput", function( line )
-		p(line)
-	end )
+	self:on("exit", function()
+		self._gamemode = nil
+		self._stdin, self._stdout, self._stderr = self._stdin and self._stdin:read_stop() and nil, self._stdout and self._stdout:read_stop() and nil, self._stderr and self._stderr:read_stop() and nil
+		self._outbuff, self._errbuff, self._linebuff = nil, nil, nil
+		self._proc, self._procId = nil, nil
+		self._playerCount = 0
+	end)
+	
+	--[[Accepting P2P request from p2p:76561198116417548.
+Client "Men" connected (p2p:76561198116417548).
+Dropped Men from server (Disconnect by user.)]]
+	
+	self:on("consoleOutput", function(line)
+		local event = line:match("^%s*Client%s\"(.+)\"%sconnected%s%b()%s*$")
+		if event then self._playerCount = math.min(self._playerMax, self._playerCount + 1) self:emit("playerJoined", joined) return end
+		event = line:match("^%s*Dropped%s(.+)%sfrom%sserver%s%b()%s*$")
+		if event then self._playerCount = math.max(0, self._playerCount - 1) self:emit("playerLeft", joined) return end
+	end)
 end
 
 function get.running( self )
@@ -55,9 +60,14 @@ function gms:setToken( token )
 	self._gslt = token
 end
 
+function gms.cleanProcesses()
+	local thread = coroutine.running()
+	uv.spawn("taskkill", {stdio = {}, args = {"/f", "/im", "srcds.exe"}}, function() assert(coroutine.resume(thread)) end)
+	coroutine.yield()
+end
+
 function gms:start( gm, map )
 	gm = gm:lower()
-	self._waitingForServer = {}
 	
 	-- get gamemode --
 	self._gamemode = nil
@@ -78,17 +88,13 @@ function gms:start( gm, map )
 	if self._gslt then insertArg(args, "+sv_setsteamaccount", self._gslt) end
 	table.insert(args, "-p2p")
 	
+	-- kill existing srcds processes --
+	gms.cleanProcesses()
+	
 	-- spawn process --
 	self._stdin, self._stdout, self._stderr = uv.new_pipe(), uv.new_pipe(), uv.new_pipe()
-	self._proc = uv.spawn(uv.cwd() .. "\\bin\\srcdspipe.exe", {stdio = {self._stdin, self._stdout, self._stderr}, cwd = self._dir, args = args, detached = true}, function()
-		appdata.unlinkSync( "gm.session" )
-		
-		if self._waitingForServer then
-			local err = self._errbuff[1] and table.concat(self._errbuff)
-			for _,v in ipairs(self._waitingForServer) do coroutine.resume(v, nil, err or "server closed") end
-		else
-			self:emit("exit")
-		end
+	self._proc = uv.spawn(uv.cwd() .. "\\bin\\srcdspipe.exe", {stdio = {self._stdin, self._stdout, self._stderr}, cwd = self._dir, args = args, detached = true}, function( ... )
+		self:emit("exit", ...)
 	end)
 	
 	appdata.writeFileSync( "gm.session", string.pack("LLLLLLL", 
@@ -99,25 +105,26 @@ function gms:start( gm, map )
 	
 	self._outbuff, self._errbuff, self._linebuff = {}, {}, {}
 	
+	local function emitOutput(err, chunk)
+		if not chunk then return end
+		for line in chunk:gmatch("[^\r\n]+") do
+			self:emit("consoleOutput", line)
+		end
+	end
+	
 	self._stdout:read_start(function(err, chunk)
 		assert(not err, err)
 		if not chunk then return end
 		table.insert(self._outbuff, chunk)
+		emitOutput(err, chunk)
 		local joinStr = table.concat(self._outbuff):match("%-%sSteam%sP2P%s%-.-`(.-)`")
 		if not joinStr then return end
-		for _,v in ipairs(self._waitingForServer) do coroutine.resume(v, joinStr) end
-		self._waitingForServer = nil
 		appdata.appendFileSync( "gm.session", string.pack("s1", joinStr) )
 		self._stdout:read_stop()
 		self._stdout:read_start(function(err, chunk)
-			table.insert(self._linebuff, chunk)
-			
-			for _,v in table.concat(self._linebuff):gmatch("^([^\n]+)%s*$") do
-				self._linebuff = {}
-				
-				self:emit( "consoleOutput", v )
-			end
+			emitOutput(err, chunk)
 		end)
+		self:emit("ready", self._gamemode, joinStr)
 	end)
 	
 	self._stderr:read_start(function(err, chunk)
@@ -125,22 +132,6 @@ function gms:start( gm, map )
 		if not chunk then return end
 		table.insert(self._errbuff, chunk)
 	end)
-	
-	return gamemode
-end
-
-function gms:waitForServer( timeout )
-	if self._joinString then return self._joinString end
-	local running = coroutine.running()
-	table.insert(self._waitingForServer, running)
-	local t = timer.setTimeout(timeout * 1000, function() coroutine.resume( running, nil, "server start timed out" ) end)
-	local r = {coroutine.yield()}
-	timer.clearTimeout(t)
-	return unpack(r)
-end
-
-function gms:getConsole()
-	return self._outbuff and table.concat(self._outbuff)
 end
 
 function gms:kill()
