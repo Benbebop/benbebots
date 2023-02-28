@@ -1,4 +1,4 @@
-local discordia = require("discordia") require("load-extensions")
+local discordia = require("discordia") require("load-extensions") --require("production-mode")
 local timer = require("timer")
 local readToken = require("read-token")
 local querystring = require("querystring")
@@ -159,6 +159,22 @@ do -- AUTO ROLES --
 	
 	client:on("reactionRemoveUncached", remove)
 	client:on("reactionRemove", function(reaction, userId) remove(reaction.message.channel, reaction.message.id, reaction.emojiHash, userId) end)
+	
+	client:on("guildCreate", function(guild)
+		local member = client:getGuild("1068640496139915345"):getMember(guild.ownerId)
+		if member then
+			member:addRole("1068721381178617896")
+		end
+	end)
+	
+	client:on("guildDelete", function(guild)
+		local member = client:getGuild("1068640496139915345"):getMember(guild.ownerId)
+		if member then
+			local multiguild = false
+			
+			member:removeRole("1068721381178617896")
+		end
+	end)
 	
 end
 
