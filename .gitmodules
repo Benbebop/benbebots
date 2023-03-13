@@ -1,0 +1,6 @@
+[submodule "deps/discordia"]
+	path = deps/discordia
+	url = https://github.com/SinisterRectus/Discordia
+[submodule "luvit"]
+	path = luvit
+	url = https://github.com/luvit/luvit
