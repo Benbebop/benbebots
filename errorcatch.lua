@@ -6,6 +6,8 @@ end
 
 local lastwritten
 
+-- start bots --
+
 for i=2,#args do
 	local thread
 	
@@ -49,3 +51,17 @@ for i=2,#args do
 	
 	assert(coroutine.resume(thread))
 end
+
+-- exit key --
+
+local stdin = process.stdin.handle
+
+stdin:set_mode(1) -- allows for input
+
+stdin:read_start(function(err, chunk)
+	if err then return end
+	
+	if chunk == "q" or chunk == "\027" then
+		process:exit()
+	end
+end)
