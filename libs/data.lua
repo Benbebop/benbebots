@@ -9,7 +9,7 @@ if opsys == "win32" then
 	PATH = path.join(os.getenv( "LOCALAPPDATA" ), "/benbebots")
 	TEMPPATH = path.join(os.getenv( "TEMP" ), "/benbebots")
 elseif opsys == "linux" then
-	PATH = "~/.benbebots"
+	PATH = path.join(os.getenv("HOME"), "/.benbebots")
 	TEMPPATH = "/var/tmp/benbebots"
 elseif opsys == "OSX" then -- i dont use OSX and dont care so idk if this works
 	PATH = "~/Library/Application Support/benbebots"
@@ -18,6 +18,8 @@ else
 	PATH = "data"
 	TEMPPATH = "data/temp"
 end
+
+fs.mkdirSync(PATH) fs.mkdirSync(TEMPPATH)
 
 local data = {}
 
