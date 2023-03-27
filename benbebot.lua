@@ -1,11 +1,14 @@
 local uv, fs, appdata = require("uv"), require("fs"), require("data")
 
-local discordia = require("discordia") require("token")--require("discordia-interactions") require("discordia-commands")
+require("./loadDeps.lua")
+
+local discordia = require("discordia")
 local enums = discordia.enums
 
-local client = discordia.Client()
+local benbebot, familyGuy = discordia.Client(), discordia.Client()
+benbebot._logger:setPrefix("BBB") familyGuy._logger:setPrefix("FLG") 
 
-do -- RSS
+do -- BENBEBOTS SERVER --
 	
 	local timer, http, xml = require("timer"), require("coro-http"), require("slaxml")
 	
@@ -17,7 +20,7 @@ do -- RSS
 		{"Lua", "1068657073321169067", "https://www.lua.org/news.rss"}
 	}
 
-	client:on("ready", function()
+	benbebot:on("ready", function()
 		
 		local latests = {}
 		
@@ -44,7 +47,7 @@ do -- RSS
 			xml:parser({
 				startElement = function(name)
 					if name == "item" then
-						if embed then client:getChannel(endpoint[2]):send({embed = embed}) end
+						if embed then benbebot:getChannel(endpoint[2]):send({embed = embed}) end
 						embed = {author = {name = endpoint[1]}}
 					elseif embed then
 						index = rssToEmbed[name]
@@ -81,7 +84,7 @@ do -- RSS
 				cursor = cursor + #data
 			end
 			fs.closeSync(file)
-			
+
 		end
 		
 		timer.setInterval(1000 * 60 * 60, function()
@@ -95,7 +98,39 @@ do -- RSS
 		end
 		
 	end)
+	
+	-- servers channel
 
+	local inv = benbebot:newSlashCommand("addInvite", "1068640496139915345"):setDescription("add an invite")
+	inv:addOption(enums.applicationCommandOptionType.string, "invite"):setDescription("invite url/code")
+	
+	local url = require("url")
+
+	inv:callback(function(interaction, args)
+		interaction:replyDeferred(true)
+
+		local code = url.parse(args.invite or "").path:match("%w+$")
+		if not code then interaction:reply("invalid invite url", true) return end
+
+		local invite = benbebot:getInvite(code)
+		if not invite then interaction:reply("invalid invite", true) return end
+		
+		if interaction.user.id ~= "459880024187600937" then
+			
+			if interaction.user ~= invite.inviter then interaction:reply("you cannot add an invite that you did not create", true) return end
+
+			local bGuild = benbebot:getGuild(invite.guildId)
+			local fGuild = familyGuy:getGuild(invite.guildId)
+			if not (bGuild and bGuild.me or fGuild and fGuild.me) then interaction:reply("server does not have any benbebots", true) return end
+			
+		end
+		
+		interaction:reply("adding invite for " .. invite.guildName .. " to <#1089964247787786240>")
+		benbebot:getChannel("1089964247787786240"):send("discord.gg/" .. invite.code)
+
+	end)
+	
 end
 
-client:run("Bot " .. TOKENS.benbebot)
+benbebot:run("Bot " .. TOKENS.benbebot)
+familyGuy:run("Bot " .. TOKENS.familyGuy)
