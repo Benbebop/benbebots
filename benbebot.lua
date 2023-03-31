@@ -42,8 +42,9 @@ do -- BENBEBOTS SERVER --
 			
 		end
 		
-		interaction:reply("adding invite for " .. invite.guildName .. " to <#1089964247787786240>")
+		interaction:reply("adding invite for " .. invite.guildName .. " to <#1089964247787786240>", true)
 		benbebot:getChannel("1089964247787786240"):send("discord.gg/" .. invite.code)
+		benbebot:info("added invite %s to servers channel", invite.code)
 
 	end)
 	
@@ -51,7 +52,7 @@ do -- BENBEBOTS SERVER --
 	
 	local function add(guild)
 		local owner = guild.client:getGuild("1068640496139915345"):getMember(guild.ownerId)
-		if owner then owner:addRole("1068721381178617896") end
+		if owner then owner:addRole("1068721381178617896") guild.client:info("added server owner role to %s", owner.name) end
 	end
 	benbebot:on("guildCreate", add)
 	familyGuy:on("guildCreate", add)
@@ -60,7 +61,12 @@ do -- BENBEBOTS SERVER --
 		local b, f = benbebot:getGuild(guild.id), familyGuy:getGuild(guild.id)
 		if not (b and b.me or f and f.me) then
 			local owner = guild.client:getGuild("1068640496139915345"):getMember(guild.ownerId)
-			if owner then owner:removeRole("1068721381178617896") end
+			if owner then 
+				owner:removeRole("1068721381178617896") 
+				guild.client:info("removed server owner role from %s", owner.name) 
+			else
+				guild.client:error("failed to find owner of guild %s and remove server owner role", guild.name)
+			end
 		end
 	end
 	benbebot:on("guildDelete", check)
