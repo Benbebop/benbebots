@@ -47,6 +47,25 @@ do -- BENBEBOTS SERVER --
 
 	end)
 	
+	-- server owner role
+	
+	local function add(guild)
+		local owner = guild.client:getGuild("1068640496139915345"):getMember(guild.ownerId)
+		if owner then owner:addRole("1068721381178617896") end
+	end
+	benbebot:on("guildCreate", add)
+	familyGuy:on("guildCreate", add)
+	
+	local function check(guild)
+		local b, f = benbebot:getGuild(guild.id), familyGuy:getGuild(guild.id)
+		if not (b and b.me or f and f.me) then
+			local owner = guild.client:getGuild("1068640496139915345"):getMember(guild.ownerId)
+			if owner then owner:removeRole("1068721381178617896") end
+		end
+	end
+	benbebot:on("guildDelete", check)
+	familyGuy:on("guildDelete", check)
+	
 end
 
 benbebot:run("Bot " .. TOKENS.benbebot)
