@@ -1,6 +1,6 @@
 local uv, fs, appdata = require("uv"), require("fs"), require("data")
 
-require("./loadDeps.lua")
+require("./load-deps.lua")
 
 local discordia = require("discordia")
 local enums = discordia.enums
@@ -73,6 +73,12 @@ do -- BENBEBOTS SERVER --
 	familyGuy:on("guildDelete", check)
 	
 end
+
+--[[benbebot:on("ready", function()
+	for command in benbebot.applicationCommands:iter() do
+		command:delete()
+	end
+end)]]
 
 benbebot:run("Bot " .. TOKENS.benbebot)
 familyGuy:run("Bot " .. TOKENS.familyGuy)
