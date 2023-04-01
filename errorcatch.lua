@@ -68,8 +68,10 @@ local function killProcesses()
 end
 
 local keys = {}
+local starttime = uv.gettimeofday()
 keys.q = function()
-	process.stdout:write("\nquitting\n\n")
+	process.stdout:write("\x1b[?1049l")
+	process.stdout:write("quitted, uptime: ", tostring(uv.gettimeofday() - starttime))
 	killProcesses()
 	stdin:set_mode(0)
 	process:exit()
@@ -89,6 +91,9 @@ keys.p = function()
 		process.stdout:write("\npaused\n\n")
 	end
 end
+keys.c = function()
+	process.stdout:write("\x1b[2J\x1b[0;0H")
+end
 
 stdin:read_start(function(err, chunk)
 	if err then return end
@@ -96,3 +101,7 @@ stdin:read_start(function(err, chunk)
 	local run = keys[chunk]
 	if run then run() end
 end)
+
+-- setup alt buffer
+
+process.stdout:write("\x1b[?1049h")
