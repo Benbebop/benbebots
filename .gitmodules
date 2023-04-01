@@ -10,6 +10,3 @@
 [submodule "deps/discordia-commands"]
 	path = deps/discordia-commands
 	url = https://github.com/Benbebop/discordia-commands
-[submodule "deps/slaxml"]
-	path = deps/slaxml
-	url = https://github.com/Phrogz/SLAXML
