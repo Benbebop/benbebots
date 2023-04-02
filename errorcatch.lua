@@ -1,7 +1,7 @@
 local uv, timer, data = require("uv"), require("timer"), require("data")
 
 local function getPath( mode, name, prox )
-	return data.tempPath(string.format("/logs/%s_%s%s.log", mode, name, prox and ".prox" or ""))
+	return data.tempPath(string.format("/logs/%s_%s%s.log", mode, name:match("[^/\\]+$"), prox and ".prox" or ""))
 end
 
 local processes, threads, paused = {}, {}, false
