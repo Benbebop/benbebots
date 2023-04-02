@@ -10,7 +10,7 @@ for i=2,#args do
 	local outbuffer, errbuffer = {}, {}
 	
 	local cwd, file = args[i]:match("^(.-)[/\\]?([^/\\]+)$")
-	file = file .. ".lua"
+	cwd, file = cwd ~= "" and cwd or nil, file .. ".lua"
 	
 	threads[i-1] = coroutine.create(function()
 		repeat
