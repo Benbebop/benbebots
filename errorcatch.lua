@@ -9,17 +9,18 @@ local lastwritten
 for i=2,#args do
 	local outbuffer, errbuffer = {}, {}
 	
+	local cwd, file = args[i]:match("^(.-)[/\\]?([^/\\]+)$")
+	file = file .. ".lua"
+	
 	threads[i-1] = coroutine.create(function()
 		repeat
 			local stdin, stdout, stderr = uv.new_pipe(), uv.new_pipe(), uv.new_pipe()
 			
 			processes[i-1] = uv.spawn("luvit", {
-				args = {args[i] .. ".lua"},
+				cwd = cwd,
+				args = {file},
 				stdio = {stdin, stdout, stderr}
 			}, function()
-				uv.fs_close(stdoutfile) uv.fs_close(stderrfile)
-				uv.fs_rename(stdoutpath, getPath( "out", args[i] )) uv.fs_rename(stderrpath, getPath( "err", args[i] ))
-				
 				if not paused then
 					timer.setTimeout(5000, function()
 						if paused then return end
@@ -68,8 +69,8 @@ local keys = {}
 local starttime = uv.gettimeofday()
 keys.q = function()
 	process.stdout:write("\x1b[?1049l")
-	process.stdout:write("quitted, uptime: " .. tostring(uv.gettimeofday() - starttime) .. "s")
 	killProcesses()
+	process.stdout:write("quitted, uptime: " .. tostring(uv.gettimeofday() - starttime) .. "s\n")
 	stdin:set_mode(0)
 	process:exit()
 end
