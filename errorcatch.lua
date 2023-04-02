@@ -1,9 +1,5 @@
 local uv, timer, data = require("uv"), require("timer"), require("data")
 
-local function getPath( mode, name, prox )
-	return data.tempPath(string.format("/logs/%s_%s%s.log", mode, name:match("[^/\\]+$"), prox and ".prox" or ""))
-end
-
 local processes, threads, paused = {}, {}, false
 
 local lastwritten
@@ -11,15 +7,15 @@ local lastwritten
 -- start bots --
 
 for i=2,#args do
+	local outbuffer, errbuffer = {}, {}
+	
 	threads[i-1] = coroutine.create(function()
 		repeat
-			local stdout, stderr = uv.new_pipe(), uv.new_pipe()
-			local stdoutpath, stderrpath = getPath( "out", args[i], true ), getPath( "err", args[i], true )
-			local stdoutfile, stderrfile = assert(uv.fs_open(stdoutpath, "a", 0666)), assert(uv.fs_open(stderrpath, "a", 0666))
+			local stdin, stdout, stderr = uv.new_pipe(), uv.new_pipe(), uv.new_pipe()
 			
 			processes[i-1] = uv.spawn("luvit", {
 				args = {args[i] .. ".lua"},
-				stdio = {0, stdout, stderr}
+				stdio = {stdin, stdout, stderr}
 			}, function()
 				uv.fs_close(stdoutfile) uv.fs_close(stderrfile)
 				uv.fs_rename(stdoutpath, getPath( "out", args[i] )) uv.fs_rename(stderrpath, getPath( "err", args[i] ))
@@ -32,19 +28,20 @@ for i=2,#args do
 				end
 			end)
 			
+			stdin:write(errbuffer)
+			outbuffer, errbuffer = {}, {}
+			
 			stdout:read_start(function(err, chunk)
 				if not chunk then return end
-				if lastwritten ~= i then io.write("\n") end
-				io.write(chunk)
-				uv.fs_write(stdoutfile, chunk)
+				if lastwritten ~= i then table.insert(outbuffer, "\n") io.write("\n") end
+				table.insert(outbuffer, chunk) io.write(chunk)
 				lastwritten = i
 			end)
 			
 			stderr:read_start(function(err, chunk)
 				if not chunk then return end
-				if lastwritten ~= i then io.write("\n") end
-				io.write(chunk)
-				uv.fs_write(stderrfile, chunk)
+				if lastwritten ~= i then table.insert(errbuffer, "\n") io.write("\n") end
+				table.insert(errbuffer, chunk) io.write(chunk)
 				lastwritten = i
 			end)
 			
@@ -71,7 +68,7 @@ local keys = {}
 local starttime = uv.gettimeofday()
 keys.q = function()
 	process.stdout:write("\x1b[?1049l")
-	process.stdout:write("quitted, uptime: ", tostring(uv.gettimeofday() - starttime))
+	process.stdout:write("quitted, uptime: " .. tostring(uv.gettimeofday() - starttime) .. "s")
 	killProcesses()
 	stdin:set_mode(0)
 	process:exit()
