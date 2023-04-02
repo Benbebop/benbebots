@@ -7,7 +7,7 @@ local lastwritten
 -- start bots --
 
 for i=2,#args do
-	local outbuffer, errbuffer = {}, {}
+	local outbuffer, errbuffer
 	
 	local cwd, file = args[i]:match("^(.-)[/\\]?([^/\\]+)$")
 	cwd, file = cwd ~= "" and cwd or nil, file .. ".lua"
@@ -29,7 +29,7 @@ for i=2,#args do
 				end
 			end)
 			
-			stdin:write(errbuffer)
+			if errbuffer then stdin:write(errbuffer) end
 			outbuffer, errbuffer = {}, {}
 			
 			stdout:read_start(function(err, chunk)
