@@ -127,5 +127,14 @@ do -- BENBEBOTS SERVER --
 	
 end
 
-benbebot:run("Bot " .. TOKENS.benbebot)
-familyGuy:run("Bot " .. TOKENS.familyGuy)
+local readys, thread = 0, coroutine.running()
+local function func() readys = readys + 1 coroutine.resume(thread) end
+
+benbebot:run("Bot " .. TOKENS.benbebot) benbebot:onceSync("ready", func)
+familyGuy:run("Bot " .. TOKENS.familyGuy) familyGuy:onceSync("ready", func)
+
+repeat coroutine.yield() until readys >= 2
+
+benbebot:info("All bots ready")
+
+clock:start()
