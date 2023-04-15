@@ -4,9 +4,11 @@ require("./load-deps.lua")
 
 local discordia = require("discordia")
 local enums = discordia.enums
+local clock = discordia.Clock()
 
 local benbebot, familyGuy = discordia.Client(), discordia.Client()
 benbebot._logger:setPrefix("BBB") familyGuy._logger:setPrefix("FLG") 
+table.remove(benbebot._listeners.ready, 1) -- dont update commands
 
 benbebot:defaultCommandCallback(function(interaction)
 	interaction:reply({embed = {
@@ -72,13 +74,57 @@ do -- BENBEBOTS SERVER --
 	benbebot:on("guildDelete", check)
 	familyGuy:on("guildDelete", check)
 	
-end
-
---[[benbebot:on("ready", function()
-	for command in benbebot.applicationCommands:iter() do
-		command:delete()
+	-- soundclown
+	
+	local json, http = require("json"), require("coro-http")
+	
+	local STATION = "https://soundcloud.com/discover/sets/artist-stations:%s"
+	local TRACK = "https://api-v2.soundcloud.com/tracks?ids=%s&client_id=%s"
+	
+	local function func()
+		
+		local res, body = http.request("GET", string.format(STATION, "634094352"))
+		if not (res and (res.code == 200) and body) then benbebot:error("failed to get soundcloud station: %s", res.reason or tostring(res.code)) return end
+		
+		local stationContent = body:match("window.__sc_hydration%s*=%s*(%b[])")
+		if not stationContent then benbebot:error("soundcloud station: could not locate hydration content") return end
+		
+		stationContent = json.parse(stationContent)
+		if not stationContent then benbebot:error("soundcloud station: hydration content is not valid json") return end
+		
+		local stationPlaylist
+		for _,v in ipairs(stationContent) do if v.hydratable == "systemPlaylist" then stationPlaylist = v.data end end
+		if not stationPlaylist then benbebot:error("soundcloud station: could not locate hydratable systemPlaylist") return end
+		if stationPlaylist.playlist_type ~= "ARTIST_STATION" then benbebot:error("soundcloud station: systemPlaylist is not an artist playlist: %s", stationPlaylist.playlist_type) return end
+		
+		local stationTracks = stationPlaylist.tracks
+		if not stationTracks then benbebot:error("soundcloud station: playlist has no tracks") return end
+		
+		table.remove(stationTracks, 1) -- first result is always by the creator, get rid of it
+		
+		local client_id
+		for url in body:gmatch("crossorigin%s*src=[\"']([^\"']+)") do -- im not very good at scraping, this works but is incredibly slow, whatever 
+			local _, body = http.request("GET", url)
+			client_id = body:match("[\"']client_id=([^\"']+)")
+			if client_id then break end
+		end
+		if not client_id then benbebot:error("failed to scrape client_id") return end
+		
+		local res, body = http.request("GET", string.format(TRACK, stationTracks[math.random(#stationTracks)].id, client_id))
+		if not (res and (res.code == 200) and body) then benbebot:error("failed to get soundcloud track: %s", res.reason or tostring(res.code)) return end
+		
+		local trackData = (json.parse(body) or {})[1]
+		if not (trackData and trackData.permalink_url) then benbebot:error("soundcloud station: track content is not valid") return end
+		
+		benbebot:getChannel("1096581265932701827"):send(trackData.permalink_url)
+		
 	end
-end)]]
+	
+	clock:on("day", func)
+	
+	benbebot:on("ready", func)
+	
+end
 
 benbebot:run("Bot " .. TOKENS.benbebot)
 familyGuy:run("Bot " .. TOKENS.familyGuy)
