@@ -123,7 +123,32 @@ do -- BENBEBOTS SERVER --
 	
 	clock:on("day", func)
 	
-	benbebot:on("ready", func)
+	-- log dms
+	
+	familyGuy:on("messageCreate", function(message)
+		if message.channel.type ~= 1 then return end
+		if message.author.id == familyGuy.user.id then return end
+		
+		local cat = familyGuy:getChannel("1068641046852022343")
+		local sudodm = cat.textChannels:find(function(channel) return channel.topic == message.author.id end)
+		if not sudodm then
+			
+			sudodm = cat:createTextChannel(message.author.name)
+			sudodm:setTopic(message.author.id)
+			
+		end
+		if sudodm.name ~= message.author.name then sudodm:setName(message.author.name) end
+		sudodm:send({
+			content = message.cleanContent,
+			refrence = {message = message.referencedMessage, mention = false}
+		})
+		if message.attachments then
+			for _,v in ipairs(message.attachments) do
+				sudodm:send(v)
+			end
+		end
+		sudodm:moveUp(sudodm.position)
+	end)
 	
 end
 
