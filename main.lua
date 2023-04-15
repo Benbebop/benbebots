@@ -116,7 +116,7 @@ do -- BENBEBOTS SERVER --
 		local trackData = (json.parse(body) or {})[1]
 		if not (trackData and trackData.permalink_url) then benbebot:error("soundcloud station: track content is not valid") return end
 		
-		benbebot:getChannel("1068657073321169067"):send(trackData.permalink_url)
+		benbebot:getChannel("1096581265932701827"):send(trackData.permalink_url)
 		benbebot:info("send mashup of the day: %s", trackData.title)
 		
 	end
