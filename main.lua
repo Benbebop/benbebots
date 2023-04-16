@@ -121,12 +121,12 @@ do -- BENBEBOTS SERVER --
 	
 	local json, http = require("json"), require("coro-http")
 	
-	local STATION = "https://soundcloud.com/discover/sets/artist-stations:%s"
+	local STATION = "https://soundcloud.com/discover/sets/picks-for-you::%s"
 	local TRACK = "https://api-v2.soundcloud.com/tracks?ids=%s&client_id=%s"
 	
 	local function func()
 		
-		local res, body = http.request("GET", string.format(STATION, "634094352"))
+		local res, body = http.request("GET", string.format(STATION, "benbebop"))
 		if not (res and (res.code == 200) and body) then benbebot:error("failed to get soundcloud station: %s", res.reason or tostring(res.code)) return end
 		
 		local stationContent = body:match("window.__sc_hydration%s*=%s*(%b[])")
@@ -138,7 +138,7 @@ do -- BENBEBOTS SERVER --
 		local stationPlaylist
 		for _,v in ipairs(stationContent) do if v.hydratable == "systemPlaylist" then stationPlaylist = v.data end end
 		if not stationPlaylist then benbebot:error("soundcloud station: could not locate hydratable systemPlaylist") return end
-		if stationPlaylist.playlist_type ~= "ARTIST_STATION" then benbebot:error("soundcloud station: systemPlaylist is not an artist playlist: %s", stationPlaylist.playlist_type) return end
+		if stationPlaylist.playlist_type ~= "PLAYLIST" then benbebot:error("soundcloud station: systemPlaylist is not a playlist: %s", stationPlaylist.playlist_type) return end
 		
 		local stationTracks = stationPlaylist.tracks
 		if not stationTracks then benbebot:error("soundcloud station: playlist has no tracks") return end
