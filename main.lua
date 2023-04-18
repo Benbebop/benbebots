@@ -8,7 +8,6 @@ local clock = discordia.Clock()
 
 local benbebot, familyGuy = discordia.Client(), discordia.Client()
 benbebot._logger:setPrefix("BBB") familyGuy._logger:setPrefix("FLG") 
-table.remove(benbebot._listeners.ready, 1) -- dont update commands
 
 benbebot:defaultCommandCallback(function(interaction)
 	interaction:reply({embed = {
@@ -18,36 +17,31 @@ end)
 
 do -- BENBEBOTS SERVER --
 	
-	-- servers channel
-
-	local inv = benbebot:newSlashCommand("addinvite", "1068640496139915345"):setDescription("add an invite")
-	inv:addOption(enums.applicationCommandOptionType.string, "invite"):setDescription("invite url/code"):setRequired(true)
+	-- log dms
 	
-	local url = require("url")
-
-	inv:callback(function(interaction, args)
-		interaction:replyDeferred(true)
-
-		local code = url.parse(args.invite or "").path:match("%w+$")
-		if not code then interaction:reply("invalid invite url", true) return end
-
-		local invite = benbebot:getInvite(code)
-		if not invite then interaction:reply("invalid invite", true) return end
+	familyGuy:on("messageCreate", function(message)
+		if message.channel.type ~= 1 then return end
+		if message.author.id == familyGuy.user.id then return end
 		
-		if interaction.user.id ~= "459880024187600937" then
+		local cat = familyGuy:getChannel("1068641046852022343")
+		local sudodm = cat.textChannels:find(function(channel) return channel.topic == message.author.id end)
+		if not sudodm then
 			
-			if interaction.user ~= invite.inviter then interaction:reply("you cannot add an invite that you did not create", true) return end
-
-			local bGuild = benbebot:getGuild(invite.guildId)
-			local fGuild = familyGuy:getGuild(invite.guildId)
-			if not (bGuild and bGuild.me or fGuild and fGuild.me) then interaction:reply("server does not have any benbebots", true) return end
+			sudodm = cat:createTextChannel(message.author.name)
+			sudodm:setTopic(message.author.id)
 			
 		end
-		
-		interaction:reply("adding invite for " .. invite.guildName .. " to <#1089964247787786240>", true)
-		benbebot:getChannel("1089964247787786240"):send("discord.gg/" .. invite.code)
-		benbebot:info("added invite %s to servers channel", invite.code)
-
+		if sudodm.name ~= message.author.name then sudodm:setName(message.author.name) end
+		sudodm:send({
+			content = message.cleanContent,
+			refrence = {message = message.referencedMessage, mention = false}
+		})
+		if message.attachments then
+			for _,v in ipairs(message.attachments) do
+				sudodm:send(v)
+			end
+		end
+		sudodm:moveUp(sudodm.position)
 	end)
 	
 	-- reaction roles
@@ -166,31 +160,31 @@ do -- BENBEBOTS SERVER --
 	
 	clock:on("day", func)
 	
-	-- log dms
-	
-	familyGuy:on("messageCreate", function(message)
-		if message.channel.type ~= 1 then return end
-		if message.author.id == familyGuy.user.id then return end
+	-- servers channel
+
+	inv:callback(function(interaction, args)
+		interaction:replyDeferred(true)
+
+		local code = url.parse(args.invite or "").path:match("%w+$")
+		if not code then interaction:reply("invalid invite url", true) return end
+
+		local invite = benbebot:getInvite(code)
+		if not invite then interaction:reply("invalid invite", true) return end
 		
-		local cat = familyGuy:getChannel("1068641046852022343")
-		local sudodm = cat.textChannels:find(function(channel) return channel.topic == message.author.id end)
-		if not sudodm then
+		if interaction.user.id ~= "459880024187600937" then
 			
-			sudodm = cat:createTextChannel(message.author.name)
-			sudodm:setTopic(message.author.id)
+			if interaction.user ~= invite.inviter then interaction:reply("you cannot add an invite that you did not create", true) return end
+
+			local bGuild = benbebot:getGuild(invite.guildId)
+			local fGuild = familyGuy:getGuild(invite.guildId)
+			if not (bGuild and bGuild.me or fGuild and fGuild.me) then interaction:reply("server does not have any benbebots", true) return end
 			
 		end
-		if sudodm.name ~= message.author.name then sudodm:setName(message.author.name) end
-		sudodm:send({
-			content = message.cleanContent,
-			refrence = {message = message.referencedMessage, mention = false}
-		})
-		if message.attachments then
-			for _,v in ipairs(message.attachments) do
-				sudodm:send(v)
-			end
-		end
-		sudodm:moveUp(sudodm.position)
+		
+		interaction:reply("adding invite for " .. invite.guildName .. " to <#1089964247787786240>", true)
+		benbebot:getChannel("1089964247787786240"):send("discord.gg/" .. invite.code)
+		benbebot:info("added invite %s to servers channel", invite.code)
+
 	end)
 	
 end
