@@ -40,8 +40,6 @@ function Client:__init( ... )
 			if not cmd then return end
 		end
 		
-		interaction:reply("test2")
-		
 		local args, argsOrdered, focused = {}, {}
 		
 		for i,v in ipairs(opt) do
