@@ -161,8 +161,10 @@ do -- BENBEBOTS SERVER --
 	clock:on("day", func)
 	
 	-- servers channel
-
-	inv:callback(function(interaction, args)
+	
+	local url = require("url")
+	
+	benbebot:getCommand("1097727252168445952"):used({}, function(interaction, args)
 		interaction:replyDeferred(true)
 
 		local code = url.parse(args.invite or "").path:match("%w+$")
@@ -184,8 +186,16 @@ do -- BENBEBOTS SERVER --
 		interaction:reply("adding invite for " .. invite.guildName .. " to <#1089964247787786240>", true)
 		benbebot:getChannel("1089964247787786240"):send("discord.gg/" .. invite.code)
 		benbebot:info("added invite %s to servers channel", invite.code)
-
+		
 	end)
+	
+	-- game server
+	
+	local cmd = benbebot:getCommand("1097727252168445953")
+	
+	cmd:used({"start"}, function() end)
+	cmd:used({"addon"}, function() end)
+	cmd:used({"admin"}, function() end)
 	
 end
 

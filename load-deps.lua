@@ -3,5 +3,6 @@
 require("token")
 
 require("discordia-interactions")
+require("commands")
 
 require("logger-overwrite")
