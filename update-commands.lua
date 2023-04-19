@@ -88,7 +88,8 @@ request(benbebot, "PUT", "/guilds/1068640496139915345/commands", {
 					{
 						type = 3,
 						name = "url",
-						description = "url / steamid of your steam account"
+						description = "url / steamid of your steam account",
+						required = true
 					}
 				}
 			}

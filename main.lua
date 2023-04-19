@@ -15,6 +15,12 @@ benbebot:defaultCommandCallback(function(interaction)
 	}})
 end)
 
+do -- BREAD BAG --
+	
+	
+	
+end
+
 do -- BENBEBOTS SERVER --
 	
 	-- log dms
@@ -195,7 +201,41 @@ do -- BENBEBOTS SERVER --
 	
 	cmd:used({"start"}, function() end)
 	cmd:used({"addon"}, function() end)
-	cmd:used({"admin"}, function() end)
+	
+	local urlParse = require("url").parse
+	
+	cmd:used({"admin"}, function(interaction, args)
+		local url = urlParse(args.url or "")
+		
+		if url.host and url.host ~= "steamcommunity.com" then interaction:reply("invalid site") return end
+		
+		local path = url.path
+		
+		local id = path:match("^/profiles/(%d+)") or path:match("^%s*(%d+)%s*$") -- SteamID64
+		if id then
+			interaction:reply("SteamID64 format not supported, must be a SteamID")
+			return
+		else
+			id = path:upper():match("^%s*%[?(U:%d:%d+)%]?%s*$")  -- SteamID3
+			if id then
+				interaction:reply("SteamID3 format not supported, must be a SteamID")
+				return
+			else
+				id = path:upper():match("^%s*(STEAM_%d:%d:%d+)%s*$") -- SteamID
+				if id then
+					
+				else
+					id = path:match("^/id/([^/]+)") or path -- Vanity url
+					if id then
+						interaction:reply("Vanity url format not supported, must be a SteamID")
+						return
+					end
+		
+				end
+			end
+		end
+		
+	end)
 	
 end
 
