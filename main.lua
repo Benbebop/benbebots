@@ -202,38 +202,47 @@ do -- BENBEBOTS SERVER --
 	cmd:used({"start"}, function() end)
 	cmd:used({"addon"}, function() end)
 	
-	local urlParse = require("url").parse
+	local urlParse, http, ll = require("url").parse, require("coro-http"), require("long-long")
+	
+	local function parseId(str)
+		local id = str:match("^/profiles/(%d+)") or str:match("^%s*(%d+)%s*$") -- SteamID64
+		if id then
+			return http.request("GET", string.format("https://steamcommunity.com/profiles/%s?xml=1", id))
+		end
+		
+		id = str:upper():match("^%s*%[?(%a:1:%d+)%]?%s*$")  -- SteamID3
+		if id then
+			return http.request("GET", string.format("http://steamcommunity.com/profiles/[%s]?xml=1", id))
+		end
+		
+		id = str:match("^/id/([^/]+)") or str  -- Vanity url
+		if id then
+			return http.request("GET", string.format("https://steamcommunity.com/id/%s?xml=1", id))
+		end
+	end
 	
 	cmd:used({"admin"}, function(interaction, args)
+		interaction:replyDeferred(true)
+		
 		local url = urlParse(args.url or "")
 		
 		if url.host and url.host ~= "steamcommunity.com" then interaction:reply("invalid site") return end
 		
-		local path = url.path
-		
-		local id = path:match("^/profiles/(%d+)") or path:match("^%s*(%d+)%s*$") -- SteamID64
+		local id = url.path:upper():match("^%s*(STEAM_%d:%d:%d+)%s*$") -- SteamID
 		if id then
-			interaction:reply("SteamID64 format not supported, must be a SteamID")
-			return
-		else
-			id = path:upper():match("^%s*%[?(U:%d:%d+)%]?%s*$")  -- SteamID3
-			if id then
-				interaction:reply("SteamID3 format not supported, must be a SteamID")
-				return
-			else
-				id = path:upper():match("^%s*(STEAM_%d:%d:%d+)%s*$") -- SteamID
-				if id then
-					
-				else
-					id = path:match("^/id/([^/]+)") or path -- Vanity url
-					if id then
-						interaction:reply("Vanity url format not supported, must be a SteamID")
-						return
-					end
-		
-				end
-			end
+			
 		end
+		
+		local res, body = parseId(url.path)
+		body = body or ""
+		
+		id = body:match("<steamID64>(.-)</steamID64>")
+		if not id then interaction:reply("could not locate steam account id on steam") return end
+		
+		id = ll.strtoull(id)
+		if not id then interaction:reply("could not read steamID64") return end
+		
+		p(id)
 		
 	end)
 	
