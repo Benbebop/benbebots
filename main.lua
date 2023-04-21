@@ -179,7 +179,8 @@ do -- BENBEBOTS SERVER --
 		local invite = benbebot:getInvite(code)
 		if not invite then interaction:reply("invalid invite", true) return end
 		
-		if interaction.user.id ~= "459880024187600937" then
+		if not interaction.member then return end
+		if not interaction.member:hasRole("1068640885581025342") then
 			
 			if interaction.user ~= invite.inviter then interaction:reply("you cannot add an invite that you did not create", true) return end
 
