@@ -202,7 +202,7 @@ do -- BENBEBOTS SERVER --
 	cmd:used({"start"}, function() end)
 	cmd:used({"addon"}, function() end)
 	
-	local urlParse, http, ll = require("url").parse, require("coro-http"), require("long-long")
+	local urlParse, http, ll, keyvalue, bit32 = require("url").parse, require("coro-http"), require("long-long"), require("key-value"), require("bit")
 	
 	local function parseId(str)
 		local id = str:match("^/profiles/(%d+)") or str:match("^%s*(%d+)%s*$") -- SteamID64
@@ -215,23 +215,27 @@ do -- BENBEBOTS SERVER --
 			return http.request("GET", string.format("http://steamcommunity.com/profiles/[%s]?xml=1", id))
 		end
 		
+		local id = str:upper():match("^%s*(STEAM_%d:%d:%d+)%s*$") -- SteamID
+		if id then
+			return nil
+		end
+		
 		id = str:match("^/id/([^/]+)") or str  -- Vanity url
 		if id then
 			return http.request("GET", string.format("https://steamcommunity.com/id/%s?xml=1", id))
 		end
 	end
 	
+	local userPath = "./garrysmodds/garrysmod/settings/users.txt"
+	
 	cmd:used({"admin"}, function(interaction, args)
-		interaction:replyDeferred(true)
+		interaction:replyDeferred()
+		
+		if not fs.existsSync(userPath) then interaction:reply("users.txt does not exist") return end
 		
 		local url = urlParse(args.url or "")
 		
 		if url.host and url.host ~= "steamcommunity.com" then interaction:reply("invalid site") return end
-		
-		local id = url.path:upper():match("^%s*(STEAM_%d:%d:%d+)%s*$") -- SteamID
-		if id then
-			
-		end
 		
 		local res, body = parseId(url.path)
 		body = body or ""
@@ -242,8 +246,33 @@ do -- BENBEBOTS SERVER --
 		id = ll.strtoull(id)
 		if not id then interaction:reply("could not read steamID64") return end
 		
-		p(id)
+		id = string.format("STEAM_%s:%s:%s", 
+			ll.tostring(bit32.rshift(bit32.band(id, 0xFF00000000000000ULL), 56)), 
+			ll.tostring(bit32.band(id, 1ULL)), 
+			ll.tostring(bit32.rshift(bit32.band(id, 0xFFFFFFFFULL), 1))
+		)
 		
+		local name = body:match("<steamID><!%[CDATA%[(.-)%]%]></steamID>")
+		
+		local users = keyvalue.decode(fs.readFileSync(userPath)).Users
+		
+		users.admin = users.admin or {}
+		users.admin[name] = id
+		
+		fs.writeFileSync(userPath, keyvalue.encode({Users = users}))
+		
+		local image = body:match("<avatarIcon><!%[CDATA%[(.-)%]%]></avatarIcon>")
+		
+		local desc = string.format("added %s (`%s`) to admin perms", name or "unknown", id)
+		
+		local _ = interaction:reply({
+			embed = {
+				description = desc,
+				thumbnail = image and {url = image}
+			}
+		})
+		
+		benbebot:info(string.format("added %s (%s) to gmod admin perms", name or "unknown", id))
 	end)
 	
 end
