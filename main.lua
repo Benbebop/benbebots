@@ -200,7 +200,144 @@ do -- BENBEBOTS SERVER --
 	
 	local cmd = benbebot:getCommand("1097727252168445953")
 	
-	cmd:used({"start"}, function() end)
+	local http, json, querystring, uv, los = require("coro-http"), require("json"), require("querystring"), require("uv"), require("los")
+	
+	local function steamRequest(method, interface, method2, version, parameters, ...)
+		parameters = parameters or {}
+		parameters.key = TOKENS.steamApi
+		local res, body = http.request(method, string.format("https://api.steampowered.com/%s/%s/v%d/?%s", interface, method2, version, querystring.stringify(parameters)), ...)
+		
+		if res.code ~= 200 then return nil end
+		
+		return json.parse(body) or body
+	end
+	
+	local function getGSLT()
+		local tokens = steamRequest("GET", "IGameServersService", "GetAccountList", 1)
+		if type(tokens) ~= "table" then return nil, "failed to fetch game server account" end
+		tokens = tokens.response
+		
+		if tokens.is_banned then return nil, "game server account has been banned" end
+		
+		local server
+		for _,v in ipairs(tokens.servers) do
+			if v.memo == "garrysmodserver" then
+				server = v
+				break
+			end
+		end
+		if not server then return nil, "game server token does not exist" end
+		
+		return server
+	end
+	
+	local srcdsPath, srcdsCwd
+	if require("los").type() == "win32" then
+		srcdsPath = require("path").join(uv.cwd(), "bin/SrcdsConRedirect.exe")
+		srcdsCwd = "./garrysmodds/"
+	else
+		srcdsPath = "garrysmodds/srcds_run"
+	end
+	
+	local garrysmodRunning = false
+	
+	cmd:used({"start"}, function(interaction, args)
+		if garrysmodRunning then interaction:reply("there is already a server running") return end
+		interaction:replyDeferred()
+		
+		-- GSLT
+		local gsltToken
+		do
+			local server, err = getGSLT()
+			if not server then benbebot:error("Game server auth error: " .. err) interaction:reply("auth error: " .. err) return end
+			if server.is_expired then
+				steamRequest("POST", "IGameServersService", "ResetLoginToken", 1, {input_json = string.format("{\"steamid\":%s}", server.steamid)})
+				server, err = getGSLT()
+				if not server then benbebot:error("Game server auth error: " .. err) interaction:reply("auth error: " .. err) return end
+				benbebot:info("Reset garrysmod game server token")
+			end
+			
+			gsltToken = server.login_token
+		end
+		
+		garrysmodRunning = true
+		
+		-- spawn srcds
+		local stdin, stdout, stderr = uv.new_pipe() ,uv.new_pipe(), uv.new_pipe()
+		
+		local proc, procId = uv.spawn(srcdsPath, {
+			args = {"+maxplayers", "32", "-console", "-p2p", "+host_workshop_collection", "0", "+gamemode", args.gamemode or "sandbox", "+map", args.map or "gm_construct", "+sv_setsteamaccount", gsltToken},
+			stdio = {stdin, stdout, stderr},
+			cwd = srcdsCwd,
+			detached = true
+		}, function()
+			stdout:read_stop()
+			benbebot:emit("gmodStop")
+			garrysmodRunning = false
+		end)
+		if not proc then interaction:reply("spawn error: could not create server instance") return end
+		
+		interaction:reply({
+			embed = {
+				title = "Starting server ",
+				description = "```\n```"
+			}
+		})
+		local reply = interaction:getReply()
+		
+		-- handle output
+		local outStr, updating = "", false
+		local function updateReply()
+			reply.embed.description = string.format("```\n%s\n```", outStr:match("([^\n\r]+)%s*$"))
+			reply:setEmbed(reply.embed)
+			updating = false
+		end
+		local function readStdout(err, chunk)
+			if err or not chunk then return end
+			local pre, post = chunk:match("^(.-)[\n\r]+(.-)$")
+			if pre and post then
+				table.insert(outStr, pre)
+				benbebot:emit("gmodOutput", table.concat(outStr))
+				outStr = {}
+			end
+			table.insert(outStr, post or chunk)
+		end
+		stdout:read_start(function(err, chunk)
+			if err then return end
+			if not chunk then return end
+			
+			outStr = outStr .. chunk -- would use a buffer but its probably not worth it
+			
+			local joinStr = outStr:match("%-+%s*Steam%s*P2P%s*%-+.-`(.-)`%s*%-+")
+			if joinStr then
+				stdout:read_stop()
+				outStr = {}
+				stdout:read_start(readStdout)
+				benbebot:emit("gmodStart", joinStr)
+				coroutine.wrap(function()
+					reply:setEmbed({title = "Succesfully started Garrysmod server",description = "outputting into <#1068641386024407041>"})
+				end)()
+			elseif not updating then
+				updating = true
+				coroutine.wrap(updateReply)()
+			end
+		end)
+	end)
+	
+	benbebot:on("gmodStart", function(joinStr)
+		benbebot:getChannel("1068641386024407041"):send({content = "<@&1068664164786110554>", embed = {
+			title = "A GarrysMod Server Has Started",
+			description = string.format("you can join it by putting `%s` into your console, or by clicking steam://run/4000//%s/ to launch garrysmod and join", joinStr, querystring.urlencode("+" .. joinStr))
+		}})
+	end)
+	benbebot:on("gmodStop", function()
+		benbebot:getChannel("1068641386024407041"):send({embed = {description = "server has stopped"}})
+	end)
+	
+	benbebot:on("gmodOutput", function(str)
+		benbebot:getChannel("1068641386024407041"):send(str)
+	end)
+	
 	cmd:used({"addon"}, function() end)
 	
 	local urlParse, http, ll, keyvalue, bit32 = require("url").parse, require("coro-http"), require("long-long"), require("key-value"), require("bit")
@@ -267,7 +404,7 @@ do -- BENBEBOTS SERVER --
 		
 		local desc = string.format("added %s (`%s`) to admin perms", name or "unknown", id)
 		
-		local _ = interaction:reply({
+		interaction:reply({
 			embed = {
 				description = desc,
 				thumbnail = image and {url = image}

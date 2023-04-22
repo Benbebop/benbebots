@@ -1,8 +1,5 @@
 -- parse the valve keyvalue data format
 
--- kv, fs = require("key-value"), require("fs") kv.encode(kv.decode(fs.readFileSync("./garrysmodds/garrysmod/settings/users.txt")))
--- print(require("key-value").encode({Users={superadmin={benbebop="STEAM",other="STEAM"},admin={benbebop="STEAM"}}}))
-
 local controlChar = {"{", "}", "\""}
 local escapeChar = {"\n", "\t", "\\", "\""}
 local whiteChar = {" ", "\r", "\n", "\t"}
