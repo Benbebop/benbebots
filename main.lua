@@ -241,10 +241,10 @@ do -- BENBEBOTS SERVER --
 		local res, body = parseId(url.path)
 		body = body or ""
 		
-		id = body:match("<steamID64>(.-)</steamID64>")
-		if not id then interaction:reply("could not locate steam account id on steam") return end
+		local id64 = body:match("<steamID64>(.-)</steamID64>")
+		if not id64 then interaction:reply("could not locate steam account id on steam") return end
 		
-		id = ll.strtoull(id)
+		id = ll.strtoull(id64)
 		if not id then interaction:reply("could not read steamID64") return end
 		
 		id = string.format("STEAM_%s:%s:%s", 
@@ -258,7 +258,7 @@ do -- BENBEBOTS SERVER --
 		local users = keyvalue.decode(fs.readFileSync(userPath)).Users
 		
 		users.admin = users.admin or {}
-		users.admin[name] = id
+		users.admin[id64] = id
 		
 		fs.writeFileSync(userPath, keyvalue.encode({Users = users}))
 		
