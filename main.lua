@@ -257,6 +257,7 @@ do -- BENBEBOTS SERVER --
 		
 		local users = keyvalue.decode(fs.readFileSync(userPath)).Users
 		
+		if users.admin[id64] then interaction:reply("this account is already an admin") return end
 		users.admin = users.admin or {}
 		users.admin[id64] = id
 		
