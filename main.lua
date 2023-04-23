@@ -121,10 +121,10 @@ do -- BENBEBOTS SERVER --
 	
 	local json, http = require("json"), require("coro-http")
 	
-	local STATION = "https://soundcloud.com/discover/sets/picks-for-you::%s"
+	local STATION = "https://soundcloud.com/discover/sets/weekly::%s"
 	local TRACK = "https://api-v2.soundcloud.com/tracks?ids=%s&client_id=%s"
 	
-	local function func()
+	local function func(num)
 		
 		local res, body = http.request("GET", string.format(STATION, "benbebop"))
 		if not (res and (res.code == 200) and body) then benbebot:error("failed to get soundcloud station: %s", res.reason or tostring(res.code)) return end
@@ -143,7 +143,7 @@ do -- BENBEBOTS SERVER --
 		local stationTracks = stationPlaylist.tracks
 		if not stationTracks then benbebot:error("soundcloud station: playlist has no tracks") return end
 		
-		table.remove(stationTracks, 1) -- first result is always by the creator, get rid of it
+		--table.remove(stationTracks, 1) -- first result is always by the creator, get rid of it
 		
 		local client_id
 		for url in body:gmatch("crossorigin%s*src=[\"']([^\"']+)") do -- im not very good at scraping, this works but is incredibly slow, whatever 
@@ -153,7 +153,7 @@ do -- BENBEBOTS SERVER --
 		end
 		if not client_id then benbebot:error("failed to scrape client_id") return end
 		
-		local res, body = http.request("GET", string.format(TRACK, stationTracks[math.random(#stationTracks)].id, client_id))
+		local res, body = http.request("GET", string.format(TRACK, stationTracks[num or 1].id, client_id))
 		if not (res and (res.code == 200) and body) then benbebot:error("failed to get soundcloud track: %s", res.reason or tostring(res.code)) return end
 		
 		local trackData = (json.parse(body) or {})[1]
@@ -164,7 +164,7 @@ do -- BENBEBOTS SERVER --
 		
 	end
 	
-	clock:on("day", func)
+	clock:on("wday", func)
 	
 	-- servers channel
 	
@@ -200,7 +200,7 @@ do -- BENBEBOTS SERVER --
 	
 	local cmd = benbebot:getCommand("1097727252168445953")
 	
-	local http, json, querystring, uv, los = require("coro-http"), require("json"), require("querystring"), require("uv"), require("los")
+	local http, json, querystring, uv, los, keyvalue = require("coro-http"), require("json"), require("querystring"), require("uv"), require("los"), require("key-value")
 	
 	local function steamRequest(method, interface, method2, version, parameters, ...)
 		parameters = parameters or {}
