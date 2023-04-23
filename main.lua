@@ -15,15 +15,9 @@ benbebot:defaultCommandCallback(function(interaction)
 	}})
 end)
 
-do -- BREAD BAG --
+-- BENBEBOTS SERVER --
 	
-	
-	
-end
-
-do -- BENBEBOTS SERVER --
-	
-	-- log dms
+do -- log dms
 	
 	familyGuy:on("messageCreate", function(message)
 		if message.channel.type ~= 1 then return end
@@ -50,7 +44,9 @@ do -- BENBEBOTS SERVER --
 		sudodm:moveUp(sudodm.position)
 	end)
 	
-	-- reaction roles
+end
+
+do -- reaction roles
 	
 	benbebot:on("ready", function()
 		benbebot:getChannel("1075203623073632327"):getMessage("1077041796779094096"):setContent(
@@ -93,7 +89,9 @@ do -- BENBEBOTS SERVER --
 	benbebot:on("reactionRemoveUncached", remove)
 	benbebot:on("reactionRemove", function(reaction, userId) remove(reaction.message.channel, reaction.message.id, reaction.emojiHash, userId) end)
 	
-	-- server owner role
+end
+
+do -- server owner role
 	
 	local function add(guild)
 		local owner = guild.client:getGuild("1068640496139915345"):getMember(guild.ownerId)
@@ -117,7 +115,9 @@ do -- BENBEBOTS SERVER --
 	benbebot:on("guildDelete", check)
 	familyGuy:on("guildDelete", check)
 	
-	-- soundclown
+end
+
+do -- soundclown
 	
 	local json, http = require("json"), require("coro-http")
 	
@@ -166,7 +166,9 @@ do -- BENBEBOTS SERVER --
 	
 	clock:on("wday", func)
 	
-	-- servers channel
+end
+
+do -- servers channel
 	
 	local url = require("url")
 	
@@ -196,7 +198,9 @@ do -- BENBEBOTS SERVER --
 		
 	end)
 	
-	-- game server
+end
+
+do -- game server
 	
 	local cmd = benbebot:getCommand("1097727252168445953")
 	
