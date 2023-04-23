@@ -153,7 +153,7 @@ do -- BENBEBOTS SERVER --
 		end
 		if not client_id then benbebot:error("failed to scrape client_id") return end
 		
-		local res, body = http.request("GET", string.format(TRACK, stationTracks[num or 1].id, client_id))
+		local res, body = http.request("GET", string.format(TRACK, stationTracks[num].id, client_id))
 		if not (res and (res.code == 200) and body) then benbebot:error("failed to get soundcloud track: %s", res.reason or tostring(res.code)) return end
 		
 		local trackData = (json.parse(body) or {})[1]
@@ -212,6 +212,38 @@ do -- BENBEBOTS SERVER --
 		return json.parse(body) or body
 	end
 	
+	local collections
+	
+	local function scrapeCollection(id)
+		local res, body = http.request("GET", "https://steamcommunity.com/sharedfiles/filedetails/?id=" .. id)
+		if res.code ~= 200 or not body then return nil, "could not fetch collections" end
+		
+		body = body:match("<div%s*class=\"workshopItemDescription\"%s*id=\"highlightContent\">(.-)</div>")
+		if not body then return nil, "could not find item description" end
+		
+		body = querystring.urldecode(body)
+		if not body then return nil, "could not decode description" end
+		
+		body = keyvalue.decode(body)
+		if not body then return nil, "could not read keyvalue data" end
+		
+		return body
+	end
+	
+	benbebot:on("ready", function()
+		local tbl = {}
+		local data, err = scrapeCollection("2966047786")
+		for _,v in pairs(data.Collections) do
+			local data, err = scrapeCollection(v)
+			
+			table.insert(collections, data.Gamemode)
+		end
+		
+		benbebot:info("Finished scraping gamemodes")
+		
+		collections = tbl
+	end)
+	
 	local function getGSLT()
 		local tokens = steamRequest("GET", "IGameServersService", "GetAccountList", 1)
 		if type(tokens) ~= "table" then return nil, "failed to fetch game server account" end
@@ -242,7 +274,8 @@ do -- BENBEBOTS SERVER --
 	local garrysmodRunning = false
 	
 	cmd:used({"start"}, function(interaction, args)
-		if garrysmodRunning then interaction:reply("there is already a server running") return end
+		if not collections then interaction:reply("loading gamemode data, please try again later") return end
+		if garrysmodRunning then interaction:reply("there is already a server instance running") return end
 		interaction:replyDeferred()
 		
 		-- GSLT
@@ -260,13 +293,29 @@ do -- BENBEBOTS SERVER --
 			gsltToken = server.login_token
 		end
 		
+		-- parse gamemode
+		local gamemode
+		if args.gamemode then
+			for _,v in ipairs(collections) do
+				local start, fin = string.find(v.title:lower(), args.gamemode:lower(), nil, true)
+				if (start and fin) and start == 1 then
+					gamemode = v.gamemode
+				end
+			end
+		else
+			gamemode = "sandbox"
+		end
+		
+		-- parse map
+		local map = args.map or "gm_construct"
+		
 		garrysmodRunning = true
 		
 		-- spawn srcds
 		local stdin, stdout, stderr = uv.new_pipe() ,uv.new_pipe(), uv.new_pipe()
 		
 		local proc, procId = uv.spawn(srcdsPath, {
-			args = {"+maxplayers", "32", "-console", "-p2p", "+host_workshop_collection", "0", "+gamemode", args.gamemode or "sandbox", "+map", args.map or "gm_construct", "+sv_setsteamaccount", gsltToken},
+			args = {"+maxplayers", "32", "-console", "-p2p", "+host_workshop_collection", "0", "+gamemode", gamemode, "+map", map, "+sv_setsteamaccount", gsltToken},
 			stdio = {stdin, stdout, stderr},
 			cwd = srcdsCwd,
 			detached = true
