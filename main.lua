@@ -6,8 +6,8 @@ local discordia = require("discordia")
 local enums = discordia.enums
 local clock = discordia.Clock()
 
-local benbebot, familyGuy = discordia.Client(), discordia.Client()
-benbebot._logger:setPrefix("BBB") familyGuy._logger:setPrefix("FLG") 
+local benbebot, familyGuy, cannedFood = discordia.Client(), discordia.Client(), discordia.Client()
+benbebot._logger:setPrefix("BBB") familyGuy._logger:setPrefix("FLG") cannedFood._logger:setPrefix("CNF") 
 
 benbebot:defaultCommandCallback(function(interaction)
 	interaction:reply({embed = {
@@ -470,13 +470,45 @@ do -- game server
 	
 end
 
+do -- nothing wacky here
+	local querystring = require("querystring")
+
+	local channels = {
+		"1068657073321169067", -- test channel
+		"860934345677864961", -- swiss sauce annoucements
+		"1036666698746581024", -- smoke annoucements
+		"823397621887926272", "822165179692220479", -- breadbag
+		"670393873813733416", -- pro promello
+		"884714408922742784" -- librarian
+		"564829092621451274", -- alphaplace
+		"750840603113422889", -- gabe
+		"1020127285229146112" -- ghetto smosh
+	}
+
+	cannedFood:on("messageCreate", function(message)
+		local rightChannel = false
+		for _,channel in ipairs(channels) do
+			if message.channel.id == channel then rightChannel = true break end
+		end
+		if not rightChannel then
+			local rightUser = false
+			for user in message.mentionedUsers:iter() do
+				if user.id == cannedFood.user.id then rightUser = true break end
+			end
+			if not rightUser then return end
+		end
+		message:addReaction(querystring.urldecode("%F0%9F%A5%AB"))
+	end)
+end
+
 local readys, thread = 0, coroutine.running()
 local function func() readys = readys + 1 coroutine.resume(thread) end
 
 benbebot:run("Bot " .. TOKENS.benbebot) benbebot:onceSync("ready", func)
 familyGuy:run("Bot " .. TOKENS.familyGuy) familyGuy:onceSync("ready", func)
+cannedFood:run(TOKENS.cannedFood) cannedFood:onceSync("ready", func)
 
-repeat coroutine.yield() until readys >= 2
+repeat coroutine.yield() until readys >= 3
 
 benbebot:info("All bots ready")
 
