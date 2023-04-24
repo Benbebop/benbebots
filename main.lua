@@ -124,7 +124,7 @@ do -- soundclown
 	local STATION = "https://soundcloud.com/discover/sets/weekly::%s"
 	local TRACK = "https://api-v2.soundcloud.com/tracks?ids=%s&client_id=%s"
 	
-	local function func(num)
+	local function func(date)
 		
 		local res, body = http.request("GET", string.format(STATION, "benbebop"))
 		if not (res and (res.code == 200) and body) then benbebot:error("failed to get soundcloud station: %s", res.reason or tostring(res.code)) return end
@@ -153,7 +153,7 @@ do -- soundclown
 		end
 		if not client_id then benbebot:error("failed to scrape client_id") return end
 		
-		local res, body = http.request("GET", string.format(TRACK, stationTracks[num].id, client_id))
+		local res, body = http.request("GET", string.format(TRACK, stationTracks[date.wday].id, client_id))
 		if not (res and (res.code == 200) and body) then benbebot:error("failed to get soundcloud track: %s", res.reason or tostring(res.code)) return end
 		
 		local trackData = (json.parse(body) or {})[1]
@@ -240,7 +240,7 @@ do -- game server
 		for _,v in pairs(data.Collections) do
 			local data, err = scrapeCollection(v)
 			
-			table.insert(collections, data.Gamemode)
+			table.insert(tbl, data.Gamemode)
 		end
 		
 		benbebot:info("Finished scraping gamemodes")
@@ -299,19 +299,20 @@ do -- game server
 		
 		-- parse gamemode
 		local gamemode
+		args.gamemode = args.gamemode or "sandbox"
 		if args.gamemode then
 			for _,v in ipairs(collections) do
 				local start, fin = string.find(v.title:lower(), args.gamemode:lower(), nil, true)
 				if (start and fin) and start == 1 then
-					gamemode = v.gamemode
+					gamemode = v
 				end
 			end
-		else
-			gamemode = "sandbox"
 		end
+		if not gamemode then interaction:reply("input error: invalid gamemode") return end
 		
 		-- parse map
-		local map = args.map or "gm_construct"
+		local map = args.map or gamemode.default_map or "gm_construct"
+		if not map then interaction:reply("input error: invalid map") return end
 		
 		garrysmodRunning = true
 		
@@ -319,7 +320,7 @@ do -- game server
 		local stdin, stdout, stderr = uv.new_pipe() ,uv.new_pipe(), uv.new_pipe()
 		
 		local proc, procId = uv.spawn(srcdsPath, {
-			args = {"+maxplayers", "32", "-console", "-p2p", "+host_workshop_collection", "0", "+gamemode", gamemode, "+map", map, "+sv_setsteamaccount", gsltToken},
+			args = {"+maxplayers", "32", "-console", "-p2p", "+host_workshop_collection", "0", "+gamemode", gamemode.gamemode, "+map", map, "+sv_setsteamaccount", gsltToken},
 			stdio = {stdin, stdout, stderr},
 			cwd = srcdsCwd,
 			detached = true
