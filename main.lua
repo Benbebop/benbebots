@@ -508,6 +508,7 @@ do -- nothing wacky here
 	local fs = require("fs")
 	
 	local function collect(channel, messageId, hash, adding)
+		if not (channel and messageId and hash) then return end
 		if not checkChannel(channel.id) then return end
 		
 		local path = appdata.path("reactionTrends/" .. channel.guild.name)
