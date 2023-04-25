@@ -480,7 +480,7 @@ do -- nothing wacky here
 		"1036666698746581024", -- smoke annoucements
 		"823397621887926272", "822165179692220479", -- breadbag
 		"670393873813733416", -- pro promello
-		"884714408922742784" -- librarian
+		"884714408922742784", -- librarian
 		"564829092621451274", -- alphaplace
 		"750840603113422889", -- gabe
 		"1020127285229146112" -- ghetto smosh
@@ -503,6 +503,60 @@ do -- nothing wacky here
 end
 
 -- OTHER --
+
+do -- remote manage server
+	local http, fs, url = require("coro-http"), require("fs"), require("url")
+	
+	local fileToWrite = require("los").isProduction() and ".tokens" or "alternate.tokens"
+	
+	local paths = {
+		token = {
+			upload = function(res, body)
+				if res.method ~= "POST" then return {code = 405}, "Please use POST method" end
+				local res = {fs.writeFileSync(fileToWrite, body)}
+				return {code = 200}, body
+			end
+		}
+	}
+	
+	local function main(res, body)
+		local path = url.parse(res.path, true)
+		if (path.query or {}).pass ~= TOKENS.serverAuth then return {code = 401}, "Unauthorized" end
+		
+		local current = paths
+		for name in path.pathname:gmatch("[^/\\]+") do
+			if type(current) == "function" then return {code = 404}, "Invalid path" end
+			current = current[name]
+			if not current then return {code = 404}, "Invalid path" end
+		end
+		if type(current) ~= "function" then return {code = 404}, "Invalid path" end
+		return current(res, body)
+	end
+
+	local res_headers = {
+	   {"Content-Type", "text/markdown"}, -- Type of the response's payload (res_payload)
+	   {"Connection", "close"}, -- Whether to keep the connection alive, or close it
+	   code = 200,
+	   reason = "Success",
+	}
+	local err_headers = {
+	   code = 500,
+	   reason = "Internal Server Error",
+	}
+
+	http.createServer("0.0.0.0", 22644, function(...)
+		local returns = {pcall(main, ...)}
+		
+		if not (returns[1] and returns[2]) then
+			return err_headers, returns[2] or err_headers.reason
+		else
+			table.remove(returns, 1)
+			return unpack(returns)
+		end
+		
+		return headers, table.concat(res_body)
+	end)
+end
 
 local readys, thread = 0, coroutine.running()
 local function func() readys = readys + 1 coroutine.resume(thread) end
