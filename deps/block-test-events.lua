@@ -1,7 +1,7 @@
 -- blocks any webhook events coming from the testing channel
 local uv = require("uv")
 
-if uv.os_gethostname() ~= "benbebot-server-computer" then return end
+if not require("los").isProduction() then return end
 
 local discordia = require("discordia")
 
