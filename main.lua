@@ -470,11 +470,12 @@ do -- game server
 	
 end
 
-do -- nothing wacky here
-	local querystring = require("querystring")
+-- CANNED FOOD --
 
+do -- nothing wacky here
+	local emoji = require("querystring").urldecode("%F0%9F%A5%AB")
+	
 	local channels = {
-		"1068657073321169067", -- test channel
 		"860934345677864961", -- swiss sauce annoucements
 		"1036666698746581024", -- smoke annoucements
 		"823397621887926272", "822165179692220479", -- breadbag
@@ -497,9 +498,11 @@ do -- nothing wacky here
 			end
 			if not rightUser then return end
 		end
-		message:addReaction(querystring.urldecode("%F0%9F%A5%AB"))
+		message:addReaction(emoji)
 	end)
 end
+
+-- OTHER --
 
 local readys, thread = 0, coroutine.running()
 local function func() readys = readys + 1 coroutine.resume(thread) end
