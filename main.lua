@@ -485,13 +485,17 @@ do -- nothing wacky here
 		"750840603113422889", -- gabe
 		"1020127285229146112" -- ghetto smosh
 	}
-
-	cannedFood:on("messageCreate", function(message)
+	
+	local function checkChannel(id)
 		local rightChannel = false
 		for _,channel in ipairs(channels) do
-			if message.channel.id == channel then rightChannel = true break end
+			if id == channel then rightChannel = true break end
 		end
-		if not rightChannel then
+		return rightChannel
+	end
+	
+	cannedFood:on("messageCreate", function(message)
+		if not checkChannel(message.channel.id) then
 			local rightUser = false
 			for user in message.mentionedUsers:iter() do
 				if user.id == cannedFood.user.id then rightUser = true break end
@@ -500,6 +504,26 @@ do -- nothing wacky here
 		end
 		message:addReaction(emoji)
 	end)
+	
+	local fs = require("fs")
+	
+	local function collect(channel, messageId, hash, adding)
+		if not checkChannel(channel.id) then return end
+		
+		local path = appdata.path("reactionTrends/" .. channel.guild.name)
+		if not fs.existsSync(path) then fs.mkdirSync(path) end
+		
+		local file = string.format("%s/%s.dat", path, messageId)
+		local seconds, microseconds = uv.gettimeofday()
+		fs.appendFileSync(file, string.pack("I1<I4<I4<s1<",  adding and 1 or 0, seconds, microseconds, hash))
+	end
+	
+	cannedFood:on("reactionAdd", function(reaction) collect(reaction.channel, reaction.message.id, reaction.emojiHash, true) end)
+	cannedFood:on("reactionAddUncached", function(channel, messageId, hash) collect(channel, messageId, hash, true) end)
+	cannedFood:on("reactionRemove", function(reaction) collect(reaction.channel, reaction.message.id, reaction.emojiHash, false) end)
+	cannedFood:on("reactionRemoveUncached", function(channel, messageId, hash) collect(channel, messageId, hash, false) end)
+	
+	if not fs.existsSync(appdata.path("reactionTrends")) then fs.mkdirSync(appdata.path("reactionTrends")) end
 end
 
 -- OTHER --
