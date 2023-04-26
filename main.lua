@@ -478,7 +478,7 @@ do -- nothing wacky here
 	local channels = {
 		"860934345677864961", -- swiss sauce annoucements
 		"1036666698746581024", -- smoke annoucements
-		"823397621887926272", "822165179692220479", -- breadbag
+		--"823397621887926272", "822165179692220479", -- breadbag
 		"670393873813733416", -- pro promello
 		"884714408922742784", -- librarian
 		"564829092621451274", -- alphaplace
@@ -502,8 +502,10 @@ do -- nothing wacky here
 			end
 			if not rightUser then return end
 		end
-		timer.sleep(math.random(1,5000))
+		local delay = math.random(1,12000)
+		timer.sleep(delay)
 		message:addReaction(emoji)
+		cannedFood:info("Reacted to message in %s with a delay of %ds", message.guild.name, delay / 1000)
 	end)
 	
 	local fs = require("fs")
