@@ -473,7 +473,7 @@ end
 -- CANNED FOOD --
 
 do -- nothing wacky here
-	local emoji = require("querystring").urldecode("%F0%9F%A5%AB")
+	local emoji, timer = require("querystring").urldecode("%F0%9F%A5%AB"), require("timer")
 	
 	local channels = {
 		"860934345677864961", -- swiss sauce annoucements
@@ -502,6 +502,7 @@ do -- nothing wacky here
 			end
 			if not rightUser then return end
 		end
+		timer.sleep(math.random(1,5000))
 		message:addReaction(emoji)
 	end)
 	
