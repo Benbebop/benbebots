@@ -475,16 +475,24 @@ end
 do -- nothing wacky here
 	local emoji, timer = require("querystring").urldecode("%F0%9F%A5%AB"), require("timer")
 	
-	local channels = {
-		"860934345677864961", -- swiss sauce annoucements
-		"1036666698746581024", -- smoke annoucements
-		--"823397621887926272", "822165179692220479", -- breadbag
-		"670393873813733416", -- pro promello
-		"884714408922742784", -- librarian
-		"564829092621451274", -- alphaplace
-		"750840603113422889", -- gabe
-		"1020127285229146112" -- ghetto smosh
-	}
+	local channels
+	
+	if require("los").isProduction() then
+		channels = {
+			"860934345677864961", -- swiss sauce annoucements
+			"1036666698746581024", -- smoke annoucements
+			--"823397621887926272", "822165179692220479", -- breadbag
+			"670393873813733416", -- pro promello
+			"884714408922742784", -- librarian
+			"564829092621451274", -- alphaplace
+			"750840603113422889", -- gabe
+			"1020127285229146112" -- ghetto smosh
+		}
+	else
+		channels = {
+			"1068657073321169067" -- test channel
+		}
+	end
 	
 	local function checkChannel(id)
 		local rightChannel = false
