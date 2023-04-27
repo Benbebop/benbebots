@@ -6,7 +6,7 @@ local discordia = require("discordia")
 local enums = discordia.enums
 local clock = discordia.Clock()
 
-local logLevel = require("los").isProduction() and 4 or 3
+local logLevel = require("los").isProduction() and 3 or 4
 fs.mkdirSync(appdata.path("logs"))
 local benbebot, familyGuy, cannedFood = discordia.Client({logFile=appdata.path("logs/bbb_discordia.log"),gatewayFile=appdata.path("logs/bbb_gateway.json"),logLevel=logLevel})
 local familyGuy = discordia.Client({logFile=appdata.path("logs/fg_discordia.log"),gatewayFile=appdata.path("logs/fg_gateway.json"),logLevel=logLevel})
@@ -692,6 +692,11 @@ local function func() readys = readys + 1 coroutine.resume(thread) end
 
 benbebot:run("Bot " .. TOKENS.benbebot) benbebot:onceSync("ready", func)
 familyGuy:run("Bot " .. TOKENS.familyGuy) familyGuy:onceSync("ready", func)
+
+do -- get cannedFood token
+	
+end
+
 cannedFood:run(TOKENS.cannedFood) cannedFood:onceSync("ready", func)
 
 repeat coroutine.yield() until readys >= 3
