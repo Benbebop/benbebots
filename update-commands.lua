@@ -27,7 +27,7 @@ end]]
 
 -- GUILD COMMANDS --
 
-request(benbebot, "PUT", "/guilds/1068640496139915345/commands", {
+p(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", {
 	
 	{
 		type = 1,
@@ -94,8 +94,33 @@ request(benbebot, "PUT", "/guilds/1068640496139915345/commands", {
 				}
 			}
 		}
-	}
+	},
 	
-})
+	{
+		type = 1,
+		name = "getfile",
+		description = "get a data file from the server",
+		id = "1100968409765777479",
+		options = {
+			{
+				type = 3,
+				name = "location",
+				description = "where to search for files in",
+				required = true,
+				choices = {
+					{name = "appdata", value = "appdata"},
+					{name = "temp", value = "temp"},
+					{name = "garrysmod", value = "garrysmod"}
+				}
+			},{
+				type = 3,
+				name = "path",
+				description = "file path",
+				required = true,
+				autocomplete = true
+			}
+		}
+	},
+}))
 
 os.exit()

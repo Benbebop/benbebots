@@ -470,6 +470,116 @@ do -- game server
 	
 end
 
+do -- get files --
+	local fs, appdata, watcher, path = require("fs"), require("data"), require("fs-watcher"), require("path")
+	
+	local cmd = benbebot:getCommand("1100968409765777479")
+	
+	local fileLocations = {}
+	local paths = {}
+	
+	local function processFile(loc, event, filepath, newpath)
+		if event == "delete" or event == "rename" then
+			for i,v in ipairs(fileLocations[loc]) do
+				if path.pathEquals(v, filepath) then table.remove(fileLocations[loc], i) break end
+			end
+		end
+		
+		if event == "create" or event == "rename" then
+			local filepath = (newpath or filepath):gsub("\\", "/")
+			
+			table.insert(fileLocations[loc], filepath)
+		end
+		
+		if event == "error" then
+			error(filepath or "")
+		end
+	end
+	
+	local function scanFiles(loc, pa)
+		if not fs.existsSync(pa) then return end
+		local iter = fs.scandirSync(pa)
+		
+		local map = {iter = iter, p = ""}
+		
+		local file, t = iter()
+		while map and file do
+			if t == "directory" then
+				iter = fs.scandirSync(path.join(pa, map.p, file))
+				map = {iter = iter, parent = map, p = path.join(map.p, file)}
+			else
+				local pat = path.join(map.p, file):gsub("\\", "/")
+				table.insert(fileLocations[loc], pat)
+			end
+			
+			file, t = iter()
+			if not file then
+				map = map.parent
+				if map then
+					iter = map.iter
+					file, t = iter()
+				end
+			end
+		end
+	end
+	
+	fileLocations.appdata = {}
+	paths.appdata = appdata.path("")
+	
+	scanFiles("appdata", paths.appdata)
+	watcher.watch(paths.appdata, true, function(...) processFile("appdata", ...) end)
+	
+	fileLocations.temp = {}
+	paths.temp = appdata.tempPath("")
+	
+	scanFiles("temp", paths.temp)
+	watcher.watch(paths.temp, true, function(...) processFile("temp", ...) end)
+	
+	fileLocations.garrysmod = {}
+	paths.garrysmod = "./garrysmodds/garrysmod/data/"
+	
+	scanFiles("garrysmod", paths.garrysmod)
+	watcher.watch(paths.garrysmod, true, function(...) processFile("garrysmod", ...) end)
+	
+	scanFiles = nil
+	
+	cmd:autocomplete({}, function(interaction, args, _, focused)
+		if not (args.location and args.path) then return {} end
+		if not interaction.member:hasRole("1068640885581025342") then return {} end
+		if focused ~= "path" then return {} end 
+		local files = fileLocations[args.location or ""]
+		if not files then return {} end
+		
+		local autocomplete, n = {}, 0
+		
+		for _,path in ipairs(files) do
+			local start = string.find(path, args.path, nil, true)
+			if start and start <= 1 then
+				n = n + 1
+				table.insert(autocomplete, {name = path, value = path})
+			end
+			if n >= 25 then break end 
+		end
+		
+		return autocomplete
+	end)
+	
+	cmd:used({}, function(interaction, args)
+		if not interaction.member:hasRole("1068640885581025342") then interaction:reply("you are not authorized to use this command", true) return end
+		if not (args.location and args.path) then interaction:reply("please provide all arguments", true) return end
+		
+		local pa = paths[args.location]
+		if not pa then interaction:reply("location is invalid", true) return end
+		pa = path.join(pa, args.path)
+		if not fs.existsSync(pa) then interaction:reply("path is invalid", true) return end
+		
+		local content = fs.readFileSync(pa)
+		if not content then interaction:reply("file is invalid", true) return end
+		
+		interaction:reply({file = {path.basename(pa), content}}, true)
+	end)
+end
+
 -- CANNED FOOD --
 
 do -- nothing wacky here
