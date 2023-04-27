@@ -43,7 +43,7 @@ function Client:__init( ... )
 		local args, argsOrdered, focused = {}, {}
 		
 		for i,v in ipairs(opt) do
-			if v.focused then focused = v end
+			if v.focused then focused = v.name end
 			args[v.name] = v.value
 			argsOrdered[i] = v.value
 		end
@@ -58,7 +58,7 @@ function Client:__init( ... )
 			local callback = cmd[2]
 			if not callback then return end
 			
-			interaction:autocomplete(callback(interaction, args, argsOrdered, focused))
+			interaction:autocomplete(callback(interaction, args, argsOrdered, focused) or {})
 			
 		end
 		
