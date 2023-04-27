@@ -625,27 +625,6 @@ do -- nothing wacky here
 		message:addReaction(emoji)
 		cannedFood:info("Reacted to message in %s with a delay of %ds", message.guild.name, delay / 1000)
 	end)
-	
-	local fs = require("fs")
-	
-	local function collect(channel, messageId, hash, adding)
-		if not (channel and messageId and hash) then return end
-		if not checkChannel(channel.id) then return end
-		
-		local path = appdata.path("reactionTrends/" .. channel.guild.name)
-		if not fs.existsSync(path) then fs.mkdirSync(path) end
-		
-		local file = string.format("%s/%s.dat", path, messageId)
-		local seconds, microseconds = uv.gettimeofday()
-		fs.appendFileSync(file, string.pack("I1<I4<I4<s1<",  adding and 1 or 0, seconds, microseconds, hash))
-	end
-	
-	cannedFood:on("reactionAdd", function(reaction) collect(reaction.channel, reaction.message.id, reaction.emojiHash, true) end)
-	cannedFood:on("reactionAddUncached", function(channel, messageId, hash) collect(channel, messageId, hash, true) end)
-	cannedFood:on("reactionRemove", function(reaction) collect(reaction.channel, reaction.message.id, reaction.emojiHash, false) end)
-	cannedFood:on("reactionRemoveUncached", function(channel, messageId, hash) collect(channel, messageId, hash, false) end)
-	
-	if not fs.existsSync(appdata.path("reactionTrends")) then fs.mkdirSync(appdata.path("reactionTrends")) end
 end
 
 -- OTHER --
