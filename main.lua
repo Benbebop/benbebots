@@ -6,7 +6,11 @@ local discordia = require("discordia")
 local enums = discordia.enums
 local clock = discordia.Clock()
 
-local benbebot, familyGuy, cannedFood = discordia.Client(), discordia.Client(), discordia.Client()
+local logLevel = require("los").isProduction() and 4 or 3
+fs.mkdirSync(appdata.path("logs"))
+local benbebot, familyGuy, cannedFood = discordia.Client({logFile=appdata.path("logs/bbb_discordia.log"),gatewayFile=appdata.path("logs/bbb_gateway.json"),logLevel=logLevel})
+local familyGuy = discordia.Client({logFile=appdata.path("logs/fg_discordia.log"),gatewayFile=appdata.path("logs/fg_gateway.json"),logLevel=logLevel})
+local cannedFood = discordia.Client({logFile=appdata.path("logs/cf_discordia.log"),gatewayFile=appdata.path("logs/cf_gateway.json"),logLevel=logLevel})
 benbebot._logger:setPrefix("BBB") familyGuy._logger:setPrefix("FLG") cannedFood._logger:setPrefix("CNF") 
 
 benbebot:defaultCommandCallback(function(interaction)

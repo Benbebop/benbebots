@@ -41,6 +41,7 @@ gateway.json
 # Benbebots
 .tokens
 garrysmodds/*
+test.lua
 
 # SteamAPI
 steam_appid.txt
