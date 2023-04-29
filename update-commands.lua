@@ -135,7 +135,11 @@ p(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", {
 			},{
 				type = 1,
 				name = "version",
-				description = "get current version of the bot",
+				description = "get version information about the bots",
+			},{
+				type = 1,
+				name = "restart",
+				description = "restart the bots",
 			}
 		}
 	},

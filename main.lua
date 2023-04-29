@@ -608,6 +608,25 @@ do -- bot control --
 		}})
 	end)
 	
+	cmd:used({"pull"}, function(interaction)
+		if not los.isProduction() then interaction:reply("cannot pull on test branch") return end
+		
+		local proc, err = spawn("git", {args = {"pull"}, stdio = {nil, true, true}})
+		if not proc then return end
+		proc:waitExit()
+		
+		interaction:reply({embed = {
+			description = string.format("```%s```", proc.stdout.read() or proc.stderr.read())
+		}})
+		
+		os.exit()
+	end)
+	
+	cmd:used({"restart"}, function(interaction)
+		interaction:reply("restarting...")
+		os.exit()
+	end)
+	
 end
 
 -- CANNED FOOD --
