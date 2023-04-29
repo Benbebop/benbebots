@@ -241,8 +241,11 @@ do -- game server
 	benbebot:on("ready", function()
 		local tbl = {}
 		local data, err = scrapeCollection("2966047786")
+		if not data then benbebot:error("garrysmod server: %s", err) return end
 		for _,v in pairs(data.Collections) do
 			local data, err = scrapeCollection(v)
+			
+			if not data then benbebot:error("garrysmod server: %s", err) return end
 			
 			table.insert(tbl, data.Gamemode)
 		end
