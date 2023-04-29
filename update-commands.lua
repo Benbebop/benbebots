@@ -121,6 +121,24 @@ p(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", {
 			}
 		}
 	},
+	
+	{
+		type = 1,
+		name = "control",
+		description = "control the bots",
+		id = "1101705431769948180",
+		options = {
+			{
+				type = 1,
+				name = "pull",
+				description = "update to latest version"
+			},{
+				type = 1,
+				name = "version",
+				description = "get current version of the bot",
+			}
+		}
+	},
 }))
 
 os.exit()
