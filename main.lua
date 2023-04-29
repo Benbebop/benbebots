@@ -1,4 +1,4 @@
-VERSION = "3.63"
+VERSION = "3.64"
 
 local uv, fs, appdata = require("uv"), require("fs"), require("data")
 
@@ -589,14 +589,22 @@ do -- get files --
 	end)
 end
 
-do -- version commands --
+do -- bot control --
 	local uv, jit, los = require("uv"), require("jit"), require("los")
+	local spawn = require("coro-spawn")
 	
 	local cmd = benbebot:getCommand("1101705431769948180")
 	
 	cmd:used({"version"}, function(interaction)
+		-- git version
+		local proc, err = spawn("git", {args = {"rev-parse", "--short", "HEAD"}, stdio = {nil, true}})
+		if not proc then return end
+		proc:waitExit()
+		
+		local gitHash = proc.stdout.read()
+		
 		interaction:reply({embed = {
-			description = string.format("Luvit %s\n%s\nBenbebots %s `%s`\n%s_%s%s", uv.version_string(), jit.version, VERSION, "nil", jit.os, jit.arch, los.isProduction() and "" or " Test Branch")
+			description = string.format("Luvit %s\n%s\nBenbebots %s `%s`\n%s_%s%s", uv.version_string(), jit.version, VERSION, gitHash, jit.os, jit.arch, los.isProduction() and "" or " Test Branch")
 		}})
 	end)
 	
