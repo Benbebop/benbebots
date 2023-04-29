@@ -1,3 +1,5 @@
+VERSION = "3.63"
+
 local uv, fs, appdata = require("uv"), require("fs"), require("data")
 
 require("./load-deps.lua")
@@ -587,6 +589,19 @@ do -- get files --
 	end)
 end
 
+do -- version commands --
+	local uv, jit, los = require("uv"), require("jit"), require("los")
+	
+	local cmd = benbebot:getCommand("1101705431769948180")
+	
+	cmd:used({"version"}, function(interaction)
+		interaction:reply({embed = {
+			description = string.format("Luvit %s\n%s\nBenbebots %s `%s`\n%s_%s%s", uv.version_string(), jit.version, VERSION, "nil", jit.os, jit.arch, los.isProduction() and "" or " Test Branch")
+		}})
+	end)
+	
+end
+
 -- CANNED FOOD --
 
 do -- nothing wacky here
@@ -632,19 +647,6 @@ do -- nothing wacky here
 		message:addReaction(emoji)
 		cannedFood:info("Reacted to message in %s with a delay of %ds", message.guild.name, delay / 1000)
 	end)
-end
-
-do -- version commands --
-	local uv, jit, los = require("uv"), require("jit"), require("los")
-	
-	local cmd = benbebot:getCommand("1101705431769948180")
-	
-	cmd:used({"version"}, function(interaction)
-		interaction:reply({embed = {
-			description = string.format("Luvit %s\n%s\n%s_%s%s", uv.version_string(), jit.version, jit.os, jit.arch, los.isProduction() and "" or " Test Branch")
-		}})
-	end)
-	
 end
 
 -- OTHER --
