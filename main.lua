@@ -13,7 +13,8 @@ fs.mkdirSync(appdata.path("logs"))
 local benbebot, familyGuy, cannedFood = discordia.Client({logFile=appdata.path("logs/bbb_discordia.log"),gatewayFile=appdata.path("logs/bbb_gateway.json"),logLevel=logLevel})
 local familyGuy = discordia.Client({logFile=appdata.path("logs/fg_discordia.log"),gatewayFile=appdata.path("logs/fg_gateway.json"),logLevel=logLevel})
 local cannedFood = discordia.Client({logFile=appdata.path("logs/cf_discordia.log"),gatewayFile=appdata.path("logs/cf_gateway.json"),logLevel=logLevel})
-benbebot._logger:setPrefix("BBB") familyGuy._logger:setPrefix("FLG") cannedFood._logger:setPrefix("CNF") 
+benbebot._logger:setPrefix("BBB") familyGuy._logger:setPrefix("FLG") cannedFood._logger:setPrefix("CNF")
+benbebot._logChannel, familyGuy._logChannel, cannedFood._logChannel = "1091403807973441597", "1091403807973441597", "1091403807973441597", 
 
 benbebot:defaultCommandCallback(function(interaction)
 	interaction:reply({embed = {
@@ -717,19 +718,29 @@ do -- remote manage server
 	   code = 500,
 	   reason = "Internal Server Error",
 	}
-
-	http.createServer("0.0.0.0", 22644, function(...)
-		local returns = {pcall(main, ...)}
+	
+	do -- success and err are kind of common variable names so make them local just in case
 		
-		if not (returns[1] and returns[2]) then
-			return err_headers, returns[2] or err_headers.reason
-		else
-			table.remove(returns, 1)
-			return unpack(returns)
-		end
+		local success, err = pcall(http.createServer, "0.0.0.0", 22644, function(...)
+			local returns = {pcall(main, ...)}
+			
+			if not (returns[1] and returns[2]) then
+				return err_headers, returns[2] or err_headers.reason
+			else
+				table.remove(returns, 1)
+				return unpack(returns)
+			end
+			
+			return headers, table.concat(res_body)
+		end)
 		
-		return headers, table.concat(res_body)
-	end)
+		benbebot:on("ready", function()
+			if not success then
+				benbebot:outputNoPrint("error", "Could not create dev server: \n%s", err)
+			end
+		end)
+	
+	end
 end
 
 do -- get cannedFood token

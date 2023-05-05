@@ -3,6 +3,7 @@
 require("token")
 
 require("discordia-interactions")
+require("discordia-extend")
 require("commands")
 
 require("los-extend")
