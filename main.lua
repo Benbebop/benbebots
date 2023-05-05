@@ -102,7 +102,7 @@ do -- server owner role
 	
 	local function add(guild)
 		local owner = guild.client:getGuild("1068640496139915345"):getMember(guild.ownerId)
-		if owner then owner:addRole("1068721381178617896") guild.client:info("added server owner role to %s", owner.name) end
+		if owner then owner:addRole("1068721381178617896") guild.client:output("info", "added server owner role to %s", owner.name) end
 	end
 	benbebot:on("guildCreate", add)
 	familyGuy:on("guildCreate", add)
@@ -113,9 +113,9 @@ do -- server owner role
 			local owner = guild.client:getGuild("1068640496139915345"):getMember(guild.ownerId)
 			if owner then 
 				owner:removeRole("1068721381178617896") 
-				guild.client:info("removed server owner role from %s", owner.name) 
+				guild.client:output("info", "removed server owner role from %s", owner.name) 
 			else
-				guild.client:error("failed to find owner of guild %s and remove server owner role", guild.name)
+				guild.client:output("error", "failed to find owner of guild %s and remove server owner role", guild.name)
 			end
 		end
 	end
@@ -134,21 +134,21 @@ do -- soundclown
 	local function func(date)
 		
 		local res, body = http.request("GET", string.format(STATION, "benbebop"))
-		if not (res and (res.code == 200) and body) then benbebot:error("failed to get soundcloud station: %s", res.reason or tostring(res.code)) return end
+		if not (res and (res.code == 200) and body) then benbebot:output("error", "failed to get soundcloud station: %s", res.reason or tostring(res.code)) return end
 		
 		local stationContent = body:match("window.__sc_hydration%s*=%s*(%b[])")
-		if not stationContent then benbebot:error("soundcloud station: could not locate hydration content") return end
+		if not stationContent then benbebot:output("error", "soundcloud station: could not locate hydration content") return end
 		
 		stationContent = json.parse(stationContent)
-		if not stationContent then benbebot:error("soundcloud station: hydration content is not valid json") return end
+		if not stationContent then benbebot:output("error", "soundcloud station: hydration content is not valid json") return end
 		
 		local stationPlaylist
 		for _,v in ipairs(stationContent) do if v.hydratable == "systemPlaylist" then stationPlaylist = v.data end end
-		if not stationPlaylist then benbebot:error("soundcloud station: could not locate hydratable systemPlaylist") return end
-		if stationPlaylist.playlist_type ~= "PLAYLIST" then benbebot:error("soundcloud station: systemPlaylist is not a playlist: %s", stationPlaylist.playlist_type) return end
+		if not stationPlaylist then benbebot:output("error", "soundcloud station: could not locate hydratable systemPlaylist") return end
+		if stationPlaylist.playlist_type ~= "PLAYLIST" then benbebot:output("error", "soundcloud station: systemPlaylist is not a playlist: %s", stationPlaylist.playlist_type) return end
 		
 		local stationTracks = stationPlaylist.tracks
-		if not stationTracks then benbebot:error("soundcloud station: playlist has no tracks") return end
+		if not stationTracks then benbebot:output("error", "soundcloud station: playlist has no tracks") return end
 		
 		--table.remove(stationTracks, 1) -- first result is always by the creator, get rid of it
 		
@@ -158,16 +158,16 @@ do -- soundclown
 			client_id = body:match("[\"']client_id=([^\"']+)")
 			if client_id then break end
 		end
-		if not client_id then benbebot:error("failed to scrape client_id") return end
+		if not client_id then benbebot:output("error", "soundcloud station: failed to scrape client_id") return end
 		
 		local res, body = http.request("GET", string.format(TRACK, stationTracks[date.wday].id, client_id))
-		if not (res and (res.code == 200) and body) then benbebot:error("failed to get soundcloud track: %s", res.reason or tostring(res.code)) return end
+		if not (res and (res.code == 200) and body) then benbebot:output("error", "failed to get soundcloud track: %s", res.reason or tostring(res.code)) return end
 		
 		local trackData = (json.parse(body) or {})[1]
-		if not (trackData and trackData.permalink_url) then benbebot:error("soundcloud station: track content is not valid") return end
+		if not (trackData and trackData.permalink_url) then benbebot:output("error", "soundcloud station: track content is not valid") return end
 		
 		benbebot:getChannel("1096581265932701827"):send(trackData.permalink_url)
-		benbebot:info("send mashup of the day: %s", trackData.title)
+		benbebot:output("info", "sent mashup of the day: %s", trackData.title)
 		
 	end
 	
@@ -244,11 +244,11 @@ do -- game server
 	benbebot:on("ready", function()
 		local tbl = {}
 		local data, err = scrapeCollection("2966047786")
-		if not data then benbebot:error("garrysmod server: %s", err) return end
+		if not data then benbebot:output("error", "garrysmod server: %s", err) return end
 		for _,v in pairs(data.Collections) do
 			local data, err = scrapeCollection(v)
 			
-			if not data then benbebot:error("garrysmod server: %s", err) return end
+			if not data then benbebot:output("error", "garrysmod server: %s", err) return end
 			
 			table.insert(tbl, data.Gamemode)
 		end
