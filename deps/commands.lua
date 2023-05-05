@@ -42,10 +42,12 @@ function Client:__init( ... )
 		
 		local args, argsOrdered, focused = {}, {}
 		
-		for i,v in ipairs(opt) do
-			if v.focused then focused = v.name end
-			args[v.name] = v.value
-			argsOrdered[i] = v.value
+		if opt then
+			for i,v in ipairs(opt) do
+				if v.focused then focused = v.name end
+				args[v.name] = v.value
+				argsOrdered[i] = v.value
+			end
 		end
 		
 		if interaction.type == enums.interactionType.applicationCommand then
