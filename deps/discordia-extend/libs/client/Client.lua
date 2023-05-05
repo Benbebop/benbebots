@@ -21,6 +21,6 @@ function Client:output(mode, ...)
 	
 	self[mode](self, ...)
 	
-	Client:outputNoPrint(mode, ...)
+	self:outputNoPrint(mode, ...)
 	
 end

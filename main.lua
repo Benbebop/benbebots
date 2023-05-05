@@ -1,4 +1,4 @@
-VERSION = "3.64"
+VERSION = "3.78"
 
 local uv, fs, appdata = require("uv"), require("fs"), require("data")
 
@@ -21,6 +21,8 @@ benbebot:defaultCommandCallback(function(interaction)
 		description = "couldnt find command, [please report this error](https://github.com/Benbebop/benbebots/issues)"
 	}})
 end)
+
+local TEST_CHANNEL = "1068657073321169067"
 
 -- BENBEBOTS SERVER --
 	
@@ -126,7 +128,7 @@ end
 
 do -- soundclown
 	
-	local json, http = require("json"), require("coro-http")
+	local json, http, los = require("json"), require("coro-http"), require("los")
 	
 	local STATION = "https://soundcloud.com/discover/sets/weekly::%s"
 	local TRACK = "https://api-v2.soundcloud.com/tracks?ids=%s&client_id=%s"
@@ -166,12 +168,17 @@ do -- soundclown
 		local trackData = (json.parse(body) or {})[1]
 		if not (trackData and trackData.permalink_url) then benbebot:output("error", "soundcloud station: track content is not valid") return end
 		
-		benbebot:getChannel("1096581265932701827"):send(trackData.permalink_url)
+		benbebot:getChannel(los.isProduction() and "1096581265932701827" or TEST_CHANNEL):send(trackData.permalink_url)
 		benbebot:output("info", "sent mashup of the day: %s", trackData.title)
 		
 	end
 	
 	clock:on("wday", func)
+	
+	benbebot:getCommand("1103908487278379110"):used({}, function(interaction, args)
+		func(os.date("*t"))
+		interaction:reply("success")
+	end)
 	
 end
 
@@ -650,7 +657,7 @@ do -- nothing wacky here
 		}
 	else
 		channels = {
-			"1068657073321169067" -- test channel
+			TEST_CHANNEL -- test channel
 		}
 	end
 	
