@@ -133,6 +133,10 @@ do -- soundclown
 	local STATION = "https://soundcloud.com/discover/sets/weekly::%s"
 	local TRACK = "https://api-v2.soundcloud.com/tracks?ids=%s&client_id=%s"
 	
+	local function createWeekHour(date)
+		date.whour = (date.wday - 1) * 24 + date.hour
+	end
+	
 	local function func(date)
 		
 		local res, body = http.request("GET", string.format(STATION, "benbebop"))
@@ -162,21 +166,27 @@ do -- soundclown
 		end
 		if not client_id then benbebot:output("error", "soundcloud station: failed to scrape client_id") return end
 		
-		local res, body = http.request("GET", string.format(TRACK, stationTracks[date.wday].id, client_id))
+		local index = math.floor(date.whour / 6)
+		local res, body = http.request("GET", string.format(TRACK, stationTracks[index].id, client_id))
 		if not (res and (res.code == 200) and body) then benbebot:output("error", "failed to get soundcloud track: %s", res.reason or tostring(res.code)) return end
 		
 		local trackData = (json.parse(body) or {})[1]
 		if not (trackData and trackData.permalink_url) then benbebot:output("error", "soundcloud station: track content is not valid") return end
 		
 		benbebot:getChannel(los.isProduction() and "1096581265932701827" or TEST_CHANNEL):send(trackData.permalink_url)
-		benbebot:output("info", "sent mashup of the day: %s", trackData.title)
+		benbebot:output("info", "sent mashup of the day: %s (index %d)", trackData.title, index)
 		
 	end
 	
-	clock:on("wday", func)
+	clock:on("hour", function(date)
+		createWeekHour(date)
+		if date.whour % 6 == 0 then func(date) end
+	end)
 	
 	benbebot:getCommand("1103908487278379110"):used({}, function(interaction, args)
-		func(os.date("*t"))
+		local date = os.date("*t")
+		createWeekHour(date)
+		func(date)
 		interaction:reply("success")
 	end)
 	
