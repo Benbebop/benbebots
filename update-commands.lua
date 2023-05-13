@@ -168,6 +168,34 @@ p(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", {
 			}
 		}
 	},
+	
+	{
+		type = 1,
+		name = "getinvitelink",
+		description = "generate an invite link to join the bot to a server",
+		id = "1106752557956726855",
+		options = {
+			{
+				type = 6,
+				name = "bot",
+				description = "bot to get an invite link for"
+			}
+		}
+	},
+	
+	{
+		type = 1,
+		name = "pshbverifications",
+		description = "(dev) control pubsubhubbub behaviour",
+		id = "1106749711618158662",
+		options = {
+			{
+				type = 5,
+				name = "allow",
+				description = "whether to allow new verifications"
+			}
+		}
+	}
 }))
 
 os.exit()

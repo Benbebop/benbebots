@@ -647,6 +647,18 @@ do -- bot control --
 	
 end
 
+do -- get invite --
+	
+	benbebot:getCommand("1106752557956726855"):used({}, function(interaction, args)
+		local user = benbebot:getUser(args.bot)
+		if not user then interaction:reply("error") return end
+		if not user.bot then interaction:reply("not a bot") return end
+		
+		interaction:reply(string.format("https://discord.com/api/oauth2/authorize?client_id=%s&permissions=0&scope=bot", user.id), true)
+	end)
+	
+end
+
 -- CANNED FOOD --
 
 do -- nothing wacky here
@@ -758,6 +770,12 @@ do -- remote manage server
 		end)
 	
 	end
+end
+
+do -- pubsubhubbub
+	
+	
+	
 end
 
 do -- get cannedFood token
