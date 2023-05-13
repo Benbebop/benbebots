@@ -797,8 +797,9 @@ do -- events
 	
 	cmd:autocomplete({"channel"}, acId)
 	cmd:used({"channel"}, function(interaction, args)
+		if not (args.channel or args.channelid) then interaction:reply("please specify a channel") return end
 		local beforeValue = events[args.id][5]
-		events[args.id][5] = args.channel
+		events[args.id][5] = args.channel or args.channelid
 		saveEvents()
 		
 		interaction:reply(changedPattern:format("channel", beforeValue, events[args.id][5]))

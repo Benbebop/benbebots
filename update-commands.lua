@@ -256,7 +256,10 @@ p(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", {
 						type = 7,
 						name = "channel",
 						description = "channel to send in",
-						required = true
+					},{
+						type = 3,
+						name = "channelid",
+						description = "id of channel to send in",
 					}
 				}
 			},{
