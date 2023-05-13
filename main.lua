@@ -1,6 +1,6 @@
 VERSION = "3.78"
 
-local uv, fs, appdata = require("uv"), require("fs"), require("data")
+local uv, fs, appdata, server = require("uv"), require("fs"), require("data"), require("server")
 
 require("./load-deps.lua")
 
@@ -14,7 +14,9 @@ local benbebot, familyGuy, cannedFood = discordia.Client({logFile=appdata.path("
 local familyGuy = discordia.Client({logFile=appdata.path("logs/fg_discordia.log"),gatewayFile=appdata.path("logs/fg_gateway.json"),logLevel=logLevel})
 local cannedFood = discordia.Client({logFile=appdata.path("logs/cf_discordia.log"),gatewayFile=appdata.path("logs/cf_gateway.json"),logLevel=logLevel})
 benbebot._logger:setPrefix("BBB") familyGuy._logger:setPrefix("FLG") cannedFood._logger:setPrefix("CNF")
-benbebot._logChannel, familyGuy._logChannel, cannedFood._logChannel = "1091403807973441597", "1091403807973441597", "1091403807973441597", 
+benbebot._logChannel, familyGuy._logChannel, cannedFood._logChannel = "1091403807973441597", "1091403807973441597", "1091403807973441597"
+local privateServer = server.new("0.0.0.0", 26420)
+local publicServer = privateServer:new(26430)
 
 benbebot:defaultCommandCallback(function(interaction)
 	interaction:reply({embed = {
@@ -22,6 +24,7 @@ benbebot:defaultCommandCallback(function(interaction)
 	}})
 end)
 
+local BOT_GUILD = "1068640496139915345"
 local TEST_CHANNEL = "1068657073321169067"
 
 -- BENBEBOTS SERVER --
@@ -713,68 +716,102 @@ do -- remote manage server
 	
 	local fileToWrite = require("los").isProduction() and ".tokens" or "alternate.tokens"
 	
-	local paths = {
-		token = {
-			upload = function(res, body)
-				if res.method ~= "POST" then return {code = 405}, "Please use POST method" end
-				local res = {fs.writeFileSync(fileToWrite, body)}
-				return {code = 200}, body
-			end
-		}
-	}
+	privateServer:on("/token/upload", function(res, body)
+		if (res.query or {}).pass ~= TOKENS.serverAuth then return {code = 401}, "Unauthorized" end
 	
-	local function main(res, body)
-		local path = url.parse(res.path, true)
-		if (path.query or {}).pass ~= TOKENS.serverAuth then return {code = 401}, "Unauthorized" end
-		
-		local current = paths
-		for name in path.pathname:gmatch("[^/\\]+") do
-			if type(current) == "function" then return {code = 404}, "Invalid path" end
-			current = current[name]
-			if not current then return {code = 404}, "Invalid path" end
-		end
-		if type(current) ~= "function" then return {code = 404}, "Invalid path" end
-		return current(res, body)
-	end
-
-	local res_headers = {
-	   {"Content-Type", "text/markdown"}, -- Type of the response's payload (res_payload)
-	   {"Connection", "close"}, -- Whether to keep the connection alive, or close it
-	   code = 200,
-	   reason = "Success",
-	}
-	local err_headers = {
-	   code = 500,
-	   reason = "Internal Server Error",
-	}
+		local res = {fs.writeFileSync(fileToWrite, body)}
+		return nil, body
+	end, {method = "POST"})
 	
-	do -- success and err are kind of common variable names so make them local just in case
-		
-		local success, err = pcall(http.createServer, "0.0.0.0", 22644, function(...)
-			local returns = {pcall(main, ...)}
-			
-			if not (returns[1] and returns[2]) then
-				return err_headers, returns[2] or err_headers.reason
-			else
-				table.remove(returns, 1)
-				return unpack(returns)
-			end
-			
-			return headers, table.concat(res_body)
-		end)
-		
-		benbebot:on("ready", function()
-			if not success then
-				benbebot:outputNoPrint("error", "Could not create dev server: \n%s", err)
-			end
-		end)
-	
-	end
 end
 
-do -- pubsubhubbub
+do -- events
 	
+	local json = require("json")
 	
+	local eventFile = appdata.path("events.json")
+	local events = json.parse(fs.readFileSync(eventFile) or "{}") or {}
+	-- {owner, masterMessage, message, isActive, channel}
+	
+	local function saveEvents()
+		fs.writeFileSync(eventFile, json.stringify(events or {}))
+	end
+	
+	publicServer:on("/notifs/youtube", function(req, body)
+		
+		local channel = events[req.query.user]
+		if not channel then return false, "Non existant user" end
+		
+		local id = (body or ""):match("<yt:videoId>(.-)</yt:videoId>")
+		if not id then return false, "Couldnt parse video id" end
+		
+		channel[1]:getChannel(channel[2]):send(string.format(channel[3], "test content", href))
+		
+	end)
+	
+	local function acId(interaction, args, _, focused)
+		if focused ~= "id" then return end
+		
+		local isAdmin = benbebot:getGuild(BOT_GUILD):getMember(interaction.user.id):hasRole("1068640885581025342")
+		
+		local ids = {}
+		for i,v in pairs(events) do
+			if isAdmin or v[1] == interaction.user.id then
+				table.insert(ids, {name = i, value = i})
+			end
+		end
+		
+		return ids
+	end
+	
+	local cmd = benbebot:getCommand("1107064787294236803")
+	
+	local changedPattern = "changed %s from %s to %s"
+	
+	cmd:autocomplete({"master"}, acId)
+	cmd:used({"master"}, function(interaction, args)
+		local beforeValue = events[args.id][2]
+		events[args.id][2] = args.message
+		saveEvents()
+		
+		interaction:reply(changedPattern:format("master message", beforeValue, events[args.id][2]))
+	end)
+	
+	cmd:autocomplete({"message"}, acId)
+	cmd:used({"message"}, function(interaction, args)
+		local beforeValue = events[args.id][3]
+		events[args.id][3] = args.message
+		saveEvents()
+		
+		interaction:reply(changedPattern:format("message", beforeValue, events[args.id][3]))
+	end)
+	
+	cmd:autocomplete({"active"}, acId)
+	cmd:used({"active"}, function(interaction, args)
+		local beforeValue = events[args.id][4]
+		events[args.id][4] = args.active
+		saveEvents()
+		
+		interaction:reply(changedPattern:format("active", beforeValue, events[args.id][4]))
+	end)
+	
+	cmd:autocomplete({"channel"}, acId)
+	cmd:used({"channel"}, function(interaction, args)
+		local beforeValue = events[args.id][5]
+		events[args.id][5] = args.channel
+		saveEvents()
+		
+		interaction:reply(changedPattern:format("channel", beforeValue, events[args.id][5]))
+	end)
+	
+	cmd:used({"new"}, function(interaction, args)
+		if not benbebot:getGuild(BOT_GUILD):getMember(interaction.user.id):hasRole("1068640885581025342") then interaction:reply("you must be a bot admin to use this sub command") return end
+		if events[args.id] then interaction:reply("event id already exists") return end
+		events[args.id] = {args.owner, args.master or json.null, args.message or json.null, args.active or json.null, args.channel}
+		saveEvents()
+		
+		interaction:reply("succesfully created event: " .. args.id)
+	end)
 	
 end
 
@@ -803,5 +840,16 @@ cannedFood:run(TOKENS.cannedFood) cannedFood:onceSync("ready", func)
 repeat coroutine.yield() until readys >= 3
 
 benbebot:info("All bots ready")
+
+local success1, err1 = privateServer:start()
+local success2, err2 = publicServer:start()
+
+if not (success1 and success2) then
+	benbebot:error("Failed to start TCP server(s)")
+	print(err1)
+	print(err2)
+else
+	benbebot:info("TCP servers started")
+end
 
 clock:start()

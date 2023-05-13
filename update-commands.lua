@@ -185,17 +185,118 @@ p(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", {
 	
 	{
 		type = 1,
-		name = "pshbverifications",
-		description = "(dev) control pubsubhubbub behaviour",
-		id = "1106749711618158662",
+		name = "event",
+		description = "modify events",
+		id = "1107064787294236803",
 		options = {
 			{
-				type = 5,
-				name = "allow",
-				description = "whether to allow new verifications"
+				type = 1,
+				name = "master",
+				description = "master message to be sent when an event happens that does not change per event",
+				options = {
+					{
+						type = 3,
+						name = "id",
+						description = "event identifier",
+						required = true,
+						autocomplete = true
+					},{
+						type = 3,
+						name = "message",
+						description = "message to be added"
+					}
+				}
+			},{
+				type = 1,
+				name = "message",
+				description = "message to be sent when an event happens",
+				options = {
+					{
+						type = 3,
+						name = "id",
+						description = "event identifier",
+						required = true,
+						autocomplete = true
+					},{
+						type = 3,
+						name = "message",
+						description = "message to be added"
+					}
+				}
+			},{
+				type = 1,
+				name = "active",
+				description = "whether an event actively sends messages",
+				options = {
+					{
+						type = 3,
+						name = "id",
+						description = "event identifier",
+						required = true,
+						autocomplete = true
+					},{
+						type = 5,
+						name = "active",
+						description = "is active",
+						required = true
+					}
+				}
+			},{
+				type = 1,
+				name = "channel",
+				description = "channel to send an event in",
+				options = {
+					{
+						type = 3,
+						name = "id",
+						description = "event identifier",
+						required = true,
+						autocomplete = true
+					},{
+						type = 7,
+						name = "channel",
+						description = "channel to send in",
+						required = true
+					}
+				}
+			},{
+				type = 1,
+				name = "new",
+				description = "create a new event listener",
+				options = {
+					{
+						type = 3,
+						name = "id",
+						description = "event identifier",
+						required = true
+					},{
+						type = 6,
+						name = "owner",
+						description = "owner of event",
+						required = true
+					},{
+						type = 7,
+						name = "channel",
+						description = "default channel",
+						required = true
+					},{
+						type = 3,
+						name = "master",
+						description = "initial master message"
+					},{
+						type = 3,
+						name = "message",
+						description = "initial message"
+					},{
+						type = 5,
+						name = "active",
+						description = "default active state"
+					}
+				}
 			}
 		}
 	}
+	
 }))
 
 os.exit()
