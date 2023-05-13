@@ -143,6 +143,31 @@ p(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", {
 			}
 		}
 	},
+	
+	{
+		type = 1,
+		name = "forcemotd",
+		description = "force a motd",
+		id = "1103908487278379110"
+	},
+	
+	{
+		type = 1,
+		name = "apbot",
+		description = "control the ap bot",
+		id = "1104076920498434078",
+		options = {
+			{
+				type = 1,
+				name = "login",
+				description = "start and login the ap bot"
+			},{
+				type = 1,
+				name = "logout",
+				description = "stop the ap bot",
+			}
+		}
+	},
 }))
 
 os.exit()
