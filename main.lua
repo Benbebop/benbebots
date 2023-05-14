@@ -744,13 +744,15 @@ do -- events
 	
 	publicServer:on("/notifs/youtube", function(req, body)
 		
-		local event = events[req.query.user]
-		if not event then return false, "Non existant user" end
+		local event = events[req.query.event]
+		if not event then return false, "Non existant event" end
 		
 		local id = (body or ""):match("<yt:videoId>(.-)</yt:videoId>")
 		if not id then return false, "Couldnt parse video id" end
 		
-		benbebot:getChannel(event[5]):send(formatMessage(event[2], event[3], href))
+		local success, err = benbebot:getChannel(event[5]):send(formatMessage(event[2], event[3], href))
+		
+		return success and nil, success or err and nil
 		
 	end)
 	
@@ -798,7 +800,7 @@ do -- events
 		events[args.id][4] = args.active or json.null
 		saveEvents()
 		
-		interaction:reply(changedPattern:format("active", tostring(beforeValue, tostring(events[args.id][4]))))
+		interaction:reply(changedPattern:format("active", tostring(beforeValue), tostring(events[args.id][4])))
 	end)
 	
 	cmd:autocomplete({"channel"}, acId)

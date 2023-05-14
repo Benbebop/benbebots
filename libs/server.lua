@@ -2,10 +2,10 @@ local http, pathLib, url = require("coro-http"), require("path"), require("url")
 
 local SUCCESS = {{"Content-Length", "0"},{"Connection", "close"}, code = 200, reason = "OK"}
 local NO_CONTENT = {{"Connection", "close"}, code = 204, reason = "No Content"}
-local BAD_ERROR = {{"Connection", "close"}, code = 400, reason = "Bad Request"}
+local BAD_ERROR = {{"Content-Length", "0"},{"Content-Type","text/plain"},{"Connection", "close"}, code = 400, reason = "Bad Request"}
 local NOT_FOUND_ERROR = {{"Connection", "close"}, code = 404, reason = "Not Found"}
 local METHOD_ERROR = {{"Connection", "close"}, code = 405, reason = "Method Not Allowed"}
-local INTERNAL_ERROR = {{"Content-Length", "0"}, {"Connection", "close"}, code = 500, reason = "Internal Server Error"}
+local INTERNAL_ERROR = {{"Content-Length", "0"},{"Content-Type","text/plain"},{"Connection", "close"}, code = 500, reason = "Internal Server Error"}
 
 local server = {}
 server.__index = server
