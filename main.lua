@@ -797,7 +797,7 @@ do -- events
 	cmd:autocomplete({"active"}, acId)
 	cmd:used({"active"}, function(interaction, args)
 		local beforeValue = events[args.id][4]
-		events[args.id][4] = args.active or json.null
+		events[args.id][4] = args.active
 		saveEvents()
 		
 		interaction:reply(changedPattern:format("active", tostring(beforeValue), tostring(events[args.id][4])))
