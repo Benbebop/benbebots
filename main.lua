@@ -737,15 +737,19 @@ do -- events
 		fs.writeFileSync(eventFile, json.stringify(events or {}))
 	end
 	
+	local function formatMessage(pattern, message, url)
+		return pattern:gsub("%${message}", tostring(message)):gsub("%${url}", "https://youtube.com/watch?v=" .. tostring(url))
+	end
+	
 	publicServer:on("/notifs/youtube", function(req, body)
 		
-		local channel = events[req.query.user]
-		if not channel then return false, "Non existant user" end
+		local event = events[req.query.user]
+		if not event then return false, "Non existant user" end
 		
 		local id = (body or ""):match("<yt:videoId>(.-)</yt:videoId>")
 		if not id then return false, "Couldnt parse video id" end
 		
-		channel[1]:getChannel(channel[2]):send(string.format(channel[3], "test content", href))
+		benbebot:getChannel(event[5]):send(formatMessage(event[2], event[3], href))
 		
 	end)
 	
@@ -766,49 +770,50 @@ do -- events
 	
 	local cmd = benbebot:getCommand("1107064787294236803")
 	
-	local changedPattern = "changed %s from %s to %s"
+	local changedPattern = "changed %s from `%s` to `%s`"
+	local messagePattern = "%s\n\nthis will look like:\n%s"
 	
 	cmd:autocomplete({"master"}, acId)
 	cmd:used({"master"}, function(interaction, args)
 		local beforeValue = events[args.id][2]
-		events[args.id][2] = args.message
+		events[args.id][2] = args.message or json.null
 		saveEvents()
 		
-		interaction:reply(changedPattern:format("master message", beforeValue, events[args.id][2]))
+		interaction:reply(messagePattern:format(changedPattern:format("master message", tostring(beforeValue), tostring(events[args.id][2])), formatMessage(events[args.id][2], events[args.id][3], "blablabla")))
 	end)
 	
 	cmd:autocomplete({"message"}, acId)
 	cmd:used({"message"}, function(interaction, args)
 		local beforeValue = events[args.id][3]
-		events[args.id][3] = args.message
+		events[args.id][3] = args.message or json.null
 		saveEvents()
 		
-		interaction:reply(changedPattern:format("message", beforeValue, events[args.id][3]))
+		interaction:reply(messagePattern:format(changedPattern:format("message", tostring(beforeValue), tostring(events[args.id][3])), formatMessage(events[args.id][2], events[args.id][3], "blablabla")))
 	end)
 	
 	cmd:autocomplete({"active"}, acId)
 	cmd:used({"active"}, function(interaction, args)
 		local beforeValue = events[args.id][4]
-		events[args.id][4] = args.active
+		events[args.id][4] = args.active or json.null
 		saveEvents()
 		
-		interaction:reply(changedPattern:format("active", beforeValue, events[args.id][4]))
+		interaction:reply(changedPattern:format("active", tostring(beforeValue, tostring(events[args.id][4])))
 	end)
 	
 	cmd:autocomplete({"channel"}, acId)
 	cmd:used({"channel"}, function(interaction, args)
 		if not (args.channel or args.channelid) then interaction:reply("please specify a channel") return end
 		local beforeValue = events[args.id][5]
-		events[args.id][5] = args.channel or args.channelid
+		events[args.id][5] = args.channel or args.channelid or json.null
 		saveEvents()
 		
-		interaction:reply(changedPattern:format("channel", beforeValue, events[args.id][5]))
+		interaction:reply(changedPattern:format("channel", tostring(beforeValue), tostring(events[args.id][5])))
 	end)
 	
 	cmd:used({"new"}, function(interaction, args)
 		if not benbebot:getGuild(BOT_GUILD):getMember(interaction.user.id):hasRole("1068640885581025342") then interaction:reply("you must be a bot admin to use this sub command") return end
 		if events[args.id] then interaction:reply("event id already exists") return end
-		events[args.id] = {args.owner, args.master or json.null, args.message or json.null, args.active or json.null, args.channel}
+		events[args.id] = {args.owner or json.null, args.master or json.null, args.message or json.null, args.active or json.null, args.channel or json.null}
 		saveEvents()
 		
 		interaction:reply("succesfully created event: " .. args.id)
