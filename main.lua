@@ -170,7 +170,7 @@ do -- soundclown
 		if not client_id then benbebot:output("error", "soundcloud station: failed to scrape client_id") return end
 		
 		local index = math.floor(date.whour / 6)
-		if not stationTracks[index] then benbebot:output("error", "Could not index station track: %s", index)
+		if not stationTracks[index] then benbebot:output("error", "Could not index station track: %s", index) end
 		local res, body = http.request("GET", string.format(TRACK, stationTracks[index].id, client_id))
 		if not (res and (res.code == 200) and body) then benbebot:output("error", "failed to get soundcloud track: %s", res.reason or tostring(res.code)) return end
 		
@@ -798,7 +798,7 @@ do -- events
 		events[args.id][4] = args.active or json.null
 		saveEvents()
 		
-		interaction:reply(changedPattern:format("active", tostring(beforeValue, tostring(events[args.id][4])))
+		interaction:reply(changedPattern:format("active", tostring(beforeValue, tostring(events[args.id][4]))))
 	end)
 	
 	cmd:autocomplete({"channel"}, acId)
