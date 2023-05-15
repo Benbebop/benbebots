@@ -740,8 +740,8 @@ do -- events
 	
 	local function formatMessage(pattern, message, url)
 		return pattern:gsub("%$%b{}", function(str)
-			if str == "${message}" then return message
-			elseif str == "${url}" then return url
+			if str == "${message}" then return message or ""
+			elseif str == "${url}" then return url or ""
 			else return ""
 			end
 		end)
