@@ -739,7 +739,12 @@ do -- events
 	end
 	
 	local function formatMessage(pattern, message, url)
-		return pattern:gsub("%${message}", tostring(message)):gsub("%${url}", "https://youtube.com/watch?v=" .. tostring(url))
+		return pattern:gsub("%$%b{}", function(str)
+			if str == "${message}" then return message
+			elseif str == "${url}" then return url
+			else return ""
+			end
+		end)
 	end
 	
 	publicServer:on("/notifs/youtube", function(req, body)
