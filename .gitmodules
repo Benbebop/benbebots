@@ -1,9 +1,6 @@
 [submodule "luvit"]
 	path = luvit
 	url = https://github.com/luvit/luvit
-[submodule "deps/discordia"]
-	path = deps/discordia
-	url = https://github.com/SinisterRectus/Discordia
 [submodule "deps/discordia-interactions"]
 	path = deps/discordia-interactions
 	url = https://github.com/Bilal2453/discordia-interactions
