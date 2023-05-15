@@ -7,3 +7,6 @@
 [submodule "deps/watcher"]
 	path = deps/watcher
 	url = https://github.com/TohruMKDM/fs-watcher
+[submodule "deps/discordia"]
+	path = deps/discordia
+	url = https://github.com/Benbebop/Discordia
