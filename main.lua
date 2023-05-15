@@ -755,7 +755,7 @@ do -- events
 		local id = (body or ""):match("<yt:videoId>(.-)</yt:videoId>")
 		if not id then return false, "Couldnt parse video id" end
 		
-		local success, err = benbebot:getChannel(event[5]):send(formatMessage(event[2], event[3], href))
+		local success, err = benbebot:getChannel(event[5]):send(formatMessage(event[2], event[3], "https://youtube.com/watch?v=" .. href))
 		
 		return success and nil, success or err and nil
 		
@@ -787,7 +787,7 @@ do -- events
 		events[args.id][2] = args.message or json.null
 		saveEvents()
 		
-		interaction:reply(messagePattern:format(changedPattern:format("master message", tostring(beforeValue), tostring(events[args.id][2])), formatMessage(events[args.id][2], events[args.id][3], "blablabla")))
+		interaction:reply(messagePattern:format(changedPattern:format("master message", tostring(beforeValue), tostring(events[args.id][2])), formatMessage(events[args.id][2], events[args.id][3], "https://example.com/")))
 	end)
 	
 	cmd:autocomplete({"message"}, acId)
@@ -796,7 +796,7 @@ do -- events
 		events[args.id][3] = args.message or json.null
 		saveEvents()
 		
-		interaction:reply(messagePattern:format(changedPattern:format("message", tostring(beforeValue), tostring(events[args.id][3])), formatMessage(events[args.id][2], events[args.id][3], "blablabla")))
+		interaction:reply(messagePattern:format(changedPattern:format("message", tostring(beforeValue), tostring(events[args.id][3])), formatMessage(events[args.id][2], events[args.id][3], "https://example.com/")))
 	end)
 	
 	cmd:autocomplete({"active"}, acId)
