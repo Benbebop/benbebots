@@ -296,6 +296,33 @@ p(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", {
 						description = "default active state"
 					}
 				}
+			},{
+				type = 1,
+				name = "pubsubhubbub",
+				description = "manage pubsubhubbub",
+				options = {
+					{
+						type = 3,
+						name = "id",
+						description = "event identifier",
+						required = true,
+						autocomplete = true
+					},{
+						type = 3,
+						name = "hub",
+						description = "hub url",
+						required = true
+					},{
+						type = 3,
+						name = "topic",
+						description = "topic url",
+						required = true
+					},{
+						type = 5,
+						name = "subscribe",
+						description = "send a subscribe request or unsubscribe request"
+					}
+				}
 			}
 		}
 	}

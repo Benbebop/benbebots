@@ -24,10 +24,41 @@ function server:autoRespond(path, code, headers, body)
 	end)
 end
 
-function server:process(req, body)
+local requestObj = {}
+server.request = requestObj
+requestObj.__index = function(self, index)
+	return index == "body" and self.body or requestObj.req[index] or self[index]
+end
+
+function requestObj.new(req, body)
 	local processed = url.parse(req.path, true)
 	req.pathname = processed.pathname
 	req.query = processed.query
+	
+	return setmetatable({req = req, body = body}, requestObj)
+	
+end
+
+function requestObj:getHeader(...)
+	local tofind = {...}
+	local headers = {}
+	for _,v in ipairs(self.req) do
+		for i,k in ipairs(tofind) do
+			if k == v[1] then
+				headers[i] = v[2]
+				break
+			end
+		end
+	end
+	return unpack(headers)
+end
+
+function requestObj:unpack()
+	return self.req, self.body
+end
+
+function server:process(req, body)
+	req = requestObj.new(req, body)
 	
 	local path, callback = req.pathname
 	for _,cb in ipairs(rawget(self, "callbacks")) do
@@ -37,9 +68,13 @@ function server:process(req, body)
 		end
 	end
 	if not callback then return NOT_FOUND_ERROR end
-	if callback.method and (req.method ~= callback.method) then return METHOD_ERROR end
+	if callback.method then
+		local validMethod = false
+		for _,v in ipairs(callback.method) do if req.method == v then validMethod = true break end end
+		if not validMethod then return METHOD_ERROR, "" end
+	end
 	
-	local results = {pcall(callback.func, req, body)}
+	local results = {pcall(callback.func, req)}
 	if not results[1] then
 		INTERNAL_ERROR[1][2] = tostring(#results[2])
 		return INTERNAL_ERROR, results[2]
@@ -57,7 +92,8 @@ function server:process(req, body)
 		end
 		return NO_CONTENT
 	end
-	if retBody and not server.findHeader(retReq, "Content-Length") then
+	if retBody and not req:getHeader("Content-Length") then
+		table.insert()
 		server.addHeader(retReq, "Content-Length", #retBody)
 	end
 	
@@ -84,18 +120,6 @@ function server.new(host, port)
 	end
 	
 	return setmetatable({host = host, port = port, callbacks = {}}, server)
-end
-
-function server.findHeader(req, name)
-	local index, header
-	
-	for i,v in ipairs(req) do
-		if v[1] == name then
-			index, header = i, v[2]
-		end
-	end
-	
-	return header, index
 end
 
 function server.addHeader(req, name, value)

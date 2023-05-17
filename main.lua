@@ -1,6 +1,6 @@
 VERSION = "3.78"
 
-local uv, fs, appdata, server = require("uv"), require("fs"), require("data"), require("server")
+local uv, fs, appdata, server, los = require("uv"), require("fs"), require("data"), require("server"), require("los")
 
 require("./load-deps.lua")
 
@@ -8,15 +8,16 @@ local discordia = require("discordia")
 local enums = discordia.enums
 local clock = discordia.Clock()
 
-local logLevel = require("los").isProduction() and 3 or 4
+local logLevel = los.isProduction() and 3 or 4
 fs.mkdirSync(appdata.path("logs"))
 local benbebot, familyGuy, cannedFood = discordia.Client({logFile=appdata.path("logs/bbb_discordia.log"),gatewayFile=appdata.path("logs/bbb_gateway.json"),logLevel=logLevel})
 local familyGuy = discordia.Client({logFile=appdata.path("logs/fg_discordia.log"),gatewayFile=appdata.path("logs/fg_gateway.json"),logLevel=logLevel})
 local cannedFood = discordia.Client({logFile=appdata.path("logs/cf_discordia.log"),gatewayFile=appdata.path("logs/cf_gateway.json"),logLevel=logLevel})
 benbebot._logger:setPrefix("BBB") familyGuy._logger:setPrefix("FLG") cannedFood._logger:setPrefix("CNF")
 benbebot._logChannel, familyGuy._logChannel, cannedFood._logChannel = "1091403807973441597", "1091403807973441597", "1091403807973441597"
-local privateServer = server.new("0.0.0.0", 26420)
-local publicServer = privateServer:new(26430)
+local portAdd = los.isProduction() and 0 or 1
+local privateServer = server.new("0.0.0.0", 26420 + portAdd)
+local publicServer = privateServer:new(26430 + portAdd)
 
 benbebot:defaultCommandCallback(function(interaction)
 	interaction:reply({embed = {
@@ -722,17 +723,17 @@ do -- remote manage server
 	
 		local res = {fs.writeFileSync(fileToWrite, body)}
 		return nil, body
-	end, {method = "POST"})
+	end, {method = {"POST"}})
 	
 end
 
 do -- events
 	
-	local json = require("json")
+	local json, http, querystring, url, openssl, uv = require("json"), require("coro-http"), require("querystring"), require("url"), require("openssl"), require("uv")
 	
 	local eventFile = appdata.path("events.json")
 	local events = json.parse(fs.readFileSync(eventFile) or "{}") or {}
-	-- {owner, masterMessage, message, isActive, channel}
+	-- {owner, masterMessage, message, isActive, channel, misc}
 	
 	local function saveEvents()
 		fs.writeFileSync(eventFile, json.stringify(events or {}))
@@ -746,20 +747,6 @@ do -- events
 			end
 		end)
 	end
-	
-	publicServer:on("/notifs/youtube", function(req, body)
-		
-		local event = events[req.query.event]
-		if not event then return false, "Non existant event" end
-		
-		local id = (body or ""):match("<yt:videoId>(.-)</yt:videoId>")
-		if not id then return false, "Couldnt parse video id" end
-		
-		local success, err = benbebot:getChannel(event[5]):send(formatMessage(event[2], event[3], "https://youtube.com/watch?v=" .. href))
-		
-		return success and nil, success or err and nil
-		
-	end)
 	
 	local function acId(interaction, args, _, focused)
 		if focused ~= "id" then return end
@@ -777,6 +764,119 @@ do -- events
 	end
 	
 	local cmd = benbebot:getCommand("1107064787294236803")
+	
+	-- pubsubhubbub
+	
+	local bString = "B"
+	local function generateSecret()
+		local bin = uv.random(32)
+		local buffer = {}
+		for i=1,32 do
+			table.insert(buffer, openssl.bn.tohex(bString:unpack(bin:sub(i,i))))
+		end
+		return table.concat(buffer)
+	end
+	
+	local verificationState = nil
+	
+	cmd:autocomplete({"pubsubhubbub"}, acId)
+	cmd:used({"pubsubhubbub"}, function(interaction, args)
+		if not benbebot:getGuild(BOT_GUILD):getMember(interaction.user.id):hasRole("1068640885581025342") then interaction:reply("you must be a bot admin to use this sub command") return end
+		if verificationState then interaction:reply("already in progress") return end
+		if not events[args.id] then interaction:reply("event id does not exist") return end
+		interaction:replyDeferred()
+		
+		local topicData = url.parse(args.topic)
+		
+		local payload = {
+			callback = "http://68.146.47.120:26430/notifs/pubsubhubbub?" .. querystring.stringify({service = service, event = args.id}),
+			mode = (args.subscribe == nil or args.subscribe) and "subscribe" or "unsubscribe",
+			topic = args.topic,
+			secret = generateSecret()
+		}
+		
+		verificationState = {
+			id = args.id,
+			topic = payload.topic,
+			secret = payload.secret,
+			success = nil,
+			thread = nil
+		}
+		
+		local res, err = http.request(args.hub, 
+			{{"Content-Type", "application/x-www-form-urlencoded"}},
+			querystring.stringify(verificationState)
+		)
+		
+		if res.code ~= 202 then interaction:reply("there was an error submitting a subscription request: " .. err) return end
+		
+		if verificationState.success == nil then
+			verificationState.thread = coroutine.running()
+			verificationState.success = coroutine.yield()
+			verificationState.thread = nil
+		end
+		
+		if not verificationState.success then interaction:reply("could not verify") return end
+		
+		events[args.id][6].secret = verificationState.secret
+		saveEvents()
+		
+		verificationState = nil
+		
+		interaction:reply("success")
+		
+	end)
+	
+	local function resume(success)
+		if verificationState.thread then
+			coroutine.resume(verificationState.thread, success)
+		end
+		verificationState.success = success
+	end
+	
+	publicServer:on("/notifs/pubsubhubbub", function(req)
+		
+		if req.method == "GET" then -- verification or cancelation request
+			if not req.search then return {code == 404} end
+			local search = req.search:sub(2,-1):gsub("%?", "&") -- fix querys
+			local query = querystring.parse(search)
+			
+			p("X-Hub-Signature")
+			
+			if query.mode == "denied" then
+				if verificationState.id == query.event then resume(false, query.reason) return end
+				
+				events[args.id][6] = {}
+				saveEvents()
+				
+				benbebot:output("warn", "Event %s pubsubhubbub subscription denied: %s", query.event, query.reason)
+				
+				return
+			end
+			
+			
+			
+			resume(true)
+			return
+		end
+		
+		if not req.query then return {code == 404} end
+		local event = events[req.query.event]
+		if not event then return {code == 404} end
+		
+		local hubSig = req:getHeader("X-Hub-Signature")
+		if not hubSig then return false, "missing hmac header" end
+		
+		local alg alg, hubSig = hmacSig:match("^(.-)=(.+)$")
+		local subSig = openssl.hmac.hmac(alg and "sha1", event[6].secret, req.body, false)
+		if hubSig ~= subSig then return end
+		
+		--TODO
+		
+		return {code = 500}
+	end, {method = {"GET", "POST"}})
+	
+	benbebot:on("ready", function() benbebot:output("info", "test") end)
 	
 	local changedPattern = "changed %s from `%s` to `%s`"
 	local messagePattern = "%s\n\nthis will look like:\n%s"
@@ -821,7 +921,7 @@ do -- events
 	cmd:used({"new"}, function(interaction, args)
 		if not benbebot:getGuild(BOT_GUILD):getMember(interaction.user.id):hasRole("1068640885581025342") then interaction:reply("you must be a bot admin to use this sub command") return end
 		if events[args.id] then interaction:reply("event id already exists") return end
-		events[args.id] = {args.owner or json.null, args.master or json.null, args.message or json.null, args.active or json.null, args.channel or json.null}
+		events[args.id] = {args.owner or json.null, args.master or json.null, args.message or json.null, args.active or json.null, args.channel or json.null, {}}
 		saveEvents()
 		
 		interaction:reply("succesfully created event: " .. args.id)
