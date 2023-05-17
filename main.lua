@@ -944,6 +944,17 @@ do -- get cannedFood token
 	TOKENS.cannedFood = json.parse(body).token
 end
 
+do -- server pings
+	
+	local function ping(req)
+		return
+	end
+	
+	privateServer:on("/ping", ping, {method = {"GET"}})
+	publicServer:on("/ping", ping, {method = {"GET"}})
+	
+end
+
 local readys, thread = 0, coroutine.running()
 local function func() readys = readys + 1 coroutine.resume(thread) end
 

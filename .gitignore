@@ -32,7 +32,7 @@
 *.hex
 
 # Luvit
-#deps/*
+deps/*
 
 # Discordia
 discordia.log
