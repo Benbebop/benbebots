@@ -876,8 +876,6 @@ do -- events
 		return {code = 500}
 	end, {method = {"GET", "POST"}})
 	
-	benbebot:on("ready", function() benbebot:output("info", "test") end)
-	
 	local changedPattern = "changed %s from `%s` to `%s`"
 	local messagePattern = "%s\n\nthis will look like:\n%s"
 	
