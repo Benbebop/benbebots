@@ -15,6 +15,7 @@ local familyGuy = discordia.Client({logFile=appdata.path("logs/fg_discordia.log"
 local cannedFood = discordia.Client({logFile=appdata.path("logs/cf_discordia.log"),gatewayFile=appdata.path("logs/cf_gateway.json"),logLevel=logLevel})
 benbebot._logger:setPrefix("BBB") familyGuy._logger:setPrefix("FLG") cannedFood._logger:setPrefix("CNF")
 benbebot._logChannel, familyGuy._logChannel, cannedFood._logChannel = "1091403807973441597", "1091403807973441597", "1091403807973441597"
+benbebot:enableIntents(discordia.enums.gatewayIntent.guildMembers)
 local portAdd = los.isProduction() and 0 or 1
 local privateServer = server.new("0.0.0.0", 26420 + portAdd)
 local publicServer = privateServer:new(26430 + portAdd)
@@ -27,6 +28,25 @@ end)
 
 local BOT_GUILD = "1068640496139915345"
 local TEST_CHANNEL = "1068657073321169067"
+
+-- SMOKE SERVER --
+
+local SMOKE_SERVER = "1036666698104832021"
+
+do -- non alien role --
+	
+	benbebot:on("memberJoin", function(member)
+		p(member)
+		if member.guild.id ~= SMOKE_SERVER then return end
+		
+		local success, err = member:addRole("1037126896506392746")
+		
+		if not success then
+			benbebot:outputNoPrint("error", "failed to add `Non Alien` role to new member:\n%s", err)
+		end
+	end)
+	
+end
 
 -- BENBEBOTS SERVER --
 	
@@ -56,51 +76,6 @@ do -- log dms
 		end
 		sudodm:moveUp(sudodm.position)
 	end)
-	
-end
-
-do -- reaction roles
-	
-	benbebot:on("ready", function()
-		benbebot:getChannel("1075203623073632327"):getMessage("1077041796779094096"):setContent(
-[[@everyone You know how this works
-	<@&1075196966654451743> :face_holding_back_tears: - major updates involving the bots
-	<@&1068664164786110554> :video_game: - game server events
-	<@&1075245976543056013> :flag_pl: - polls involving this server
-	<@&1072698350836662392> :sleeping: - get pinged when the bot's pfps are updated
-	<@&1078400699802587136> :skull: - get pinged whenever i feel the urge to kill]]
-		)
-	end)
-
-	local rolesIndex = {
-		["\240\159\165\185"] = "1075196966654451743",
-		["\240\159\142\174"] = "1068664164786110554",
-		["\240\159\135\181\240\159\135\177"] = "1075245976543056013",
-		["\240\159\152\180"] = "1072698350836662392",
-		["\240\159\146\128"] = "1078400699802587136",
-	}
-	
-	local function add(_, messageId, hash, userId)
-		if messageId == "1077041796779094096" then
-			local role = rolesIndex[hash]
-			if not role then return end
-			benbebot:getGuild("1068640496139915345"):getMember(userId):addRole(role)
-		end
-	end
-	
-	local function remove(channel, messageId, hash, userId)
-		if messageId == "1077041796779094096" then
-			local role = rolesIndex[hash]
-			if not role then return end
-			benbebot:getGuild("1068640496139915345"):getMember(userId):removeRole(role)
-		end
-	end
-	
-	benbebot:on("reactionAddUncached", add)
-	benbebot:on("reactionAdd", function(reaction, userId) add(reaction.message.channel, reaction.message.id, reaction.emojiHash, userId) end)
-	
-	benbebot:on("reactionRemoveUncached", remove)
-	benbebot:on("reactionRemove", function(reaction, userId) remove(reaction.message.channel, reaction.message.id, reaction.emojiHash, userId) end)
 	
 end
 
@@ -712,6 +687,51 @@ do -- nothing wacky here
 end
 
 -- OTHER --
+
+do -- reaction roles
+	
+	benbebot:on("ready", function()
+		benbebot:getChannel("1075203623073632327"):getMessage("1077041796779094096"):setContent(
+[[@everyone You know how this works
+	<@&1075196966654451743> :face_holding_back_tears: - major updates involving the bots
+	<@&1068664164786110554> :video_game: - game server events
+	<@&1075245976543056013> :flag_pl: - polls involving this server
+	<@&1072698350836662392> :sleeping: - get pinged when the bot's pfps are updated
+	<@&1078400699802587136> :skull: - get pinged whenever i feel the urge to kill]]
+		)
+	end)
+
+	local rolesIndex = {
+		["\240\159\165\185"] = "1075196966654451743",
+		["\240\159\142\174"] = "1068664164786110554",
+		["\240\159\135\181\240\159\135\177"] = "1075245976543056013",
+		["\240\159\152\180"] = "1072698350836662392",
+		["\240\159\146\128"] = "1078400699802587136",
+	}
+	
+	local function add(_, messageId, hash, userId)
+		if messageId == "1077041796779094096" then
+			local role = rolesIndex[hash]
+			if not role then return end
+			benbebot:getGuild("1068640496139915345"):getMember(userId):addRole(role)
+		end
+	end
+	
+	local function remove(channel, messageId, hash, userId)
+		if messageId == "1077041796779094096" then
+			local role = rolesIndex[hash]
+			if not role then return end
+			benbebot:getGuild("1068640496139915345"):getMember(userId):removeRole(role)
+		end
+	end
+	
+	benbebot:on("reactionAddUncached", add)
+	benbebot:on("reactionAdd", function(reaction, userId) add(reaction.message.channel, reaction.message.id, reaction.emojiHash, userId) end)
+	
+	benbebot:on("reactionRemoveUncached", remove)
+	benbebot:on("reactionRemove", function(reaction, userId) remove(reaction.message.channel, reaction.message.id, reaction.emojiHash, userId) end)
+	
+end
 
 do -- remote manage server
 	local http, fs, url = require("coro-http"), require("fs"), require("url")
