@@ -817,6 +817,7 @@ end
 do -- events
 	
 	local json, http, querystring, url, openssl, uv = require("json"), require("coro-http"), require("querystring"), require("url"), require("openssl"), require("uv")
+	local null = json.null
 	
 	local eventFile = appdata.path("events.json")
 	local events = json.parse(fs.readFileSync(eventFile) or "{}") or {}
@@ -850,7 +851,7 @@ do -- events
 		return ids
 	end
 	
-	local cmd = benbebot:getCommand("1107064787294236803")
+	local user, admin = benbebot:getCommand("1107064787294236803"), benbebot:getCommand("1110642726703218768")
 	
 	-- pubsubhubbub
 	
@@ -866,9 +867,10 @@ do -- events
 	
 	local verificationState = nil
 	
-	cmd:autocomplete({"pubsubhubbub"}, acId)
-	cmd:used({"pubsubhubbub"}, function(interaction, args)
+	admin:autocomplete({"pubsubhubbub"}, acId)
+	admin:used({"pubsubhubbub"}, function(interaction, args)
 		if not benbebot:getGuild(BOT_GUILD):getMember(interaction.user.id):hasRole("1068640885581025342") then interaction:reply("you must be a bot admin to use this sub command") return end
+		if true then interaction:reply("broke ass command do not use") return end
 		if verificationState then interaction:reply("already in progress") return end
 		if not events[args.id] then interaction:reply("event id does not exist") return end
 		interaction:replyDeferred()
@@ -905,6 +907,7 @@ do -- events
 		
 		if not verificationState.success then interaction:reply("could not verify") return end
 		
+		events[args.id][6] = {}
 		events[args.id][6].secret = verificationState.secret
 		saveEvents()
 		
@@ -963,11 +966,45 @@ do -- events
 		return {code = 500}
 	end, {method = {"GET", "POST"}})
 	
+	-- zapier
+	
+	admin:autocomplete({"zapier"}, acId)
+	admin:used({"zapier"}, function(interaction, args)
+		if not benbebot:getGuild(BOT_GUILD):getMember(interaction.user.id):hasRole("1068640885581025342") then interaction:reply("you must be a bot admin to use this sub command") return end
+		
+		events[args.id][6] = {}
+		events[args.id][6].youtubeId = args.channel
+		saveEvents()
+		
+		interaction:reply("success")
+	end)
+	
+	benbebot:on("messageCreate", function(message)
+		if message.channel.id == "1110637295826116678" then
+			local site, channelId, url = message.content:match("^.-[\n\r]+(.-)[\n\r]+(.-)[\n\r]+(.-)$")
+			if site ~= "youtube" then return end
+			
+			local event
+			for id,data in pairs(events) do
+				if data[6] and data[6].youtubeId == channelId then
+					event = data
+					break
+				end
+			end
+			
+			if not event then benbebot:output("warning", "failed to find event for zap: %s", message.id) return end
+			
+			benbebot:getChannel(event[5]):send(formatMessage(event[2], event[3], url))
+		end
+	end)
+	
+	-- managing
+	
 	local changedPattern = "changed %s from `%s` to `%s`"
 	local messagePattern = "%s\n\nthis will look like:\n%s"
 	
-	cmd:autocomplete({"master"}, acId)
-	cmd:used({"master"}, function(interaction, args)
+	user:autocomplete({"master"}, acId)
+	user:used({"master"}, function(interaction, args)
 		local beforeValue = events[args.id][2]
 		events[args.id][2] = args.message or json.null
 		saveEvents()
@@ -975,8 +1012,8 @@ do -- events
 		interaction:reply(messagePattern:format(changedPattern:format("master message", tostring(beforeValue), tostring(events[args.id][2])), formatMessage(events[args.id][2], events[args.id][3], "https://example.com/")))
 	end)
 	
-	cmd:autocomplete({"message"}, acId)
-	cmd:used({"message"}, function(interaction, args)
+	user:autocomplete({"message"}, acId)
+	user:used({"message"}, function(interaction, args)
 		local beforeValue = events[args.id][3]
 		events[args.id][3] = args.message or json.null
 		saveEvents()
@@ -984,8 +1021,8 @@ do -- events
 		interaction:reply(messagePattern:format(changedPattern:format("message", tostring(beforeValue), tostring(events[args.id][3])), formatMessage(events[args.id][2], events[args.id][3], "https://example.com/")))
 	end)
 	
-	cmd:autocomplete({"active"}, acId)
-	cmd:used({"active"}, function(interaction, args)
+	user:autocomplete({"active"}, acId)
+	user:used({"active"}, function(interaction, args)
 		local beforeValue = events[args.id][4]
 		events[args.id][4] = args.active
 		saveEvents()
@@ -993,8 +1030,8 @@ do -- events
 		interaction:reply(changedPattern:format("active", tostring(beforeValue), tostring(events[args.id][4])))
 	end)
 	
-	cmd:autocomplete({"channel"}, acId)
-	cmd:used({"channel"}, function(interaction, args)
+	user:autocomplete({"channel"}, acId)
+	user:used({"channel"}, function(interaction, args)
 		if not (args.channel or args.channelid) then interaction:reply("please specify a channel") return end
 		local beforeValue = events[args.id][5]
 		events[args.id][5] = args.channel or args.channelid or json.null
@@ -1003,10 +1040,10 @@ do -- events
 		interaction:reply(changedPattern:format("channel", tostring(beforeValue), tostring(events[args.id][5])))
 	end)
 	
-	cmd:used({"new"}, function(interaction, args)
+	admin:used({"new"}, function(interaction, args)
 		if not benbebot:getGuild(BOT_GUILD):getMember(interaction.user.id):hasRole("1068640885581025342") then interaction:reply("you must be a bot admin to use this sub command") return end
 		if events[args.id] then interaction:reply("event id already exists") return end
-		events[args.id] = {args.owner or json.null, args.master or json.null, args.message or json.null, args.active or json.null, args.channel or json.null, {}}
+		events[args.id] = {args.owner or json.null, args.master or json.null, args.message or json.null, args.active or json.null, args.channel or json.null, json.null}
 		saveEvents()
 		
 		interaction:reply("succesfully created event: " .. args.id)

@@ -262,7 +262,17 @@ p(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", {
 						description = "id of channel to send in",
 					}
 				}
-			},{
+			}
+		}
+	},
+	
+	{
+		type = 1,
+		name = "eventadmin",
+		description = "modify events",
+		id = "1110642726703218768",
+		options = {
+			{
 				type = 1,
 				name = "new",
 				description = "create a new event listener",
@@ -321,6 +331,24 @@ p(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", {
 						type = 5,
 						name = "subscribe",
 						description = "send a subscribe request or unsubscribe request"
+					}
+				}
+			},{
+				type = 1,
+				name = "zapier",
+				description = "manage zapier",
+				options = {
+					{
+						type = 3,
+						name = "id",
+						description = "event identifier",
+						required = true,
+						autocomplete = true
+					},{
+						type = 3,
+						name = "channel",
+						description = "youtube id",
+						required = true
 					}
 				}
 			}
