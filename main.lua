@@ -729,39 +729,67 @@ end
 
 do -- reaction roles
 	
-	benbebot:on("ready", function()
-		benbebot:getChannel("1075203623073632327"):getMessage("1077041796779094096"):setContent(
-[[@everyone You know how this works
+	local messageData = {
+		["1077041796779094096"] = { -- benbebots
+			text = [[@everyone You know how this works
 	<@&1075196966654451743> :face_holding_back_tears: - major updates involving the bots
 	<@&1068664164786110554> :video_game: - game server events
 	<@&1075245976543056013> :flag_pl: - polls involving this server
 	<@&1072698350836662392> :sleeping: - get pinged when the bot's pfps are updated
-	<@&1078400699802587136> :skull: - get pinged whenever i feel the urge to kill]]
-		)
-	end)
-
-	local rolesIndex = {
-		["\240\159\165\185"] = "1075196966654451743",
-		["\240\159\142\174"] = "1068664164786110554",
-		["\240\159\135\181\240\159\135\177"] = "1075245976543056013",
-		["\240\159\152\180"] = "1072698350836662392",
-		["\240\159\146\128"] = "1078400699802587136",
+	<@&1078400699802587136> :skull: - get pinged whenever i feel the urge to kill]],
+			channel = "1075203623073632327",
+			guild = "1068640496139915345",
+			roles = {
+				["\240\159\165\185"] = "1075196966654451743",
+				["\240\159\142\174"] = "1068664164786110554",
+				["\240\159\135\181\240\159\135\177"] = "1075245976543056013",
+				["\240\159\152\180"] = "1072698350836662392",
+				["\240\159\146\128"] = "1078400699802587136",
+			}
+		},
+		["1110342430659715092"] = { -- smoke
+			text = "Get your roles here! Getcha roles! Find yourself! Roles here! \n\240\159\148\181 : He/Him\n\240\159\148\180 : She/Her\n\240\159\159\163 : They/Them\n\240\159\159\161 : Other",
+			channel = "1038142064719831110",
+			guild = "1036666698104832021",
+			roles = {
+				["\240\159\148\181"] = "1038219440250167306",
+				["\240\159\148\180"] = "1038219691749027911",
+				["\240\159\159\163"] = "1038219768861315117",
+				["\240\159\159\161"] = "1110365646908305418"
+			}
+		}
 	}
 	
-	local function add(_, messageId, hash, userId)
-		if messageId == "1077041796779094096" then
-			local role = rolesIndex[hash]
-			if not role then return end
-			benbebot:getGuild("1068640496139915345"):getMember(userId):addRole(role)
+	benbebot:on("ready", function()
+		for message,data in pairs(messageData) do
+			local channel = benbebot:getChannel(data.channel)
+			if channel then
+				message = channel:getMessage(message)
+				if message then
+					message:setContent(data.text)
+				end
+			end
 		end
+	end)
+	
+	local function add(_, messageId, hash, userId)
+		local data = messageData[messageId]
+		if not data then return end
+		
+		local role = data.roles[hash]
+		if not role then return end
+		
+		benbebot:getGuild(data.guild):getMember(userId):addRole(role)
 	end
 	
 	local function remove(channel, messageId, hash, userId)
-		if messageId == "1077041796779094096" then
-			local role = rolesIndex[hash]
-			if not role then return end
-			benbebot:getGuild("1068640496139915345"):getMember(userId):removeRole(role)
-		end
+		local data = messageData[messageId]
+		if not data then return end
+		
+		local role = data.roles[hash]
+		if not role then return end
+		
+		benbebot:getGuild(data.guild):getMember(userId):removeRole(role)
 	end
 	
 	benbebot:on("reactionAddUncached", add)
