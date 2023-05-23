@@ -36,7 +36,6 @@ local SMOKE_SERVER = "1036666698104832021"
 do -- non alien role --
 	
 	benbebot:on("memberJoin", function(member)
-		p(member)
 		if member.guild.id ~= SMOKE_SERVER then return end
 		
 		local success, err = member:addRole("1037126896506392746")
@@ -635,6 +634,46 @@ do -- get invite --
 		if not user.bot then interaction:reply("not a bot") return end
 		
 		interaction:reply(string.format("https://discord.com/api/oauth2/authorize?client_id=%s&permissions=0&scope=bot", user.id), true)
+	end)
+	
+end
+
+do -- emoji hash command --
+	
+	local pretty, utf8 = require("pretty-print"), require("utf8")
+	
+	local Emoji = discordia.class.classes.Emoji
+	
+	benbebot:getCommand("1110366168952340540"):used({}, function(interaction, args)
+		local emojiString = args.emoji:match("^%s*[^%s]+")
+		
+		local emoji
+		local emojiName, emojiId = emojiString:match("^<:([^:]+):(%d+)>")
+		if emojiId then
+			local res = benbebot._api:request("GET", ("/guilds/%s/emojis/%s"):format(interaction.guild.id, emojiId))
+			if res then
+				interaction.guild.emojis:_insert(res)
+				emoji = interaction.guild:getEmoji(emojiId)
+			else
+				emoji = {animated = false, managed = false, hash = emojiName .. ":" .. emojiId, mentionString = ("<:%s:%s>"):format(emojiName, emojiId), name = emojiName}
+			end
+		else
+			emoji = {animated = false, managed = false, hash = emojiString, mentionString = emojiString}
+		end
+		
+		interaction:reply({embed = {
+			title = emoji.mentionString,
+			fields = {
+				{name = "Id", value = tostring(emoji.id), inline = true},
+				{name = "Animated", value = tostring(emoji.animated), inline = true},
+				{name = "Guild", value = tostring((emoji.guild or {}).name), inline = true},
+				{name = "Hash", value = ("`%s`"):format(pretty.dump(emoji.hash):sub(2,-2)), inline = true},
+				{name = "Mention", value = tostring(emoji.mentionString and ("`%s`"):format(emoji.mentionString)), inline = true},
+				{name = "Managed", value = tostring(emoji.managed), inline = true},
+				{name = "Name", value = tostring(emoji.name), inline = true},
+				{name = "Url", value = tostring(emoji.url), inline = true}
+			}
+		}})
 	end)
 	
 end

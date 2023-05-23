@@ -325,7 +325,20 @@ p(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", {
 				}
 			}
 		}
-	}
+	},
+	
+	{
+		type = 1,
+		name = "emojihash",
+		description = "get emoji data",
+		options = {
+			{
+				type = 3,
+				name = "emoji",
+				description = "emoji"
+			}
+		}
+	},
 	
 }))
 
