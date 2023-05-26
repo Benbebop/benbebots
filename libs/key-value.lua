@@ -55,7 +55,7 @@ local function scanString(str, pos)
 	local buffer, escaped = {}, false
 	for i=pos,#str do
 		local c = str:sub(i,i)
-		if c == "\\" then
+		if (not escaped) and c == "\\" then
 			escaped = true
 		elseif (not escaped) and c == "\"" then
 			return table.concat(buffer), i + 1, c
