@@ -106,7 +106,7 @@ end
 
 do -- soundclown
 	
-	local json, http, los = require("json"), require("coro-http"), require("los")
+	local json, http, los, urlParse, path = require("json"), require("coro-http"), require("los"), require("url").parse, require("path")
 	
 	local STATION = "https://soundcloud.com/discover/sets/weekly::%s"
 	local TRACK = "https://api-v2.soundcloud.com/tracks?ids=%s&client_id=%s"
@@ -162,11 +162,45 @@ do -- soundclown
 		if date.whour % 6 == 0 then func(date) end
 	end)
 	
-	benbebot:getCommand("1103908487278379110"):used({}, function(interaction, args)
+	local cmd = benbebot:getCommand("1103908487278379110")
+	
+	cmd:used({"force"}, function(interaction, args)
 		local date = os.date("*t")
 		createWeekHour(date)
 		func(date)
 		interaction:reply("success")
+	end)
+	
+	local MOTD_QUEUE = appdata.path("motd-queue.db")
+	
+	cmd:used({"queue"}, function(interaction, args)
+		interaction:replyDeferred()
+		local url = urlParse(args.url or "")
+		
+		local uri
+		if url.host == "soundcloud.com" then
+			uri = url.pathname
+		elseif url.host == "on.soundcloud.com" then
+			local res = http.request("GET", "https://on.soundcloud.com" .. url.pathname, nil, nil, {followRedirects = false})
+			if res.code ~= 302 then interaction:reply("invalid redirect") return end
+			url = nil
+			for _,v in ipairs(res) do
+				if v[1] == "Location" then
+					url = urlParse(v[2])
+				end
+			end
+			if (not url) or url.host ~= "soundcloud.com" then interaction:reply("could not find location") return end
+			uri = url.pathname
+		elseif not url.host then
+			uri = url.path
+		else
+			interaction:reply("invalid url") return
+		end
+		uri = uri:gsub("^[/\\]", "")
+		
+		fs.appendFileSync(MOTD_QUEUE, uri .. string.pack(">I1", #uri))
+		
+		interaction:reply("added `" .. uri .. "` to queue")
 	end)
 	
 end

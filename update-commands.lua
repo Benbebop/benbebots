@@ -146,9 +146,28 @@ p(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", {
 	
 	{
 		type = 1,
-		name = "forcemotd",
+		name = "motd",
 		description = "force a motd",
-		id = "1103908487278379110"
+		id = "1103908487278379110",
+		options = {
+			{
+				type = 1,
+				name = "force",
+				description = "force a motd"
+			},{
+				type = 1,
+				name = "queue",
+				description = "queue next motd",
+				options = {
+					{
+						type = 3,
+						name = "url",
+						description = "url of the track",
+						required = true
+					}
+				}
+			}
+		}
 	},
 	
 	{
