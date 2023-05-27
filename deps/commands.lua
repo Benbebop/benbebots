@@ -30,9 +30,7 @@ function Client:__init( ... )
 		if not (interaction.type == enums.interactionType.applicationCommandAutocomplete or interaction.type == enums.interactionType.applicationCommand) then return end
 		local data = interaction.data
 		
-		local cmd, opt = self._commandCallbacks[data.id], data.options
-		
-		--interaction:reply("test1")
+		local cmd, opt = self._commandCallbacks[data.id or "0"], data.options
 		
 		while opt do
 			if (not opt[1]) or opt[1].type > 2 then break end
@@ -88,3 +86,7 @@ end
 function Command:used( path, func ) register(self, 1, path, func) end
 
 function Command:autocomplete( path, func ) register(self, 2, path, func) end
+
+function Command:modify( path, content )
+	
+end

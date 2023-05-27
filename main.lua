@@ -219,6 +219,8 @@ do -- game server
 		return json.parse(body) or body
 	end
 	
+	-- retrieve collection data
+	
 	local collections
 	
 	local function scrapeCollection(id)
@@ -273,132 +275,36 @@ do -- game server
 		return server
 	end
 	
-	local srcdsPath, srcdsCwd
-	if require("los").type() == "win32" then
-		srcdsPath = require("path").join(uv.cwd(), "bin/SrcdsConRedirect.exe")
-		srcdsCwd = "./garrysmodds/"
+	-- get executable
+	
+	local pathJoin = require("path").join
+	
+	local STEAM_DIR = los.type() == "win32" and "C:/Program Files (x86)/Steam" or "~/.steam/steam"
+	
+	local libraryfolders = keyvalue.decode(assert(fs.readFileSync(STEAM_DIR .. "/steamapps/libraryfolders.vdf"))).libraryfolders
+	local installindex = "0"
+	for i,v in pairs(libraryfolders) do
+		for l in pairs(v.apps) do
+			if l == "4020" then installindex = i end
+		end
+	end
+	local installpath = libraryfolders[installindex].path
+	
+	local GARRYSMOD_DIR
+	if fs.existsSync(installpath .. "/steamapps/appmanifest_4020.acf") then
+		local manifest = keyvalue.decode(fs.readFileSync(installpath .. "/steamapps/appmanifest_4020.acf")).AppState
+		GARRYSMOD_DIR = pathJoin(installpath, manifest.installdir)
 	else
-		srcdsPath = "garrysmodds/srcds_run"
+		GARRYSMOD_DIR = pathJoin(installpath, "GarrysModDS")
 	end
 	
-	local garrysmodRunning = false
+	-- start server
 	
 	cmd:used({"start"}, function(interaction, args)
-		if not collections then interaction:reply("loading gamemode data, please try again later") return end
-		if garrysmodRunning then interaction:reply("there is already a server instance running") return end
-		interaction:replyDeferred()
 		
-		-- GSLT
-		local gsltToken
-		do
-			local server, err = getGSLT()
-			if not server then benbebot:error("Game server auth error: " .. err) interaction:reply("auth error: " .. err) return end
-			if server.is_expired then
-				steamRequest("POST", "IGameServersService", "ResetLoginToken", 1, {input_json = string.format("{\"steamid\":%s}", server.steamid)})
-				server, err = getGSLT()
-				if not server then benbebot:error("Game server auth error: " .. err) interaction:reply("auth error: " .. err) return end
-				benbebot:info("Reset garrysmod game server token")
-			end
-			
-			gsltToken = server.login_token
-		end
-		
-		-- parse gamemode
-		local gamemode
-		args.gamemode = args.gamemode or "sandbox"
-		if args.gamemode then
-			for _,v in ipairs(collections) do
-				local start, fin = string.find(v.title:lower(), args.gamemode:lower(), nil, true)
-				if (start and fin) and start == 1 then
-					gamemode = v
-				end
-			end
-		end
-		if not gamemode then interaction:reply("input error: invalid gamemode") return end
-		
-		-- parse map
-		local map = args.map or gamemode.default_map or "gm_construct"
-		if not map then interaction:reply("input error: invalid map") return end
-		
-		garrysmodRunning = true
-		
-		-- spawn srcds
-		local stdin, stdout, stderr = uv.new_pipe() ,uv.new_pipe(), uv.new_pipe()
-		
-		local proc, procId = uv.spawn(srcdsPath, {
-			args = {"+maxplayers", "32", "-console", "-p2p", "+host_workshop_collection", "0", "+gamemode", gamemode.gamemode, "+map", map, "+sv_setsteamaccount", gsltToken},
-			stdio = {stdin, stdout, stderr},
-			cwd = srcdsCwd,
-			detached = true
-		}, function()
-			stdout:read_stop()
-			benbebot:emit("gmodStop")
-			garrysmodRunning = false
-		end)
-		if not proc then interaction:reply("spawn error: could not create server instance") return end
-		
-		interaction:reply({
-			embed = {
-				title = "Starting server ",
-				description = "```\n```"
-			}
-		})
-		local reply = interaction:getReply()
-		
-		-- handle output
-		local outStr, updating = "", false
-		local function updateReply()
-			reply.embed.description = string.format("```\n%s\n```", outStr:match("([^\n\r]+)%s*$"))
-			reply:setEmbed(reply.embed)
-			updating = false
-		end
-		local function readStdout(err, chunk)
-			if err or not chunk then return end
-			local pre, post = chunk:match("^(.-)[\n\r]+(.-)$")
-			if pre and post then
-				table.insert(outStr, pre)
-				benbebot:emit("gmodOutput", table.concat(outStr))
-				outStr = {}
-			end
-			table.insert(outStr, post or chunk)
-		end
-		stdout:read_start(function(err, chunk)
-			if err then return end
-			if not chunk then return end
-			
-			outStr = outStr .. chunk -- would use a buffer but its probably not worth it
-			
-			local joinStr = outStr:match("%-+%s*Steam%s*P2P%s*%-+.-`(.-)`%s*%-+")
-			if joinStr then
-				stdout:read_stop()
-				outStr = {}
-				stdout:read_start(readStdout)
-				benbebot:emit("gmodStart", joinStr)
-				coroutine.wrap(function()
-					reply:setEmbed({title = "Succesfully started Garrysmod server",description = "outputting into <#1068641386024407041>"})
-				end)()
-			elseif not updating then
-				updating = true
-				coroutine.wrap(updateReply)()
-			end
-		end)
 	end)
 	
-	benbebot:on("gmodStart", function(joinStr)
-		benbebot:getChannel("1068641386024407041"):send({content = "<@&1068664164786110554>", embed = {
-			title = "A GarrysMod Server Has Started",
-			description = string.format("you can join it by putting `%s` into your console, or by clicking steam://run/4000//%s/ to launch garrysmod and join", joinStr, querystring.urlencode("+" .. joinStr))
-		}})
-	end)
-	benbebot:on("gmodStop", function()
-		benbebot:getChannel("1068641386024407041"):send({embed = {description = "server has stopped"}})
-	end)
-	
-	benbebot:on("gmodOutput", function(str)
-		benbebot:getChannel("1068641386024407041"):send(str)
-	end)
-	
-	cmd:used({"addon"}, function() end)
+	-- admin stuff
 	
 	local urlParse, http, ll, keyvalue, bit32 = require("url").parse, require("coro-http"), require("long-long"), require("key-value"), require("bit")
 	
@@ -424,12 +330,12 @@ do -- game server
 		end
 	end
 	
-	local userPath = "./garrysmodds/garrysmod/settings/users.txt"
+	local USERS = pathJoin(GARRYSMOD_DIR, "garrysmod/settings/users.txt")
 	
 	cmd:used({"admin"}, function(interaction, args)
 		interaction:replyDeferred()
 		
-		if not fs.existsSync(userPath) then interaction:reply("users.txt does not exist") return end
+		if not fs.existsSync(USERS) then interaction:reply("users.txt does not exist") return end
 		
 		local url = urlParse(args.url or "")
 		
@@ -452,13 +358,13 @@ do -- game server
 		
 		local name = body:match("<steamID><!%[CDATA%[(.-)%]%]></steamID>")
 		
-		local users = keyvalue.decode(fs.readFileSync(userPath)).Users
+		local users = keyvalue.decode(fs.readFileSync(USERS)).Users
 		
 		if users.admin[id64] then interaction:reply("this account is already an admin") return end
 		users.admin = users.admin or {}
 		users.admin[id64] = id
 		
-		fs.writeFileSync(userPath, keyvalue.encode({Users = users}))
+		fs.writeFileSync(USERS, keyvalue.encode({Users = users}))
 		
 		local image = body:match("<avatarIcon><!%[CDATA%[(.-)%]%]></avatarIcon>")
 		
