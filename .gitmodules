@@ -10,3 +10,6 @@
 [submodule "deps/discordia"]
 	path = deps/discordia
 	url = https://github.com/Benbebop/Discordia
+[submodule "deps/lit-sqlite3"]
+	path = deps/lit-sqlite3
+	url = https://github.com/SinisterRectus/lit-sqlite3
