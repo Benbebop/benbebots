@@ -1,3 +1,5 @@
-make sure to lit install SinisterRectus/discordia in order to install dependencies
+subdirectories are mostly for attribution, for most of the you will want to lit install them:
 
-watcher and lit-sqlite3 must be taken out of their submodule directories in order to be required properly
+lit install SinisterRectus/discordia
+lit install SinisterRectus/sqlite3
+lit install TohruMKDM/fs-watcher
