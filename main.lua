@@ -652,6 +652,16 @@ do -- emoji hash command --
 	
 end
 
+do -- misc stats --
+	
+	benbebot:on("guildCreate", function() local servers = benbebotStats.Servers benbebotStats.Servers = servers and (servers + 1) or benbebot.guilds:count() end)
+	benbebot:on("guildDelete", function() local servers = benbebotStats.Servers benbebotStats.Servers = servers and (servers - 1) or benbebot.guilds:count() end)
+	
+	familyGuy:on("guildCreate", function() local servers = familyGuyStats.Servers familyGuyStats.Servers = servers and (servers + 1) or familyGuy.guilds:count() end)
+	familyGuy:on("guildDelete", function() local servers = familyGuyStats.Servers familyGuyStats.Servers = servers and (servers - 1) or familyGuy.guilds:count() end)
+	
+end
+
 -- CANNED FOOD --
 
 do -- nothing wacky here
