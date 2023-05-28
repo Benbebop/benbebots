@@ -108,7 +108,7 @@ end
 
 do -- soundclown
 	
-	local json, http, los, urlParse, path = require("json"), require("coro-http"), require("los"), require("url").parse, require("path")
+	local json, http, los, urlParse, path, querystring = require("json"), require("coro-http"), require("los"), require("url").parse, require("path"), require("querystring")
 	
 	local STATION = "https://soundcloud.com/discover/sets/weekly::%s"
 	local TRACK = "https://api-v2.soundcloud.com/tracks?ids=%s&client_id=%s"
@@ -203,9 +203,8 @@ do -- soundclown
 		interaction:reply("success")
 	end)
 	
-	cmd:used({"queue"}, function(interaction, args)
-		interaction:replyDeferred()
-		local url = urlParse(args.url or "")
+	local function getUri(url)
+		local url = urlParse(url or "")
 		
 		local uri
 		if url.host == "soundcloud.com" then
@@ -226,11 +225,55 @@ do -- soundclown
 		else
 			interaction:reply("invalid url") return
 		end
-		uri = uri:gsub("^[/\\]", "")
+		
+		return uri:gsub("^[/\\]", "")
+	end
+	
+	cmd:used({"queue"}, function(interaction, args)
+		interaction:replyDeferred()
+		local uri = getUri(args.url)
 		
 		fs.appendFileSync(MOTD_QUEUE, uri .. string.pack(">I1", #uri))
 		
 		interaction:reply("added `" .. uri .. "` to queue")
+	end)
+	
+	cmd:used({"check"}, function(interaction, args)
+		interaction:replyDeferred()
+		local uri = getUri(args.url)
+		
+		local fd = fs.openSync(MOTD_QUEUE, "r")
+		local cursor = fs.fstatSync(fd).size
+		
+		local exists = false
+		while cursor > 0 do
+			cursor = cursor - 1
+			local size = string.unpack(">I1", fs.readSync(fd, 1, cursor))
+			cursor = cursor - size
+			local compUri = fs.readSync(fd, size, cursor)
+			
+			if uri == compUri then
+				exists = true
+				break
+			end
+		end
+		
+		fs.closeSync(fd)
+		
+		if (not exists) and (args.search == nil or args.search) then
+			local params = {channel_id = "1096581265932701827", author_id = "941372431082348544", content = "https://soundcloud.com/" .. uri}
+			local res = cannedFood._api:request("GET", ("/guilds/%s/messages/search?%s"):format("1068640496139915345", querystring.stringify(params)))
+			
+			if (res.total_results or 0) >= 1 then
+				exists = true
+			end
+		end
+		
+		if exists then
+			interaction:reply("found track: " .. uri)
+		else
+			interaction:reply("did not find track: " .. uri)
+		end
 	end)
 	
 end
@@ -705,6 +748,18 @@ do -- nothing wacky here
 		
 		cannedFoodStats.Reactions = (cannedFoodStats.Reactions or 0) + 1
 	end)
+end
+
+-- FAMILY GUY --
+
+do -- clips --
+	
+	local cmd = familyGuy:getCommand("1112233736621281311")
+	
+	cmd:used({"add"}, function(interaction, args)
+		p(args)
+	end)
+	
 end
 
 -- OTHER --

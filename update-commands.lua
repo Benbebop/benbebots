@@ -27,7 +27,7 @@ end]]
 
 -- GUILD COMMANDS --
 
-p(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", {
+assert(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", {
 	
 	{
 		type = 1,
@@ -164,6 +164,22 @@ p(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", {
 						name = "url",
 						description = "url of the track",
 						required = true
+					}
+				}
+			},{
+				type = 1,
+				name = "check",
+				description = "check if motd exists already",
+				options = {
+					{
+						type = 3,
+						name = "url",
+						description = "url of the track",
+						required = true
+					},{
+						type = 5,
+						name = "search",
+						description = "search motd channel as well"
 					}
 				}
 			}
@@ -388,5 +404,44 @@ p(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", {
 	},
 	
 }))
+
+assert(request(familyGuy, "PUT", "/guilds/1068640496139915345/commands", {
+	
+	{
+		type = 1,
+		name = "clip",
+		description = "manage family guy clips",
+		id = "1112233736621281311",
+		options = {
+			{
+				type = 1,
+				name = "add",
+				description = "add a mp4",
+				options = {
+					{
+						type = 11,
+						name = "file",
+						description = "file to add"
+					}
+				}
+			},{
+				type = 1,
+				name = "remove",
+				description = "remove a mp4",
+				options = {
+					{
+						type = 3,
+						name = "id",
+						description = "id of "
+					}
+				}
+			}
+		}
+	}
+	
+}))
+
+benbebot:stop()
+familyGuy:stop()
 
 os.exit()
