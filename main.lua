@@ -16,6 +16,8 @@ local cannedFood = discordia.Client({logFile=appdata.path("logs/cf_discordia.log
 benbebot._logger:setPrefix("BBB") familyGuy._logger:setPrefix("FLG") cannedFood._logger:setPrefix("CNF")
 benbebot._logChannel, familyGuy._logChannel, cannedFood._logChannel = "1091403807973441597", "1091403807973441597", "1091403807973441597"
 benbebot:enableIntents(discordia.enums.gatewayIntent.guildMembers)
+local stats = require("stats")
+local benbebotStats, familyGuyStats, cannedFoodStats = stats(benbebot, "1068663730759536670"), stats(benbebot, "1068675455022026873"), stats(benbebot, "1112221100273848380")
 local portAdd = los.isProduction() and 0 or 1
 local privateServer = server.new("0.0.0.0", 26420 + portAdd)
 local publicServer = privateServer:new(26430 + portAdd)
@@ -115,7 +117,39 @@ do -- soundclown
 		date.whour = (date.wday - 1) * 24 + date.hour
 	end
 	
+	local MOTD_QUEUE = appdata.path("motd-queue.db")
+	
 	local function func(date)
+		
+		-- queue
+		
+		if false then
+			
+			local fd = fs.openSync(MOTD_QUEUE, "a+")
+			local cursor = fs.fstatSync(fd).size
+			
+			if cursor > 0 then
+				cursor = cursor - 1
+				local size = string.unpack(">I1", fs.readSync(fd, 1, cursor))
+				cursor = cursor - size
+				local uri = fs.readSync(fd, size, cursor)
+				assert(fs.ftruncateSync(fd, cursor))
+				fs.closeSync(fd)
+				local url = "https://soundcloud.com/" .. uri
+				
+				benbebot:getChannel(los.isProduction() and "1096581265932701827" or TEST_CHANNEL):send(url)
+				benbebot:output("info", "sent queued mashup of the day")
+				
+				benbebotStats.Soundclowns = (benbebotStats.Soundclowns or 0) + 1
+				
+				return
+			end
+			
+			fs.closeSync(fd)
+			
+		end
+		
+		-- ask soundcloud instead
 		
 		local res, body = http.request("GET", string.format(STATION, "benbebop"))
 		if not (res and (res.code == 200) and body) then benbebot:output("error", "failed to get soundcloud station: %s", res.reason or tostring(res.code)) return end
@@ -155,6 +189,8 @@ do -- soundclown
 		benbebot:getChannel(los.isProduction() and "1096581265932701827" or TEST_CHANNEL):send(trackData.permalink_url)
 		benbebot:output("info", "sent mashup of the day: %s (index %d)", trackData.title, index)
 		
+		benbebotStats.Soundclowns = (benbebotStats.Soundclowns or 0) + 1
+		
 	end
 	
 	clock:on("hour", function(date)
@@ -170,8 +206,6 @@ do -- soundclown
 		func(date)
 		interaction:reply("success")
 	end)
-	
-	local MOTD_QUEUE = appdata.path("motd-queue.db")
 	
 	cmd:used({"queue"}, function(interaction, args)
 		interaction:replyDeferred()
@@ -662,6 +696,8 @@ do -- nothing wacky here
 		timer.sleep(delay)
 		message:addReaction(emoji)
 		cannedFood:info("Reacted to message in %s with a delay of %ds", message.guild.name, delay / 1000)
+		
+		cannedFoodStats.Reactions = (cannedFoodStats.Reactions or 0) + 1
 	end)
 end
 
