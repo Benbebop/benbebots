@@ -123,31 +123,27 @@ do -- soundclown
 		
 		-- queue
 		
-		if false then
-			
-			local fd = fs.openSync(MOTD_QUEUE, "a+")
-			local cursor = fs.fstatSync(fd).size
-			
-			if cursor > 0 then
-				cursor = cursor - 1
-				local size = string.unpack(">I1", fs.readSync(fd, 1, cursor))
-				cursor = cursor - size
-				local uri = fs.readSync(fd, size, cursor)
-				assert(fs.ftruncateSync(fd, cursor))
-				fs.closeSync(fd)
-				local url = "https://soundcloud.com/" .. uri
-				
-				benbebot:getChannel(los.isProduction() and "1096581265932701827" or TEST_CHANNEL):send(url)
-				benbebot:output("info", "sent queued mashup of the day")
-				
-				benbebotStats.Soundclowns = (benbebotStats.Soundclowns or 0) + 1
-				
-				return
-			end
-			
+		local fd = fs.openSync(MOTD_QUEUE, "r+")
+		local cursor = fs.fstatSync(fd).size
+		
+		if cursor > 0 then
+			cursor = cursor - 1
+			local size = string.unpack(">I1", fs.readSync(fd, 1, cursor))
+			cursor = cursor - size
+			local uri = fs.readSync(fd, size, cursor)
+			assert(fs.ftruncateSync(fd, cursor))
 			fs.closeSync(fd)
+			local url = "https://soundcloud.com/" .. uri
 			
+			benbebot:getChannel(los.isProduction() and "1096581265932701827" or TEST_CHANNEL):send(url)
+			benbebot:output("info", "sent queued mashup of the day")
+			
+			benbebotStats.Soundclowns = (benbebotStats.Soundclowns or 0) + 1
+			
+			return
 		end
+		
+		fs.closeSync(fd)
 		
 		-- ask soundcloud instead
 		
