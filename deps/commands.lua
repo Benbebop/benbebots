@@ -43,6 +43,7 @@ function Client:__init( ... )
 		if opt then
 			for i,v in ipairs(opt) do
 				if v.focused then focused = v.name end
+				if v.type == 11 then v.value = data.resolved.attachments[v.value] end
 				args[v.name] = v.value
 				argsOrdered[i] = v.value
 			end
