@@ -943,6 +943,7 @@ do -- clips --
 	end)
 	
 	clipCmd:used({"status"}, function(interaction, args)
+		validUsers.n = #validUsers
 		interaction:reply({embed = {
 			description = ("next video will be sent <t:%d:R>"):format(nextTimeStamp),
 			fields = {
