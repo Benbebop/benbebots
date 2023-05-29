@@ -455,6 +455,10 @@ assert(request(familyGuy, "PUT", "/guilds/1068640496139915345/commands", {
 						required = true
 					}
 				}
+			},{
+				type = 1,
+				name = "status",
+				description = "status of the clip sending"
 			}
 		}
 	}

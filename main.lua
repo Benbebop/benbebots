@@ -906,6 +906,16 @@ do -- clips --
 		end
 	end)
 	
+	clipCmd:used({"status"}, function(interaction, args)
+		interaction:reply({embed = {
+			description = ("next video will be sent <t:%d:R>"):format(nextTimeStamp),
+			fields = {
+				{name = "Users", value = validUsers.n, inline = true},
+				{name = "Blocked Users", value = #blockedUsers, inline = true},
+			}
+		}})
+	end)
+	
 	familyGuy:getCommand("1112628264075280464"):used({}, function(interaction)
 		interaction:replyDeferred(true)
 		local blocked = isBlocked(interaction.user.id)
