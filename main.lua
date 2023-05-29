@@ -1306,14 +1306,25 @@ do -- events
 end
 
 do -- get cannedFood token
-	local http, json = require("coro-http"), require("json")
+	local http, json, timer, los = require("coro-http"), require("json"), require("timer"), require("los")
 	
-	local res, body = http.request("POST", "https://discord.com/api/v9/auth/login", {{"content-type", "application/json"}}, json.stringify({
-		captcha_key = json.null,
-		login = TOKENS.cannedFoodEmail,
-		password = TOKENS.cannedFoodPassword,
-		undelete = false
-	}))
+	local res, body
+	for _=1,los.isProduction() and 3 or 1 do
+		res, body = http.request("POST", "https://discord.com/api/v9/auth/login", {{"content-type", "application/json"}}, json.stringify({
+			captcha_key = json.null,
+			login = TOKENS.cannedFoodEmail,
+			password = TOKENS.cannedFoodPassword,
+			undelete = false
+		}))
+		
+		if res.code >= 200 and res.code < 300 then break end
+		
+		local resp = json.parse(body)
+		
+		cannedFood:warning("failed to scrape token, retrying after %ss", resp.retry_after * 2)
+		
+		timer.sleep((resp.retry_after or 0) * 2000)
+	end
 	
 	if res.code ~= 200 then cannedFood:error("could not scrape token: %s", body) end
 	
@@ -1336,7 +1347,7 @@ local function func() readys = readys + 1 coroutine.resume(thread) end
 
 benbebot:run("Bot " .. TOKENS.benbebot) benbebot:onceSync("ready", func)
 familyGuy:run("Bot " .. TOKENS.familyGuy) familyGuy:onceSync("ready", func)
-cannedFood:run(TOKENS.cannedFood) cannedFood:onceSync("ready", func)
+if TOKENS.cannedFood then cannedFood:run(TOKENS.cannedFood) cannedFood:onceSync("ready", func) else readys = readys + 1 end
 
 repeat coroutine.yield() until readys >= 3
 
@@ -1353,4 +1364,12 @@ else
 	benbebot:info("TCP servers started")
 end
 
+local sec, msec = require("uv").gettimeofday()
+local seed = sec + msec
+math.randomseed(seed)
+
+benbebot:info("Seeded random (%d)", seed)
+
 clock:start()
+
+benbebot:info("Started clock")
