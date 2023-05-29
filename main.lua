@@ -919,9 +919,9 @@ do -- clips --
 		local clip = clips[math.random(2,#clips)]
 		
 		local content = ("https://cdn.discordapp.com/attachments/%s/%s/%s"):format(clip[2], clip[3], clip[4])
-		local success, err
+		local success, err, user
 		for i=1,20 do
-			local user = los.isProduction() and validUsers[math.random(validUsers.n)] or familyGuy:getChannel(TEST_CHANNEL)
+			user = los.isProduction() and validUsers[math.random(validUsers.n)] or familyGuy:getChannel(TEST_CHANNEL)
 			local success, err = user:send(content)
 			
 			if success then break end
