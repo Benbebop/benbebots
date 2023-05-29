@@ -1,3 +1,5 @@
+local timer = require("timer")
+
 local Stats = {}
 
 local function get(self)
@@ -40,7 +42,8 @@ function Stats:__newindex(index, value)
 	end
 	
 	if chan then
-		chan:setName(index .. " : " .. tostring(value))
+		chan._name = index .. " : " .. tostring(value)
+		chan:setName(chan.name)
 	else
 		channel:createVoiceChannel(index .. " : " .. tostring(value))
 	end
