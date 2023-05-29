@@ -883,7 +883,7 @@ do -- clips --
 		familyGuyStats.Users = validUsers.n
 	end)
 	
-	--[[clock:on("sec", function()
+	clock:on("sec", function()
 		local sec = uv.gettimeofday()
 		
 		if sec > nextTimeStamp then
@@ -892,7 +892,7 @@ do -- clips --
 			local user = validUsers[math.random(validUsers.n)]
 			local clip = clips[math.random(#clips)]
 			
-			local success, err = user:send(("https://cdn.discordapp.com/attachments/%s/%s/%s"):format("1112531213094244362", clip[1], clip[2]))
+			local success, err = familyGuy:getChannel(TEST_CHANNEL):send(("https://cdn.discordapp.com/attachments/%s/%s/%s"):format("1112531213094244362", clip[1], clip[2]))
 			
 			if success then
 				familyGuyStats.Clips = familyGuyStats.Clips + 1
@@ -904,7 +904,7 @@ do -- clips --
 			
 			setBlocked(userId)
 		end
-	end)]]
+	end)
 	
 	familyGuy:getCommand("1112628264075280464"):used({}, function(interaction)
 		interaction:replyDeferred(true)
