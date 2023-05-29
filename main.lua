@@ -916,20 +916,24 @@ do -- clips --
 	end)
 	
 	local function sendClip()
-		local user = validUsers[math.random(validUsers.n)]
 		local clip = clips[math.random(2,#clips)]
 		
-		local success, err = (los.isProduction() and user or familyGuy:getChannel(TEST_CHANNEL)):send(("https://cdn.discordapp.com/attachments/%s/%s/%s"):format(clip[2], clip[3], clip[4]))
-		
-		if success then
-			familyGuyStats.Clips = familyGuyStats.Clips + 1
-			familyGuy:output("info", "sent family guy clip (ID %s) to %s", clip[1], user.name)
-			return
+		local content = ("https://cdn.discordapp.com/attachments/%s/%s/%s"):format(clip[2], clip[3], clip[4])
+		local success, err
+		for i=1,20 do
+			local user = los.isProduction() and validUsers[math.random(validUsers.n)] or familyGuy:getChannel(TEST_CHANNEL)
+			local success, err = user:send(content)
+			
+			if success then break end
+			
+			familyGuy:output("warning", "failed to send clip to %s, adding to blocked users (send attempt %s)", user.name, i)
+			
+			setBlocked(user.id)
 		end
 		
-		familyGuy:output("warning", "failed to send clip to %s, adding to blocked users", user.name)
-		
-		setBlocked(user.id)
+		familyGuyStats.Clips = familyGuyStats.Clips + 1
+		familyGuy:output("info", "sent family guy clip (ID %s) to %s", clip[1], user.name)
+		return
 	end
 	
 	clock:on("sec", function()
