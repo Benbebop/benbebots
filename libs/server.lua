@@ -10,24 +10,10 @@ local INTERNAL_ERROR = {{"Content-Length", "0"},{"Content-Type","text/plain"},{"
 local server = {}
 server.__index = server
 
-function server:on(path, func, options)
-	options = options or {}
-	options.path = path options.func = func
-	table.insert(rawget(self, "callbacks"), options)
-end
-
-function server:autoRespond(path, code, headers, body)
-	headers.code = code
-	code = nil
-	self:on(path, function()
-		return headers, body
-	end)
-end
-
 local requestObj = {}
 server.request = requestObj
 requestObj.__index = function(self, index)
-	return index == "body" and self.body or requestObj.req[index] or self[index]
+	return requestObj[index] or rawget(self, index) or rawget(self, "req")[index]
 end
 
 function requestObj.new(req, body)
@@ -42,7 +28,7 @@ end
 function requestObj:getHeader(...)
 	local tofind = {...}
 	local headers = {}
-	for _,v in ipairs(self.req) do
+	for _,v in ipairs(self.req or self) do
 		for i,k in ipairs(tofind) do
 			if k == v[1] then
 				headers[i] = v[2]
@@ -55,6 +41,26 @@ end
 
 function requestObj:unpack()
 	return self.req, self.body
+end
+
+function server:on(path, func, options)
+	options = options or {}
+	options.path = path options.func = func
+	table.insert(rawget(self, "callbacks"), options)
+end
+
+function server:autoRespond(path, code, headers, body)
+	headers.code = code
+	code = nil
+	self:on(path, function()
+		return headers, body
+	end)
+end
+
+function server:redirect(path, destination)
+	self:on(path, function(req)
+		return {{"Location", pathLib.join(req:getHeader("Host"), destination)}, code = 301}, nil
+	end)
 end
 
 function server:process(req, body)
@@ -92,8 +98,7 @@ function server:process(req, body)
 		end
 		return NO_CONTENT
 	end
-	if retBody and not req:getHeader("Content-Length") then
-		table.insert()
+	if retBody and not requestObj.getHeader(retReq, "Content-Length") then
 		server.addHeader(retReq, "Content-Length", #retBody)
 	end
 	

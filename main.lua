@@ -1058,14 +1058,106 @@ end
 do -- remote manage server
 	local http, fs, url = require("coro-http"), require("fs"), require("url")
 	
-	local fileToWrite = require("los").isProduction() and ".tokens" or "alternate.tokens"
+	local TOKEN_FILE = require("los").isProduction() and ".tokens" or "alternate.tokens"
 	
 	privateServer:on("/token/upload", function(res, body)
 		if (res.query or {}).pass ~= TOKENS.serverAuth then return {code = 401}, "Unauthorized" end
 	
-		local res = {fs.writeFileSync(fileToWrite, body)}
+		local res = {fs.writeFileSync(TOKEN_FILE, body)}
 		return nil, body
 	end, {method = {"POST"}})
+end
+
+do -- netrc
+	
+	local MY_URL = "http://10.0.0.222:" .. 26420 + portAdd
+	local NETRC_FILE = appdata.secretPath(".netrc")
+	io.open(NETRC_FILE, "ab"):close()
+	
+	privateServer:redirect("/netrc/get", "/netrc/index")
+	privateServer:redirect("/netrc/set", "/netrc/index")
+	privateServer:redirect("/netrc/lst", "/netrc/index")
+	privateServer:redirect("/netrc/list", "/netrc/index")
+	privateServer:redirect("/netrc/del", "/netrc/index")
+	privateServer:redirect("/netrc/delete", "/netrc/index")
+	
+	function parse(l)
+		return l:match("machine%s*([^%s]+)"), {login = l:match("login%s*([^%s]+)"),
+			password = l:match("password%s*([^%s]+)"),
+			account = l:match("account%s*([^%s]+)"),
+			macdef = l:match("macdef%s*([^%s]+)")}
+	end
+	
+	local function loadNetrc()
+		local logins = {}
+		
+		for l in io.lines(NETRC_FILE) do
+			local d = l:match("^%s*default")
+			if d then
+				_, default = parse(l)
+			else
+				local index, data = parse(l)
+				logins[index] = data
+			end
+		end
+		
+		return logins
+	end
+	
+	local function saveNetrc(logins)
+		local file = io.open(NETRC_FILE, "wb")
+
+		for machine,login in pairs(logins) do
+			local str = {"machine", machine}
+			for i,v in pairs(login) do
+				table.insert(str, i)
+				table.insert(str, v)
+			end
+			file:write(table.concat(str, " "), "\n")
+		end
+
+		if default then
+			local str = {"default"}
+			for i,v in pairs(default) do
+				table.insert(str, i)
+				table.insert(str, v)
+			end
+			file:write(table.concat(str, " "))
+		end
+		
+		file:close()
+	end
+	
+	privateServer:on("/netrc/index", function(res)
+		local logins = loadNetrc()
+		
+		if not res.query then return end
+		if res.query.machine then
+			local data = logins[res.query.machine]
+			if not data then return {code = 404} end
+			
+			local html = {"<body><h1>", res.query.machine, "</h1>"}
+			for name,value in pairs(data) do
+				table.insert(html, "<h2>") table.insert(html, name) table.insert(html, "</h2>")
+				table.insert(html, "<p>") table.insert(html, value) table.insert(html, "</p>")
+			end
+			table.insert(html, "</body>")
+			
+			return {code = 200}, table.concat(html)
+		end
+		
+		local html = {"<body>"}
+		for machine,login in pairs(logins) do
+			table.insert(html, "<a href=\"")
+			table.insert(html, (res:getHeader("Host") or "localhost") .. "/netrc/index?pass=" .. tostring(res.query.pass) .. "&machine=" .. machine)
+			table.insert(html, "\">")
+			table.insert(html, machine)
+			table.insert(html, "</a><br>")
+		end
+		table.insert(html, "</body>")
+		
+		return {code = 200}, table.concat(html)
+	end, {method = {"GET", "POST", "PUT"}})
 	
 end
 
