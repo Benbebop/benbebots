@@ -778,7 +778,7 @@ do -- clips --
 					if message then
 						
 						local attachmentUrl = urlParse(message.attachment.url)
-						local id1, id2 = attachmentUrl.pathname:match("^/attachments/(%d)/(%d)")
+						local id1, id2 = attachmentUrl.pathname:match("^/attachments/(%d+)/(%d+)")
 						
 						v[2], v[3] = id1, id2
 						
@@ -786,7 +786,7 @@ do -- clips --
 				end
 			end
 			
-			table.insert(clips, 1, {version = 2.5})
+			table.insert(clips, 1, {version = 3})
 			
 			saveClips()
 			
