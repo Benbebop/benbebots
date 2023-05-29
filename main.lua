@@ -763,6 +763,10 @@ do -- clips --
 	local CLIP_STORAGE = "1112531213094244362"
 	local CLIP_FILE = appdata.path("clips.json")
 	local clips = json.parse(fs.readFileSync(CLIP_FILE) or "[{\"version\":2}]") or {{version = 2}}
+	
+	local function saveClips()
+		fs.writeFileSync(CLIP_FILE, json.stringify(clips or {{version = 2}}))
+	end
 	familyGuy:onSync("ready", function()
 		if (not clips[1].version) or (clips[1].version < 2) then -- fix outdated tables
 			for _,v in ipairs(clips) do
@@ -790,10 +794,6 @@ do -- clips --
 			
 		end
 	end)
-	
-	local function saveClips()
-		fs.writeFileSync(CLIP_FILE, json.stringify(clips or {{version = 2}}))
-	end
 	
 	local clipCmd = familyGuy:getCommand("1112626905087225896")
 	
