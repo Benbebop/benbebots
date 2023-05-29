@@ -758,7 +758,7 @@ end
 
 do -- clips --
 	
-	local json, http, uv, timer, urlParse = require("json"), require("coro-http"), require("uv"), require("timer"), require("url")
+	local json, http, uv, timer, urlParse = require("json"), require("coro-http"), require("uv"), require("timer"), require("url").parse
 	
 	local CLIP_STORAGE = "1112531213094244362"
 	local CLIP_FILE = appdata.path("clips.json")
