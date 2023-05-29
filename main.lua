@@ -758,7 +758,7 @@ end
 
 do -- clips --
 	
-	local json, http, uv, timer, urlParse = require("json"), require("coro-http"), require("uv"), require("timer"), require("url").parse
+	local json, http, uv, timer, urlParse, los = require("json"), require("coro-http"), require("uv"), require("timer"), require("url").parse, require("los")
 	
 	local CLIP_STORAGE = "1112531213094244362"
 	local CLIP_FILE = appdata.path("clips.json")
@@ -815,7 +815,7 @@ do -- clips --
 		if not message then interaction:reply(err) return end
 		
 		local attachmentUrl = urlParse(message.attachment.url)
-		local id1, id2 = attachmentUrl.pathname:match("^/attachment/(%d)/(%d)")
+		local id1, id2 = attachmentUrl.pathname:match("^/attachments/(%d+)/(%d+)")
 		
 		table.insert(clips, {message.id, id1, id2, filename, interaction.user.id, args.season, args.episode})
 		saveClips()
@@ -918,7 +918,7 @@ do -- clips --
 		local user = validUsers[math.random(validUsers.n)]
 		local clip = clips[math.random(2,#clips)]
 		
-		local success, err = familyGuy:getChannel(TEST_CHANNEL):send(("https://cdn.discordapp.com/attachments/%s/%s/%s"):format(clip[2], clip[3], clip[4]))
+		local success, err = (los.isProduction() and user or familyGuy:getChannel(TEST_CHANNEL)):send(("https://cdn.discordapp.com/attachments/%s/%s/%s"):format(clip[2], clip[3], clip[4]))
 		
 		if success then
 			familyGuyStats.Clips = familyGuyStats.Clips + 1
