@@ -920,7 +920,7 @@ do -- clips --
 			
 			interaction:reply("you will now recieve family guy clips again", true)
 		else
-			setBlocked(userId)
+			setBlocked(interaction.user.id)
 			
 			interaction:reply("you will no longer recieve family guy clips", true)
 		end
