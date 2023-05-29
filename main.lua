@@ -211,19 +211,19 @@ do -- soundclown
 			uri = url.pathname
 		elseif url.host == "on.soundcloud.com" then
 			local res = http.request("GET", "https://on.soundcloud.com" .. url.pathname, nil, nil, {followRedirects = false})
-			if res.code ~= 302 then interaction:reply("invalid redirect") return end
+			if res.code ~= 302 then return nil, "invalid redirect" end
 			url = nil
 			for _,v in ipairs(res) do
 				if v[1] == "Location" then
 					url = urlParse(v[2])
 				end
 			end
-			if (not url) or url.host ~= "soundcloud.com" then interaction:reply("could not find location") return end
+			if (not url) or url.host ~= "soundcloud.com" then return nil, "could not find location" end
 			uri = url.pathname
 		elseif not url.host then
 			uri = url.path
 		else
-			interaction:reply("invalid url") return
+			return nil, "invalid url"
 		end
 		
 		return uri:gsub("^[/\\]", "")
@@ -231,7 +231,9 @@ do -- soundclown
 	
 	cmd:used({"queue"}, function(interaction, args)
 		interaction:replyDeferred()
-		local uri = getUri(args.url)
+		local uri, err = getUri(args.url)
+		
+		if not uri then interaction:reply(err) return end
 		
 		fs.appendFileSync(MOTD_QUEUE, uri .. string.pack(">I1", #uri))
 		
@@ -240,7 +242,9 @@ do -- soundclown
 	
 	cmd:used({"check"}, function(interaction, args)
 		interaction:replyDeferred()
-		local uri = getUri(args.url)
+		local uri, err = getUri(args.url)
+		
+		if not uri then interaction:reply(err) return end
 		
 		local fd = fs.openSync(MOTD_QUEUE, "r")
 		local cursor = fs.fstatSync(fd).size
@@ -757,7 +761,11 @@ do -- clips --
 	local cmd = familyGuy:getCommand("1112233736621281311")
 	
 	cmd:used({"add"}, function(interaction, args)
-		p(args)
+		local file = args.file
+		if file.content_type ~= "video/mp4" then interaction:reply("file must be a mp4 video file") return end
+		if file.ephemeral then
+			
+		end
 	end)
 	
 end
