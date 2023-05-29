@@ -928,7 +928,7 @@ do -- clips --
 		
 		familyGuy:output("warning", "failed to send clip to %s, adding to blocked users", user.name)
 		
-		setBlocked(userId)
+		setBlocked(user.id)
 	end
 	
 	clock:on("sec", function()
