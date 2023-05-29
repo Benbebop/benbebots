@@ -1133,6 +1133,7 @@ do -- netrc
 		
 		if not res.query then return end
 		if res.query.machine then
+			p(logins)
 			local data = logins[res.query.machine]
 			if not data then return {code = 404} end
 			
@@ -1149,7 +1150,7 @@ do -- netrc
 		local html = {"<body>"}
 		for machine,login in pairs(logins) do
 			table.insert(html, "<a href=\"")
-			table.insert(html, (res:getHeader("Host") or "localhost") .. "/netrc/index?pass=" .. tostring(res.query.pass) .. "&machine=" .. machine)
+			table.insert(html, "/netrc/index?pass=" .. tostring(res.query.pass) .. "&machine=" .. machine)
 			table.insert(html, "\">")
 			table.insert(html, machine)
 			table.insert(html, "</a><br>")
