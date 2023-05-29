@@ -790,19 +790,16 @@ do -- clips --
 		saveEvents()
 		
 		interaction:reply({
-			content = message.attachment.url,
 			embed = {
 				description = "succesfully added clip",
 				fields = {
 					{name = "ID", value = message.id, inline = true},
 					{name = "Owner", value = interaction.user.mentionString, inline = true},
 					{name = "Attribution", value = ("S%s E%s"):format(args.season or "?", args.episode or "?"), inline = true},
-				},
-				video = {
-					url = message.attachment.url
 				}
 			}
 		})
+		interaction.channel:send(message.attachment.url)
 	end)
 	
 	cmd:used({"remove"}, function(interaction, args)
