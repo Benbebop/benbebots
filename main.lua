@@ -762,13 +762,13 @@ do -- clips --
 	
 	local CLIP_STORAGE = "1112531213094244362"
 	local CLIP_FILE = appdata.path("clips.json")
-	local clips = json.parse(fs.readFileSync(CLIP_FILE) or "[{\"version\":2}]") or {{version = 2}}
+	local clips = json.parse(fs.readFileSync(CLIP_FILE) or "[{\"version\":3}]") or {{version = 3}}
 	
 	local function saveClips()
-		fs.writeFileSync(CLIP_FILE, json.stringify(clips or {{version = 2}}))
+		fs.writeFileSync(CLIP_FILE, json.stringify(clips or {{version = 3}}))
 	end
 	familyGuy:onSync("ready", function()
-		if (not clips[1].version) or (clips[1].version < 2) then -- fix outdated tables
+		if (not clips[1].version) or (clips[1].version < 3) then -- fix outdated tables
 			for _,v in ipairs(clips) do
 				if v[1] then
 					local message = familyGuy:getChannel(CLIP_STORAGE):getMessage(v[1])
@@ -780,13 +780,13 @@ do -- clips --
 						local attachmentUrl = urlParse(message.attachment.url)
 						local id1, id2 = attachmentUrl.pathname:match("^/attachments/(%d)/(%d)")
 						
-						table.insert(v, 2, id1) table.insert(v, 3, id2)
+						v[2], v[3] = id1, id2
 						
 					end
 				end
 			end
 			
-			table.insert(clips, 1, {version = 2})
+			table.insert(clips, 1, {version = 2.5})
 			
 			saveClips()
 			
