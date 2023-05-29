@@ -758,13 +758,37 @@ end
 
 do -- clips --
 	
-	local json, http, uv, timer = require("json"), require("coro-http"), require("uv"), require("timer")
+	local json, http, uv, timer, urlParse = require("json"), require("coro-http"), require("uv"), require("timer"), require("url")
 	
+	local CLIP_STORAGE = "1112531213094244362"
 	local CLIP_FILE = appdata.path("clips.json")
-	local clips = json.parse(fs.readFileSync(CLIP_FILE) or "{}") or {}
+	local clips = json.parse(fs.readFileSync(CLIP_FILE) or "[{\"version\":2}]") or {{version = 2}}
+	
+	familyGuy:on("ready", function()
+		if (not clips[1].version) or clips[1].version < 2 then -- fix outdated tables
+			for _,v in ipairs(clips) do
+				if v[1] then
+					local message = familyGuy:getChannel(CLIP_STORAGE):getMessage(v[1])
+					
+					if message then
+						
+						local attachmentUrl = urlParse(message.attachment.url)
+						local id1, id2 = attachmentUrl.pathname:match("^/attachment/(%d)/(%d)")
+						
+						table.insert(v, 2, id1) table.insert(v, 3, id2)
+						
+					end
+				end
+			end
+			
+			table.insert(clips, 1, {version = 2})
+			
+			p(clips)
+		end
+	end)
 	
 	local function saveClips()
-		fs.writeFileSync(CLIP_FILE, json.stringify(clips or {}))
+		fs.writeFileSync(CLIP_FILE, json.stringify(clips or {{version = 2}}))
 	end
 	
 	local clipCmd = familyGuy:getCommand("1112626905087225896")
@@ -786,7 +810,10 @@ do -- clips --
 		
 		if not message then interaction:reply(err) return end
 		
-		table.insert(clips, {message.id, filename, interaction.user.id, args.season, args.episode})
+		local attachmentUrl = urlParse(message.attachment.url)
+		local id1, id2 = attachmentUrl.pathname:match("^/attachment/(%d)/(%d)")
+		
+		table.insert(clips, {message.id, id1, id2, filename, interaction.user.id, args.season, args.episode})
 		saveClips()
 		
 		interaction:reply({
@@ -883,26 +910,30 @@ do -- clips --
 		familyGuyStats.Users = validUsers.n
 	end)
 	
+	local function sendClip()
+		local user = validUsers[math.random(validUsers.n)]
+		local clip = clips[math.random(2,#clips)]
+		
+		local success, err = familyGuy:getChannel(TEST_CHANNEL):send(("https://cdn.discordapp.com/attachments/%s/%s/%s"):format("1112531213094244362", clip[1], clip[2]))
+		
+		if success then
+			familyGuyStats.Clips = familyGuyStats.Clips + 1
+			familyGuy:output("info", "sent family guy clip (ID %s) to %s", clip[1], user.name)
+			return
+		end
+		
+		familyGuy:output("warning", "failed to send clip to %s, adding to blocked users", user.name)
+		
+		setBlocked(userId)
+	end
+	
 	clock:on("sec", function()
 		local sec = uv.gettimeofday()
 		
 		if sec > nextTimeStamp then
 			calcNextTimeStamp()
 			
-			local user = validUsers[math.random(validUsers.n)]
-			local clip = clips[math.random(#clips)]
-			
-			local success, err = familyGuy:getChannel(TEST_CHANNEL):send(("https://cdn.discordapp.com/attachments/%s/%s/%s"):format("1112531213094244362", clip[1], clip[2]))
-			
-			if success then
-				familyGuyStats.Clips = familyGuyStats.Clips + 1
-				familyGuy:output("sent family guy clip (ID %s) to %s", clip[1], user.name)
-				return
-			end
-			
-			familyGuy:output("failed to send clip to %s, adding to blocked users", user.name)
-			
-			setBlocked(userId)
+			sendClip()
 		end
 	end)
 	
@@ -914,6 +945,12 @@ do -- clips --
 				{name = "Blocked Users", value = #blockedUsers, inline = true},
 			}
 		}})
+	end)
+	
+	clipCmd:used({"force"}, function(interaction, args)
+		sendClip()
+		
+		interaction:reply("sent clip")
 	end)
 	
 	familyGuy:getCommand("1112628264075280464"):used({}, function(interaction)
