@@ -10,10 +10,11 @@ local clock = discordia.Clock()
 
 local logLevel = los.isProduction() and 3 or 4
 fs.mkdirSync(appdata.path("logs"))
-local benbebot, familyGuy, cannedFood = discordia.Client({logFile=appdata.path("logs/bbb_discordia.log"),gatewayFile=appdata.path("logs/bbb_gateway.json"),logLevel=logLevel})
+local benbebot = discordia.Client({logFile=appdata.path("logs/bbb_discordia.log"),gatewayFile=appdata.path("logs/bbb_gateway.json"),logLevel=logLevel})
 local familyGuy = discordia.Client({logFile=appdata.path("logs/fg_discordia.log"),gatewayFile=appdata.path("logs/fg_gateway.json"),logLevel=logLevel,cacheAllMembers=true})
 local cannedFood = discordia.Client({logFile=appdata.path("logs/cf_discordia.log"),gatewayFile=appdata.path("logs/cf_gateway.json"),logLevel=logLevel})
-benbebot._logger:setPrefix("BBB") familyGuy._logger:setPrefix("FLG") cannedFood._logger:setPrefix("CNF")
+local genericLogger = discordia.Client()
+benbebot._logger:setPrefix("BBB") familyGuy._logger:setPrefix("FLG") cannedFood._logger:setPrefix("CNF") genericLogger._logger:setPrefix("ALL")
 benbebot._logChannel, familyGuy._logChannel, cannedFood._logChannel = "1091403807973441597", "1091403807973441597", "1091403807973441597"
 benbebot:enableIntents(discordia.enums.gatewayIntent.guildMembers) familyGuy:enableIntents(discordia.enums.gatewayIntent.guildMembers)
 local stats = require("stats")
@@ -1351,25 +1352,25 @@ if TOKENS.cannedFood then cannedFood:run(TOKENS.cannedFood) cannedFood:onceSync(
 
 repeat coroutine.yield() until readys >= 3
 
-benbebot:info("All bots ready")
+genericLogger:info("All bots ready")
 
 local success1, err1 = privateServer:start()
 local success2, err2 = publicServer:start()
 
 if not (success1 and success2) then
-	benbebot:error("Failed to start TCP server(s)")
+	genericLogger:error("Failed to start TCP server(s)")
 	print(err1)
 	print(err2)
 else
-	benbebot:info("TCP servers started")
+	genericLogger:info("TCP servers started")
 end
 
 local sec, msec = require("uv").gettimeofday()
 local seed = sec + msec
 math.randomseed(seed)
 
-benbebot:info("Seeded random (%d)", seed)
+genericLogger:info("Seeded random (%d)", seed)
 
 clock:start()
 
-benbebot:info("Started clock")
+genericLogger:info("Started clock")
