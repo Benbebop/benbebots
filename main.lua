@@ -763,17 +763,18 @@ do -- clips --
 	local CLIP_STORAGE = "1112531213094244362"
 	local CLIP_FILE = appdata.path("clips.json")
 	local clips = json.parse(fs.readFileSync(CLIP_FILE) or "[{\"version\":2}]") or {{version = 2}}
-	
-	familyGuy:on("ready", function()
-		if (not clips[1].version) or clips[1].version < 2 then -- fix outdated tables
+	familyGuy:onSync("ready", function()
+		if (not clips[1].version) or (clips[1].version < 2) then -- fix outdated tables
 			for _,v in ipairs(clips) do
 				if v[1] then
 					local message = familyGuy:getChannel(CLIP_STORAGE):getMessage(v[1])
 					
+					familyGuy:info("fixing clip entry %d", _)
+					
 					if message then
 						
 						local attachmentUrl = urlParse(message.attachment.url)
-						local id1, id2 = attachmentUrl.pathname:match("^/attachment/(%d)/(%d)")
+						local id1, id2 = attachmentUrl.pathname:match("^/attachments/(%d)/(%d)")
 						
 						table.insert(v, 2, id1) table.insert(v, 3, id2)
 						
@@ -783,7 +784,10 @@ do -- clips --
 			
 			table.insert(clips, 1, {version = 2})
 			
-			p(clips)
+			saveClips()
+			
+			familyGuy:info("fixed clip entries")
+			
 		end
 	end)
 	
@@ -914,7 +918,7 @@ do -- clips --
 		local user = validUsers[math.random(validUsers.n)]
 		local clip = clips[math.random(2,#clips)]
 		
-		local success, err = familyGuy:getChannel(TEST_CHANNEL):send(("https://cdn.discordapp.com/attachments/%s/%s/%s"):format("1112531213094244362", clip[1], clip[2]))
+		local success, err = familyGuy:getChannel(TEST_CHANNEL):send(("https://cdn.discordapp.com/attachments/%s/%s/%s"):format(clip[2], clip[3], clip[4]))
 		
 		if success then
 			familyGuyStats.Clips = familyGuyStats.Clips + 1
