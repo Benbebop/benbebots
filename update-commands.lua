@@ -416,23 +416,33 @@ assert(request(familyGuy, "PUT", "/guilds/1068640496139915345/commands", {
 			{
 				type = 1,
 				name = "add",
-				description = "add a mp4",
+				description = "add a clip",
 				options = {
 					{
 						type = 11,
 						name = "file",
-						description = "file to add"
+						description = "file to add",
+						required = true
+					},{
+						type = 4,
+						name = "season",
+						description = "source season that the clip originates from"
+					},{
+						type = 4,
+						name = "episode",
+						description = "source episode that the clip originates from"
 					}
 				}
 			},{
 				type = 1,
 				name = "remove",
-				description = "remove a mp4",
+				description = "remove a clip",
 				options = {
 					{
 						type = 3,
 						name = "id",
-						description = "id of "
+						description = "id of clip to remove",
+						required = true
 					}
 				}
 			}

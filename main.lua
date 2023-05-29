@@ -758,14 +758,73 @@ end
 
 do -- clips --
 	
+	local json, http = require("json"), require("coro-http")
+	
+	local CLIP_FILE = appdata.path("clips.json")
+	local clips = json.parse(fs.readFileSync(CLIP_FILE) or "{}") or {}
+	
+	local function saveEvents()
+		fs.writeFileSync(CLIP_FILE, json.stringify(clips or {}))
+	end
+	
 	local cmd = familyGuy:getCommand("1112233736621281311")
 	
 	cmd:used({"add"}, function(interaction, args)
 		local file = args.file
 		if file.content_type ~= "video/mp4" then interaction:reply("file must be a mp4 video file") return end
-		if file.ephemeral then
-			
+		local ratio = file.width / file.height
+		if ratio < 1 then interaction:reply("file cannot be a verticle aspect ratio") return end
+		interaction:replyDeferred()
+		
+		local res, content = http.request("GET", file.url)
+		if res.code < 200 or res.code >= 300 or not content then interaction:reply("error fetching video data") return end
+		
+		local filename = ("clip_%s.mp4"):format(file.id)
+		local message, err = familyGuy:getChannel("1112531213094244362"):send({
+			file = {filename, content}
+		})
+		
+		if not message then interaction:reply(err) return end
+		
+		table.insert(clips, {message.id, filename, interaction.user.id, args.season, args.episode})
+		saveEvents()
+		
+		interaction:reply({
+			content = message.attachment.url,
+			embed = {
+				description = "succesfully added clip",
+				fields = {
+					{name = "ID", value = message.id, inline = true},
+					{name = "Owner", value = interaction.user.mentionString, inline = true},
+					{name = "Attribution", value = ("S%s E%s"):format(args.season or "?", args.episode or "?"), inline = true},
+				},
+				video = {
+					url = message.attachment.url
+				}
+			}
+		})
+	end)
+	
+	cmd:used({"remove"}, function(interaction, args)
+		interaction:replyDeferred()
+		local channel = familyGuy:getChannel("1112531213094244362")
+		local message = channel:getMessage(args.id)
+		
+		if not message then interaction:reply("invalid clip id") return end
+		
+		local id = message.id
+		message:delete()
+		
+		local toRemove = {}
+		for i,v in ipairs(clips) do
+			if v[1] == id then table.insert(toRemove, i) end
 		end
+		if #toRemove > 0 then
+			for _,i in ipairs(toRemove) do table.remove(clips, i) end
+			saveEvents()
+		end
+		
+		interaction:reply("removed clip")
 	end)
 	
 end
@@ -864,12 +923,12 @@ do -- events
 	local json, http, querystring, url, openssl, uv = require("json"), require("coro-http"), require("querystring"), require("url"), require("openssl"), require("uv")
 	local null = json.null
 	
-	local eventFile = appdata.path("events.json")
-	local events = json.parse(fs.readFileSync(eventFile) or "{}") or {}
+	local EVENT_FILE = appdata.path("events.json")
+	local events = json.parse(fs.readFileSync(EVENT_FILE) or "{}") or {}
 	-- {owner, masterMessage, message, isActive, channel, misc}
 	
 	local function saveEvents()
-		fs.writeFileSync(eventFile, json.stringify(events or {}))
+		fs.writeFileSync(EVENT_FILE, json.stringify(events or {}))
 	end
 	
 	local function formatMessage(pattern, message, url)
