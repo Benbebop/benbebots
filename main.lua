@@ -1133,7 +1133,6 @@ do -- netrc
 		
 		if not res.query then return end
 		if res.query.machine then
-			p(logins)
 			local data = logins[res.query.machine]
 			if not data then return {code = 404} end
 			
