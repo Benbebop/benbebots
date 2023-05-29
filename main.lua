@@ -15,7 +15,7 @@ local familyGuy = discordia.Client({logFile=appdata.path("logs/fg_discordia.log"
 local cannedFood = discordia.Client({logFile=appdata.path("logs/cf_discordia.log"),gatewayFile=appdata.path("logs/cf_gateway.json"),logLevel=logLevel})
 benbebot._logger:setPrefix("BBB") familyGuy._logger:setPrefix("FLG") cannedFood._logger:setPrefix("CNF")
 benbebot._logChannel, familyGuy._logChannel, cannedFood._logChannel = "1091403807973441597", "1091403807973441597", "1091403807973441597"
-benbebot:enableIntents(discordia.enums.gatewayIntent.guildMembers)
+benbebot:enableIntents(discordia.enums.gatewayIntent.guildMembers) familyGuy:enableIntents(discordia.enums.gatewayIntent.guildMembers)
 local stats = require("stats")
 local benbebotStats, familyGuyStats, cannedFoodStats = stats(benbebot, "1068663730759536670"), stats(benbebot, "1068675455022026873"), stats(benbebot, "1112221100273848380")
 local portAdd = los.isProduction() and 0 or 1
@@ -758,18 +758,18 @@ end
 
 do -- clips --
 	
-	local json, http, uv = require("json"), require("coro-http"), require("uv")
+	local json, http, uv, timer = require("json"), require("coro-http"), require("uv"), require("timer")
 	
 	local CLIP_FILE = appdata.path("clips.json")
 	local clips = json.parse(fs.readFileSync(CLIP_FILE) or "{}") or {}
 	
-	local function saveEvents()
+	local function saveClips()
 		fs.writeFileSync(CLIP_FILE, json.stringify(clips or {}))
 	end
 	
-	local cmd = familyGuy:getCommand("1112626905087225896")
+	local clipCmd = familyGuy:getCommand("1112626905087225896")
 	
-	cmd:used({"add"}, function(interaction, args)
+	clipCmd:used({"add"}, function(interaction, args)
 		local file = args.file
 		if file.content_type ~= "video/mp4" then interaction:reply("file must be a mp4 video file") return end
 		local ratio = file.width / file.height
@@ -787,7 +787,7 @@ do -- clips --
 		if not message then interaction:reply(err) return end
 		
 		table.insert(clips, {message.id, filename, interaction.user.id, args.season, args.episode})
-		saveEvents()
+		saveClips()
 		
 		interaction:reply({
 			embed = {
@@ -802,7 +802,7 @@ do -- clips --
 		interaction.channel:send(message.attachment.url)
 	end)
 	
-	cmd:used({"remove"}, function(interaction, args)
+	clipCmd:used({"remove"}, function(interaction, args)
 		interaction:replyDeferred()
 		local channel = familyGuy:getChannel("1112531213094244362")
 		local message = channel:getMessage(args.id)
@@ -818,35 +818,113 @@ do -- clips --
 		end
 		if #toRemove > 0 then
 			for _,i in ipairs(toRemove) do table.remove(clips, i) end
-			saveEvents()
+			saveClips()
 		end
 		
 		interaction:reply("removed clip")
 	end)
 	
-	--[[local TIME_BETWEEN = 2 * 86400
+	local TIME_BETWEEN = 2 * 86400
+	local BLOCKED_FILE = appdata.path("fg-blocked-users.json")
 	
 	local nextTimeStamp = math.huge
+	local validUsers = {n = 0}
+	local blockedUsers = json.parse(fs.readFileSync(BLOCKED_FILE) or "{}") or {}
+	
+	local function saveUsers()
+		fs.writeFileSync(BLOCKED_FILE, json.stringify(blockedUsers or {}))
+	end
+	
+	local function isBlocked(userId)
+		local blocked = false
+		for i,v in ipairs(blockedUsers) do
+			if v == userId then blocked = i break end
+		end
+		return blocked
+	end
+	
+	local function setBlocked(userId)
+		table.insert(blockedUsers, userId)
+		saveUsers()
+		
+		local index
+		for i,v in ipairs(validUsers) do
+			if v.id == userId then
+				index = i
+				break
+			end
+		end
+		if index then
+			table.remove(validUsers, index)
+			validUsers.n = validUsers.n - 1
+			familyGuyStats.Users = validUsers.n
+		end
+	end
 	
 	local function calcNextTimeStamp()
-		local count = familyGuy.users:count()
-		
-		
+		local delay = math.floor(TIME_BETWEEN / validUsers.n)
+		local sec = uv.gettimeofday()
+		nextTimeStamp = math.floor(sec / delay + 1) * delay
+		return nextTimeStamp
 	end
 	
 	familyGuy:on("ready", function()
+		for user in familyGuy.users:iter() do
+			if not isBlocked(user.id) then
+				validUsers.n = validUsers.n + 1
+				table.insert(validUsers, user)
+			end
+		end
+		
 		calcNextTimeStamp()
+		
+		timer.sleep(5000)
+		
+		familyGuyStats.Users = validUsers.n
 	end)
 	
-	clock:on("sec", function()
+	--[[clock:on("sec", function()
 		local sec = uv.gettimeofday()
 		
 		if sec > nextTimeStamp then
 			calcNextTimeStamp()
 			
+			local user = validUsers[math.random(validUsers.n)]
+			local clip = clips[math.random(#clips)]
 			
+			local success, err = user:send(("https://cdn.discordapp.com/attachments/%s/%s/%s"):format("1112531213094244362", clip[1], clip[2]))
+			
+			if success then
+				familyGuyStats.Clips = familyGuyStats.Clips + 1
+				familyGuy:output("sent family guy clip (ID %s) to %s", clip[1], user.name)
+				return
+			end
+			
+			familyGuy:output("failed to send clip to %s, adding to blocked users", user.name)
+			
+			setBlocked(userId)
 		end
 	end)]]
+	
+	familyGuy:getCommand("1112628264075280464"):used({}, function(interaction)
+		interaction:replyDeferred(true)
+		local blocked = isBlocked(interaction.user.id)
+		
+		if blocked then
+			table.remove(blockedUsers, blocked)
+			saveUsers()
+			
+			table.insert(validUsers, interaction.user)
+			validUsers.n = validUsers.n + 1
+			familyGuyStats.Users = validUsers.n
+			
+			interaction:reply("you will now recieve family guy clips again", true)
+		else
+			setBlocked(userId)
+			
+			interaction:reply("you will no longer recieve family guy clips", true)
+		end
+	end)
 	
 end
 

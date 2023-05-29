@@ -30,6 +30,7 @@ assert(request(familyGuy, "PUT", "/commands", {
 	{
 		type = 2,
 		name = "block family guy clips",
+		id = "1112628264075280464"
 	}
 	
 }))
