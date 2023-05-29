@@ -13,17 +13,26 @@ repeat coroutine.yield() until readys >= 2
 
 local function request(self, method, url, ...) return self._api:request(method, string.format("/applications/%s%s", self.user.id, url), ...) end
 
---[[for _,command in ipairs(request(benbebot, "GET", "/commands")) do
-	request(benbebot, "DELETE", string.format("/commands/%s", command.id))
+--[[for _,command in ipairs(request(familyGuy, "GET", "/commands")) do
+	request(familyGuy, "DELETE", string.format("/commands/%s", command.id))
 end
 
-for guild in benbebot.guilds:iter() do
-	for _,command in ipairs(request(benbebot, "GET", string.format("/guilds/%s/commands", guild.id))) do
-		request(benbebot, "DELETE", string.format("/guilds/%s/commands/%s", guild.id, command.id))
+for guild in familyGuy.guilds:iter() do
+	for _,command in ipairs(request(familyGuy, "GET", string.format("/guilds/%s/commands", guild.id))) do
+		request(familyGuy, "DELETE", string.format("/guilds/%s/commands/%s", guild.id, command.id))
 	end
 end]]
 
 -- GLOBAL COMMANDS --
+
+assert(request(familyGuy, "PUT", "/commands", {
+	
+	{
+		type = 2,
+		name = "block family guy clips",
+	}
+	
+}))
 
 -- GUILD COMMANDS --
 
@@ -411,7 +420,7 @@ assert(request(familyGuy, "PUT", "/guilds/1068640496139915345/commands", {
 		type = 1,
 		name = "clip",
 		description = "manage family guy clips",
-		id = "1112233736621281311",
+		id = "1112626905087225896",
 		options = {
 			{
 				type = 1,

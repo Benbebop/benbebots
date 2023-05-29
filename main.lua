@@ -11,7 +11,7 @@ local clock = discordia.Clock()
 local logLevel = los.isProduction() and 3 or 4
 fs.mkdirSync(appdata.path("logs"))
 local benbebot, familyGuy, cannedFood = discordia.Client({logFile=appdata.path("logs/bbb_discordia.log"),gatewayFile=appdata.path("logs/bbb_gateway.json"),logLevel=logLevel})
-local familyGuy = discordia.Client({logFile=appdata.path("logs/fg_discordia.log"),gatewayFile=appdata.path("logs/fg_gateway.json"),logLevel=logLevel})
+local familyGuy = discordia.Client({logFile=appdata.path("logs/fg_discordia.log"),gatewayFile=appdata.path("logs/fg_gateway.json"),logLevel=logLevel,cacheAllMembers=true})
 local cannedFood = discordia.Client({logFile=appdata.path("logs/cf_discordia.log"),gatewayFile=appdata.path("logs/cf_gateway.json"),logLevel=logLevel})
 benbebot._logger:setPrefix("BBB") familyGuy._logger:setPrefix("FLG") cannedFood._logger:setPrefix("CNF")
 benbebot._logChannel, familyGuy._logChannel, cannedFood._logChannel = "1091403807973441597", "1091403807973441597", "1091403807973441597"
@@ -758,7 +758,7 @@ end
 
 do -- clips --
 	
-	local json, http = require("json"), require("coro-http")
+	local json, http, uv = require("json"), require("coro-http"), require("uv")
 	
 	local CLIP_FILE = appdata.path("clips.json")
 	local clips = json.parse(fs.readFileSync(CLIP_FILE) or "{}") or {}
@@ -767,7 +767,7 @@ do -- clips --
 		fs.writeFileSync(CLIP_FILE, json.stringify(clips or {}))
 	end
 	
-	local cmd = familyGuy:getCommand("1112233736621281311")
+	local cmd = familyGuy:getCommand("1112626905087225896")
 	
 	cmd:used({"add"}, function(interaction, args)
 		local file = args.file
@@ -823,6 +823,30 @@ do -- clips --
 		
 		interaction:reply("removed clip")
 	end)
+	
+	--[[local TIME_BETWEEN = 2 * 86400
+	
+	local nextTimeStamp = math.huge
+	
+	local function calcNextTimeStamp()
+		local count = familyGuy.users:count()
+		
+		
+	end
+	
+	familyGuy:on("ready", function()
+		calcNextTimeStamp()
+	end)
+	
+	clock:on("sec", function()
+		local sec = uv.gettimeofday()
+		
+		if sec > nextTimeStamp then
+			calcNextTimeStamp()
+			
+			
+		end
+	end)]]
 	
 end
 
