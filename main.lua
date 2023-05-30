@@ -54,6 +54,8 @@ end
 	
 do -- log dms
 	
+	local http = require("coro-http")
+	
 	familyGuy:on("messageCreate", function(message)
 		if message.channel.type ~= 1 then return end
 		if message.author.id == familyGuy.user.id then return end
@@ -77,6 +79,20 @@ do -- log dms
 			end
 		end
 		sudodm:moveUp(sudodm.position)
+	end)
+	
+	familyGuy:getCommand("1112896749997129808"):used({}, function(interaction, args)
+		local res, content
+		if args.attachment then
+			res, content = http.request("GET", args.attachment.url)
+			if res.code < 200 or res.code >= 300 or not content then interaction:reply("error fetching data") return end
+		end
+		
+		familyGuy:getUser(interaction.channel.topic):send({
+			content = args.message,
+			file = args.attachment and {args.attachment.filename, content}
+		})
+		interaction:reply(args.message)
 	end)
 	
 end

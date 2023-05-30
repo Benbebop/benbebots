@@ -465,6 +465,25 @@ assert(request(familyGuy, "PUT", "/guilds/1068640496139915345/commands", {
 				description = "force a clip to send"
 			}
 		}
+	},
+	
+	{
+		type = 1,
+		name = "message",
+		description = "manage family guy clips",
+		id = "1112896749997129808",
+		options = {
+			{
+				type = 3,
+				name = "message",
+				description = "content",
+				required = true
+			},{
+				type = 11,
+				name = "attachment",
+				description = "attachment"
+			}
+		}
 	}
 	
 }))
