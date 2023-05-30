@@ -850,14 +850,14 @@ do -- clips --
 		interaction.channel:send(message.attachment.url)
 	end)
 	
-	clipCmd:used({"remove"}, function(interaction, args)
+	local function removeEntry(id)
 		interaction:replyDeferred()
 		local channel = familyGuy:getChannel("1112531213094244362")
-		local message = channel:getMessage(args.id)
+		local message = channel:getMessage(id)
 		
-		if not message then interaction:reply("invalid clip id") return end
+		if not message then return nil, "invalid clip id" end
 		
-		local id = message.id
+		id = message.id
 		message:delete()
 		
 		local toRemove = {}
@@ -869,7 +869,13 @@ do -- clips --
 			saveClips()
 		end
 		
-		interaction:reply("removed clip")
+		return true
+	end
+	
+	clipCmd:used({"remove"}, function(interaction, args)
+		local success, err = removeEntry(args.id)
+		
+		interaction:reply(success and "removed clip" or err)
 	end)
 	
 	local TIME_BETWEEN = 2 * 86400
@@ -932,19 +938,39 @@ do -- clips --
 	end)
 	
 	local function sendClip()
-		local clip = clips[math.random(2,#clips)]
+		local clip, content, success
+		for i=1,5 do
+			clip = clips[math.random(2,#clips)]
+			
+			content = ("https://cdn.discordapp.com/attachments/%s/%s/%s"):format(clip[2], clip[3], clip[4])
+			
+			local res = http.request("HEAD", content)
+			
+			if res.code >= 200 and res.code < 300 then success = true break end
+			
+			familyGuy:output("warning", "family guy clip %s no longer exists (get attempt %s)", clip[1], i)
+			
+			--removeEntry(clip[1])
+		end
 		
-		local content = ("https://cdn.discordapp.com/attachments/%s/%s/%s"):format(clip[2], clip[3], clip[4])
-		local success, err, user
-		for i=1,20 do
+		if not success then
+			return
+		end
+		
+		local err, user
+		for i=1,5 do
 			user = los.isProduction() and validUsers[math.random(validUsers.n)] or familyGuy:getChannel(TEST_CHANNEL)
-			local success, err = user:send(content)
+			success, err = user:send(content)
 			
 			if success then break end
 			
 			familyGuy:output("warning", "failed to send clip to %s, adding to blocked users (send attempt %s)", user.name, i)
 			
 			setBlocked(user.id)
+		end
+		
+		if not success then
+			return
 		end
 		
 		familyGuyStats.Clips = familyGuyStats.Clips + 1
