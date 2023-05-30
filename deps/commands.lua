@@ -32,6 +32,8 @@ function Client:__init( ... )
 		
 		local cmd, opt = self._commandCallbacks[data.id] or self._commandCallbacks["0"], data.options
 		
+		if not cmd then return end
+		
 		while opt do
 			if (not opt[1]) or opt[1].type > 2 then break end
 			cmd, opt = cmd[opt[1].name], opt[1].options
