@@ -127,6 +127,7 @@ do -- soundclown
 	
 	local json, http, los, urlParse, path, querystring = require("json"), require("coro-http"), require("los"), require("url").parse, require("path"), require("querystring")
 	
+	local SEND_CHANNEL = --[[los.isProduction() and ]]"1096581265932701827"--[[ or TEST_CHANNEL]]
 	local STATION = "https://soundcloud.com/discover/sets/weekly::%s"
 	local TRACK = "https://api-v2.soundcloud.com/tracks?ids=%s&client_id=%s"
 	
@@ -152,10 +153,12 @@ do -- soundclown
 			fs.closeSync(fd)
 			local url = "https://soundcloud.com/" .. uri
 			
-			benbebot:getChannel(los.isProduction() and "1096581265932701827" or TEST_CHANNEL):send(url)
+			local message = benbebot:getChannel(SEND_CHANNEL):send(url)
 			benbebot:output("info", "sent queued mashup of the day")
 			
-			benbebotStats.Soundclowns = (benbebotStats.Soundclowns or 0) + 1
+			if los.isProduction() then benbebotStats.Soundclowns = (benbebotStats.Soundclowns or 0) + 1 end
+			
+			message:publish()
 			
 			return
 		end
