@@ -127,7 +127,7 @@ do -- soundclown
 	
 	local json, http, los, urlParse, path, querystring = require("json"), require("coro-http"), require("los"), require("url").parse, require("path"), require("querystring")
 	
-	local SEND_CHANNEL = --[[los.isProduction() and ]]"1096581265932701827"--[[ or TEST_CHANNEL]]
+	local SEND_CHANNEL = los.isProduction() and"1096581265932701827" or TEST_CHANNEL
 	local STATION = "https://soundcloud.com/discover/sets/weekly::%s"
 	local TRACK = "https://api-v2.soundcloud.com/tracks?ids=%s&client_id=%s"
 	
@@ -1120,6 +1120,8 @@ end
 
 do -- netrc
 	
+	local timer = require("timer")
+	
 	local MY_URL = "http://10.0.0.222:" .. 26420 + portAdd
 	local NETRC_FILE = appdata.secretPath(".netrc")
 	io.open(NETRC_FILE, "ab"):close()
@@ -1178,8 +1180,16 @@ do -- netrc
 		file:close()
 	end
 	
+	local logins, loginTimer = nil, nil
+	
 	privateServer:on("/netrc/index", function(res)
-		local logins = loadNetrc()
+		if not logins then
+			logins = loadNetrc()
+		end
+		timer.clearTimeout(loginTimer)
+		loginTimer = timer.setTimeout(20, function()
+			logins, loginTimer = nil, nil
+		end)
 		
 		if not res.query then return end
 		if res.query.machine then
