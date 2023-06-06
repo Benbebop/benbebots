@@ -1,4 +1,4 @@
-local uv, timer, data = require("uv"), require("timer"), require("data")
+local uv, timer, data = require("uv"), require("timer"), require("directory")
 
 local processes, threads, paused = {}, {}, false
 

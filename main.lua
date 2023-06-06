@@ -1,6 +1,6 @@
 VERSION = "3.78"
 
-local uv, fs, appdata, server, los = require("uv"), require("fs"), require("data"), require("server"), require("los")
+local uv, fs, appdata, server, los = require("uv"), require("fs"), require("directory"), require("server"), require("los")
 
 require("./load-deps.lua")
 
@@ -338,7 +338,7 @@ do -- game server
 	
 	local cmd = benbebot:getCommand("1097727252168445953")
 	
-	local http, json, querystring, uv, los, keyvalue = require("coro-http"), require("json"), require("querystring"), require("uv"), require("los"), require("key-value")
+	local http, json, querystring, uv, los, keyvalue = require("coro-http"), require("json"), require("querystring"), require("uv"), require("los"), require("source-engine/key-value")
 	
 	local function steamRequest(method, interface, method2, version, parameters, ...)
 		parameters = parameters or {}
@@ -437,7 +437,7 @@ do -- game server
 	
 	-- admin stuff
 	
-	local urlParse, http, ll, keyvalue, bit32 = require("url").parse, require("coro-http"), require("long-long"), require("key-value"), require("bit")
+	local urlParse, http, ll, keyvalue, bit32 = require("url").parse, require("coro-http"), require("long-long"), require("source-engine/key-value"), require("bit")
 	
 	local function parseId(str)
 		local id = str:match("^/profiles/(%d+)") or str:match("^%s*(%d+)%s*$") -- SteamID64
@@ -514,7 +514,7 @@ do -- game server
 end
 
 do -- get files --
-	local fs, appdata, watcher, path = require("fs"), require("data"), require("fs-watcher"), require("path")
+	local fs, appdata, watcher, path = require("fs"), require("directory"), require("fs-watcher"), require("path")
 	
 	local cmd = benbebot:getCommand("1100968409765777479")
 	
@@ -578,11 +578,11 @@ do -- get files --
 	scanFiles("temp", paths.temp)
 	watcher.watch(paths.temp, true, function(...) processFile("temp", ...) end)
 	
-	fileLocations.garrysmod = {}
+	--[[fileLocations.garrysmod = {}
 	paths.garrysmod = "./garrysmodds/garrysmod/data/"
 	
 	scanFiles("garrysmod", paths.garrysmod)
-	watcher.watch(paths.garrysmod, true, function(...) processFile("garrysmod", ...) end)
+	watcher.watch(paths.garrysmod, true, function(...) processFile("garrysmod", ...) end)]]
 	
 	scanFiles = nil
 	
@@ -967,9 +967,12 @@ do -- clips --
 			
 			if success then break end
 			
-			familyGuy:output("warning", "failed to send clip to %s, adding to blocked users (send attempt %s)", user.name, i)
-			
-			setBlocked(user.id)
+			if err:match("^%s*HTTP%s*Error%s*50007") then -- user blocked error code
+				familyGuy:output("warning", "failed to send clip to %s (blocked), adding to blocked users (attempt %s), %s", user.name, i, err)
+				setBlocked(user.id)
+			else
+				familyGuy:output("warning", "failed to send clip to %s (attempt %s), %s", user.name, i, err)
+			end
 		end
 		
 		if not success then
