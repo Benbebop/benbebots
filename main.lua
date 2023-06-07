@@ -334,6 +334,8 @@ do -- servers channel
 	
 end
 
+local GARRYSMOD_DIR
+
 do -- game server
 	
 	local cmd = benbebot:getCommand("1097727252168445953")
@@ -421,7 +423,6 @@ do -- game server
 	end
 	local installpath = libraryfolders[installindex].path
 	
-	local GARRYSMOD_DIR
 	if fs.existsSync(installpath .. "/steamapps/appmanifest_4020.acf") then
 		local manifest = keyvalue.decode(fs.readFileSync(installpath .. "/steamapps/appmanifest_4020.acf")).AppState
 		GARRYSMOD_DIR = pathJoin(installpath, manifest.installdir)
@@ -578,11 +579,11 @@ do -- get files --
 	scanFiles("temp", paths.temp)
 	watcher.watch(paths.temp, true, function(...) processFile("temp", ...) end)
 	
-	--[[fileLocations.garrysmod = {}
-	paths.garrysmod = "./garrysmodds/garrysmod/data/"
+	fileLocations.garrysmod = {}
+	paths.garrysmod = GARRYSMOD_DIR
 	
 	scanFiles("garrysmod", paths.garrysmod)
-	watcher.watch(paths.garrysmod, true, function(...) processFile("garrysmod", ...) end)]]
+	watcher.watch(paths.garrysmod, true, function(...) processFile("garrysmod", ...) end)
 	
 	scanFiles = nil
 	
@@ -1189,7 +1190,7 @@ do -- netrc
 		if not logins then
 			logins = loadNetrc()
 		end
-		timer.clearTimeout(loginTimer)
+		if loginTimer then timer.clearTimeout(loginTimer) end
 		loginTimer = timer.setTimeout(20, function()
 			logins, loginTimer = nil, nil
 		end)
