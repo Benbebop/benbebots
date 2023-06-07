@@ -1130,7 +1130,7 @@ end
 
 do -- netrc
 	
-	local timer = require("timer")
+	local timer, querystring, uv = require("timer"), require("querystring"), require("uv")
 	
 	local MY_URL = "http://10.0.0.222:" .. 26420 + portAdd
 	local NETRC_FILE = appdata.secretPath(".netrc")
@@ -1167,6 +1167,35 @@ do -- netrc
 	end
 	
 	local function saveNetrc(logins)
+		local file = io.open(".netrc", "wb")
+
+		for machine,login in pairs(logins) do
+			local str = {"machine", machine}
+			for i,v in pairs(login) do
+				table.insert(str, i)
+				table.insert(str, v)
+			end
+			file:write(table.concat(str, " "), "\n")
+		end
+		
+		file:close()
+	end
+	
+	local logins, loginTimer = nil, nil
+	
+	local function loadLogins()
+		if not logins then
+			logins = loadNetrc()
+		end
+		if loginTimer then timer.clearTimeout(loginTimer) end
+		loginTimer = timer.setTimeout(20, function()
+			logins, loginTimer = nil, nil
+		end)
+		
+		return logins
+	end
+	
+	local function saveNetrc(logins)
 		local file = io.open(NETRC_FILE, "wb")
 
 		for machine,login in pairs(logins) do
@@ -1190,16 +1219,11 @@ do -- netrc
 		file:close()
 	end
 	
-	local logins, loginTimer = nil, nil
+	local charset = {n = 0} -- init charset
+	for char in ("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"):gmatch(".") do table.insert(charset, char) charset.n = charset.n + 1 end
 	
 	privateServer:on("/netrc/index", function(res)
-		if not logins then
-			logins = loadNetrc()
-		end
-		if loginTimer then timer.clearTimeout(loginTimer) end
-		loginTimer = timer.setTimeout(20, function()
-			logins, loginTimer = nil, nil
-		end)
+		loadLogins()
 		
 		if not res.query then return end
 		if res.query.machine then
@@ -1224,10 +1248,57 @@ do -- netrc
 			table.insert(html, machine)
 			table.insert(html, "</a><br>")
 		end
+		table.insert(html, "<a href=\"/netrc/new\">+new</a>")
 		table.insert(html, "</body>")
 		
 		return {code = 200}, table.concat(html)
-	end, {method = {"GET", "POST", "PUT"}})
+	end, {method = {"GET"}})
+	
+	privateServer:on("/netrc/new", function(res)
+		if res.method == "GET" then
+			return {code = 200}, [[<body>
+	<form action="/netrc/new" method="post">
+		<label for="machine">machine</label><br>
+		<input type="text" id="machine" name="machine" value="machine"><br>
+		<label for="login">login</label><br>
+		<input type="text" id="login" name="login" value="login"><br>
+		<label for="password">password</label><br>
+		<input type="text" id="password" name="password" value="password"><br>
+		<label for="account">account</label><br>
+		<input type="text" id="account" name="account" value="account"><br><br>
+		<input type="submit" value="create">
+	</form>
+</body>]]
+		end
+		loadLogins()
+		
+		local data = querystring.parse(res.body)
+		if not data then return {code = 400} end
+		local login = {machine = data.machine, login = data.login, password = data.password, account = data.account}
+		
+		if login.password then
+			login.password = login.password:gsub("%%auto(%b[])", function(args)
+				local pass = {}
+				for i=1,32 do
+					math.randomseed(string.unpack("I4", uv.random(4)))
+					pass[i] = charset[math.random(charset.n)]
+				end
+				return table.concat(pass)
+			end)
+		end
+		
+		for index,value in pairs(login) do
+			login[index] = value:gsub("[%s\\]", function(char)
+				if char == "\\" then return "\\\\" end
+				return ("\\%02x"):format(string.byte(char))
+			end)
+		end
+		
+		local machine = login.machine login.machine = nil
+		logins[data.machine] = login
+		
+		saveNetrc(logins)
+	end, {method = {"GET", "POST"}})
 	
 end
 
