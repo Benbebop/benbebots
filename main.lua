@@ -1159,6 +1159,12 @@ do -- netrc
 				_, default = parse(l)
 			else
 				local index, data = parse(l)
+				for i,v in pairs(data) do
+					data[i] = v:gsub("\\(..?)", function(chars)
+						if chars:sub(1,1) == "\\" then return "\\" end
+						return string.char(tonumber(chars, 16))
+					end)
+				end
 				logins[index] = data
 			end
 		end
