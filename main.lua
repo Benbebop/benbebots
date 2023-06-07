@@ -1280,6 +1280,7 @@ do -- netrc
 		
 		local data = querystring.parse(res.body)
 		if not data then return {code = 400} end
+		if logins[data.machine] then return {code = 403} end
 		local login = {machine = data.machine, login = data.login, password = data.password, account = data.account}
 		
 		if login.password then
@@ -1294,10 +1295,13 @@ do -- netrc
 		end
 		
 		for index,value in pairs(login) do
-			login[index] = value:gsub("[%s\\]", function(char)
-				if char == "\\" then return "\\\\" end
-				return ("\\%02x"):format(string.byte(char))
-			end)
+			login[index] = value:match("^.+$")
+			if login[index] then
+				login[index] = value:gsub("[%s\\]", function(char)
+					if char == "\\" then return "\\\\" end
+					return ("\\%02x"):format(string.byte(char))
+				end)
+			end
 		end
 		
 		local machine = login.machine login.machine = nil
