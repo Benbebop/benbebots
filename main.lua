@@ -1172,21 +1172,6 @@ do -- netrc
 		return logins
 	end
 	
-	local function saveNetrc(logins)
-		local file = io.open(".netrc", "wb")
-
-		for machine,login in pairs(logins) do
-			local str = {"machine", machine}
-			for i,v in pairs(login) do
-				table.insert(str, i)
-				table.insert(str, v)
-			end
-			file:write(table.concat(str, " "), "\n")
-		end
-		
-		file:close()
-	end
-	
 	local logins, loginTimer = nil, nil
 	
 	local function loadLogins()
