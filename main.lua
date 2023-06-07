@@ -570,20 +570,26 @@ do -- get files --
 	fileLocations.appdata = {}
 	paths.appdata = appdata.path("")
 	
-	scanFiles("appdata", paths.appdata)
-	watcher.watch(paths.appdata, true, function(...) processFile("appdata", ...) end)
+	if fs.existsSync(paths.appdata) then
+		scanFiles("appdata", paths.appdata)
+		watcher.watch(paths.appdata, true, function(...) processFile("appdata", ...) end)
+	end
 	
 	fileLocations.temp = {}
 	paths.temp = appdata.tempPath("")
 	
-	scanFiles("temp", paths.temp)
-	watcher.watch(paths.temp, true, function(...) processFile("temp", ...) end)
+	if fs.existsSync(paths.temp) then
+		scanFiles("temp", paths.temp)
+		watcher.watch(paths.temp, true, function(...) processFile("temp", ...) end)
+	end
 	
 	fileLocations.garrysmod = {}
 	paths.garrysmod = GARRYSMOD_DIR
 	
-	scanFiles("garrysmod", paths.garrysmod)
-	watcher.watch(paths.garrysmod, true, function(...) processFile("garrysmod", ...) end)
+	if fs.existsSync(paths.garrysmod) then
+		scanFiles("garrysmod", paths.garrysmod)
+		watcher.watch(paths.garrysmod, true, function(...) processFile("garrysmod", ...) end)
+	end
 	
 	scanFiles = nil
 	
