@@ -132,7 +132,7 @@ do -- soundclown
 	local TRACK = "https://api-v2.soundcloud.com/tracks?ids=%s&client_id=%s"
 	
 	local function createWeekHour(date)
-		date.whour = (date.wday - 1) * 24 + date.hour
+		date.whour = date.wday--(date.wday - 1) * 24 + date.hour
 	end
 	
 	local MOTD_QUEUE = appdata.path("motd-queue.db")
@@ -209,9 +209,9 @@ do -- soundclown
 		
 	end
 	
-	clock:on("hour", function(date)
+	clock:on("wday", function(date)
 		createWeekHour(date)
-		if date.whour % 6 == 0 then func(date) end
+		func(date)
 	end)
 	
 	local cmd = benbebot:getCommand("1103908487278379110")
