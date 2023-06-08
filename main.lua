@@ -861,7 +861,6 @@ do -- clips --
 	end)
 	
 	local function removeEntry(id)
-		interaction:replyDeferred()
 		local channel = familyGuy:getChannel("1112531213094244362")
 		local message = channel:getMessage(id)
 		
@@ -883,6 +882,7 @@ do -- clips --
 	end
 	
 	clipCmd:used({"remove"}, function(interaction, args)
+		interaction:replyDeferred()
 		local success, err = removeEntry(args.id)
 		
 		interaction:reply(success and "removed clip" or err)
