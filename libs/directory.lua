@@ -27,16 +27,16 @@ fs.mkdirSync(PATH) fs.mkdirSync(TEMPPATH) fs.mkdirSync(SECRETPATH)
 
 local dir = {}
 
-function dir.path(rel)
-	return path.join(PATH, rel)
+function dir.path(...)
+	return path.join(PATH, ...)
 end
 
-function dir.tempPath(rel)
-	return path.join(TEMPPATH, rel)
+function dir.tempPath(...)
+	return path.join(TEMPPATH, ...)
 end
 
-function dir.secretPath(rel)
-	return path.join(SECRETPATH, rel)
+function dir.secretPath(...)
+	return path.join(SECRETPATH, ...)
 end
 
 return dir

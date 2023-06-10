@@ -413,6 +413,24 @@ assert(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", {
 		}
 	},
 	
+	{
+		type = 1,
+		name = "aternos",
+		description = "control the aternos minecraft bot",
+		id = "1116912599800483920",
+		options = {
+			{
+				type = 1,
+				name = "saveworld",
+				description = "force a save of the most recent version of the server world it can get"
+			},{
+				type = 1,
+				name = "savestatus",
+				description = "status of the saves",
+			}
+		}
+	},
+	
 }))
 
 assert(request(familyGuy, "PUT", "/guilds/1068640496139915345/commands", {

@@ -335,182 +335,233 @@ do -- servers channel
 end
 
 local GARRYSMOD_DIR
-
 do -- game server
 	
-	local cmd = benbebot:getCommand("1097727252168445953")
-	
-	local http, json, querystring, uv, los, keyvalue = require("coro-http"), require("json"), require("querystring"), require("uv"), require("los"), require("source-engine/key-value")
-	
-	local function steamRequest(method, interface, method2, version, parameters, ...)
-		parameters = parameters or {}
-		parameters.key = TOKENS.steamApi
-		local res, body = http.request(method, string.format("https://api.steampowered.com/%s/%s/v%d/?%s", interface, method2, version, querystring.stringify(parameters)), ...)
+	do -- garrys mod
 		
-		if res.code ~= 200 then return nil end
+		local cmd = benbebot:getCommand("1097727252168445953")
 		
-		return json.parse(body) or body
-	end
-	
-	-- retrieve collection data
-	
-	local collections
-	
-	local function scrapeCollection(id)
-		local res, body = http.request("GET", "https://steamcommunity.com/sharedfiles/filedetails/?id=" .. id)
-		if res.code ~= 200 or not body then return nil, "could not fetch collections" end
+		local http, json, querystring, uv, los, keyvalue = require("coro-http"), require("json"), require("querystring"), require("uv"), require("los"), require("source-engine/key-value")
 		
-		body = body:match("<div%s*class=\"workshopItemDescription\"%s*id=\"highlightContent\">(.-)</div>")
-		if not body then return nil, "could not find item description" end
-		
-		body = querystring.urldecode(body)
-		if not body then return nil, "could not decode description" end
-		
-		body = keyvalue.decode(body)
-		if not body then return nil, "could not read keyvalue data" end
-		
-		return body
-	end
-	
-	benbebot:on("ready", function()
-		local tbl = {}
-		local data, err = scrapeCollection("2966047786")
-		if not data then benbebot:output("error", "garrysmod server: %s", err) return end
-		for _,v in pairs(data.Collections) do
-			local data, err = scrapeCollection(v)
+		local function steamRequest(method, interface, method2, version, parameters, ...)
+			parameters = parameters or {}
+			parameters.key = TOKENS.steamApi
+			local res, body = http.request(method, string.format("https://api.steampowered.com/%s/%s/v%d/?%s", interface, method2, version, querystring.stringify(parameters)), ...)
 			
-			if not data then benbebot:output("error", "garrysmod server: %s", err) return end
+			if res.code ~= 200 then return nil end
 			
-			table.insert(tbl, data.Gamemode)
+			return json.parse(body) or body
 		end
 		
-		benbebot:info("Finished scraping gamemodes")
+		-- retrieve collection data
 		
-		collections = tbl
-	end)
-	
-	local function getGSLT()
-		local tokens = steamRequest("GET", "IGameServersService", "GetAccountList", 1)
-		if type(tokens) ~= "table" then return nil, "failed to fetch game server account" end
-		tokens = tokens.response
+		local collections
 		
-		if tokens.is_banned then return nil, "game server account has been banned" end
+		local function scrapeCollection(id)
+			local res, body = http.request("GET", "https://steamcommunity.com/sharedfiles/filedetails/?id=" .. id)
+			if res.code ~= 200 or not body then return nil, "could not fetch collections" end
+			
+			body = body:match("<div%s*class=\"workshopItemDescription\"%s*id=\"highlightContent\">(.-)</div>")
+			if not body then return nil, "could not find item description" end
+			
+			body = querystring.urldecode(body)
+			if not body then return nil, "could not decode description" end
+			
+			body = keyvalue.decode(body)
+			if not body then return nil, "could not read keyvalue data" end
+			
+			return body
+		end
 		
-		local server
-		for _,v in ipairs(tokens.servers) do
-			if v.memo == "garrysmodserver" then
-				server = v
-				break
+		benbebot:on("ready", function()
+			local tbl = {}
+			local data, err = scrapeCollection("2966047786")
+			if not data then benbebot:output("error", "garrysmod server: %s", err) return end
+			for _,v in pairs(data.Collections) do
+				local data, err = scrapeCollection(v)
+				
+				if not data then benbebot:output("error", "garrysmod server: %s", err) return end
+				
+				table.insert(tbl, data.Gamemode)
+			end
+			
+			benbebot:info("Finished scraping gamemodes")
+			
+			collections = tbl
+		end)
+		
+		local function getGSLT()
+			local tokens = steamRequest("GET", "IGameServersService", "GetAccountList", 1)
+			if type(tokens) ~= "table" then return nil, "failed to fetch game server account" end
+			tokens = tokens.response
+			
+			if tokens.is_banned then return nil, "game server account has been banned" end
+			
+			local server
+			for _,v in ipairs(tokens.servers) do
+				if v.memo == "garrysmodserver" then
+					server = v
+					break
+				end
+			end
+			if not server then return nil, "game server token does not exist" end
+			
+			return server
+		end
+		
+		-- get executable
+		
+		local pathJoin = require("path").join
+		
+		local STEAM_DIR = los.type() == "win32" and "C:/Program Files (x86)/Steam" or "~/.steam/steam"
+		
+		local libraryfolders = keyvalue.decode(assert(fs.readFileSync(STEAM_DIR .. "/steamapps/libraryfolders.vdf"))).libraryfolders
+		local installindex = "0"
+		for i,v in pairs(libraryfolders) do
+			for l in pairs(v.apps) do
+				if l == "4020" then installindex = i end
 			end
 		end
-		if not server then return nil, "game server token does not exist" end
+		local installpath = libraryfolders[installindex].path
 		
-		return server
+		if fs.existsSync(installpath .. "/steamapps/appmanifest_4020.acf") then
+			local manifest = keyvalue.decode(fs.readFileSync(installpath .. "/steamapps/appmanifest_4020.acf")).AppState
+			GARRYSMOD_DIR = pathJoin(installpath, manifest.installdir)
+		else
+			GARRYSMOD_DIR = pathJoin(installpath, "GarrysModDS")
+		end
+		
+		-- start server
+		
+		cmd:used({"start"}, function(interaction, args)
+			
+		end)
+		
+		-- admin stuff
+		
+		local urlParse, http, ll, keyvalue, bit32 = require("url").parse, require("coro-http"), require("long-long"), require("source-engine/key-value"), require("bit")
+		
+		local function parseId(str)
+			local id = str:match("^/profiles/(%d+)") or str:match("^%s*(%d+)%s*$") -- SteamID64
+			if id then
+				return http.request("GET", string.format("https://steamcommunity.com/profiles/%s?xml=1", id))
+			end
+			
+			id = str:upper():match("^%s*%[?(%a:1:%d+)%]?%s*$")  -- SteamID3
+			if id then
+				return http.request("GET", string.format("http://steamcommunity.com/profiles/[%s]?xml=1", id))
+			end
+			
+			local id = str:upper():match("^%s*(STEAM_%d:%d:%d+)%s*$") -- SteamID
+			if id then
+				return nil
+			end
+			
+			id = str:match("^/id/([^/]+)") or str  -- Vanity url
+			if id then
+				return http.request("GET", string.format("https://steamcommunity.com/id/%s?xml=1", id))
+			end
+		end
+		
+		local USERS = pathJoin(GARRYSMOD_DIR, "garrysmod/settings/users.txt")
+		
+		cmd:used({"admin"}, function(interaction, args)
+			interaction:replyDeferred()
+			
+			if not fs.existsSync(USERS) then interaction:reply("users.txt does not exist") return end
+			
+			local url = urlParse(args.url or "")
+			
+			if url.host and url.host ~= "steamcommunity.com" then interaction:reply("invalid site") return end
+			
+			local res, body = parseId(url.path)
+			body = body or ""
+			
+			local id64 = body:match("<steamID64>(.-)</steamID64>")
+			if not id64 then interaction:reply("could not locate steam account id on steam") return end
+			
+			id = ll.strtoull(id64)
+			if not id then interaction:reply("could not read steamID64") return end
+			
+			id = string.format("STEAM_%s:%s:%s", 
+				ll.tostring(bit32.rshift(bit32.band(id, 0xFF00000000000000ULL), 56)), 
+				ll.tostring(bit32.band(id, 1ULL)), 
+				ll.tostring(bit32.rshift(bit32.band(id, 0xFFFFFFFFULL), 1))
+			)
+			
+			local name = body:match("<steamID><!%[CDATA%[(.-)%]%]></steamID>")
+			
+			local users = keyvalue.decode(fs.readFileSync(USERS)).Users
+			
+			if users.admin[id64] then interaction:reply("this account is already an admin") return end
+			users.admin = users.admin or {}
+			users.admin[id64] = id
+			
+			fs.writeFileSync(USERS, keyvalue.encode({Users = users}))
+			
+			local image = body:match("<avatarIcon><!%[CDATA%[(.-)%]%]></avatarIcon>")
+			
+			local desc = string.format("added %s (`%s`) to admin perms", name or "unknown", id)
+			
+			interaction:reply({
+				embed = {
+					description = desc,
+					thumbnail = image and {url = image}
+				}
+			})
+			
+			benbebot:info(string.format("added %s (%s) to gmod admin perms", name or "unknown", id))
+		end)
+		
 	end
 	
-	-- get executable
-	
-	local pathJoin = require("path").join
-	
-	local STEAM_DIR = los.type() == "win32" and "C:/Program Files (x86)/Steam" or "~/.steam/steam"
-	
-	local libraryfolders = keyvalue.decode(assert(fs.readFileSync(STEAM_DIR .. "/steamapps/libraryfolders.vdf"))).libraryfolders
-	local installindex = "0"
-	for i,v in pairs(libraryfolders) do
-		for l in pairs(v.apps) do
-			if l == "4020" then installindex = i end
+	do -- minecraft aternos
+		
+		local util = require("util")
+		
+		local cmd = benbebot:getCommand("1116912599800483920")
+		
+		local SAVE_SUBDIR = "breadbag7"
+		local SAVE_DIR = appdata.path("game-backups", "minecraft", SAVE_SUBDIR)
+		fs.mkdirSync(appdata.path("game-backups")) fs.mkdirSync(appdata.path("game-backups", "minecraft")) fs.mkdirSync(appdata.path("game-backups", "minecraft", SAVE_SUBDIR))
+		
+		--[[local function saveWorld()
+		
 		end
+		
+		cmd:used({"saveworld"}, function(interaction)
+			local success, err = saveWorld()
+			if success then interaction:reply("saved world")
+			else interaction:reply(err)
+			end
+		end)]]
+		
+		cmd:used({"savestatus"}, function(interaction)
+			interaction:replyDeferred()
+			local earliest, latest, latestData, count, size = util.nearHuge, -util.nearHuge, nil, 0, 0
+			for f,t in fs.scandirSync(SAVE_DIR) do
+				if t == "file" then
+					local stats = fs.statSync(SAVE_DIR .. "/" .. f)
+					if stats then
+						count = count + 1
+						size = size + stats.size
+						earliest, latest = math.min(earliest, stats.birthtime.sec), math.max(latest, stats.birthtime.sec)
+					end
+				end
+			end
+			
+			interaction:reply({embed = {
+				description = ("save info for %s"):format(SAVE_SUBDIR),
+				fields = {
+					{name = "#", value = count, inline = true},
+					{name = "Earliest", value = util.createTimestamp("sdt", earliest), inline = true},
+					{name = "Latest", value = util.createTimestamp("sdt", latest), inline = true},
+					{name = "Storage Size", value = util.fileSizeString(size), inline = true}
+				}
+			}})
+		end)
+		
 	end
-	local installpath = libraryfolders[installindex].path
-	
-	if fs.existsSync(installpath .. "/steamapps/appmanifest_4020.acf") then
-		local manifest = keyvalue.decode(fs.readFileSync(installpath .. "/steamapps/appmanifest_4020.acf")).AppState
-		GARRYSMOD_DIR = pathJoin(installpath, manifest.installdir)
-	else
-		GARRYSMOD_DIR = pathJoin(installpath, "GarrysModDS")
-	end
-	
-	-- start server
-	
-	cmd:used({"start"}, function(interaction, args)
-		
-	end)
-	
-	-- admin stuff
-	
-	local urlParse, http, ll, keyvalue, bit32 = require("url").parse, require("coro-http"), require("long-long"), require("source-engine/key-value"), require("bit")
-	
-	local function parseId(str)
-		local id = str:match("^/profiles/(%d+)") or str:match("^%s*(%d+)%s*$") -- SteamID64
-		if id then
-			return http.request("GET", string.format("https://steamcommunity.com/profiles/%s?xml=1", id))
-		end
-		
-		id = str:upper():match("^%s*%[?(%a:1:%d+)%]?%s*$")  -- SteamID3
-		if id then
-			return http.request("GET", string.format("http://steamcommunity.com/profiles/[%s]?xml=1", id))
-		end
-		
-		local id = str:upper():match("^%s*(STEAM_%d:%d:%d+)%s*$") -- SteamID
-		if id then
-			return nil
-		end
-		
-		id = str:match("^/id/([^/]+)") or str  -- Vanity url
-		if id then
-			return http.request("GET", string.format("https://steamcommunity.com/id/%s?xml=1", id))
-		end
-	end
-	
-	local USERS = pathJoin(GARRYSMOD_DIR, "garrysmod/settings/users.txt")
-	
-	cmd:used({"admin"}, function(interaction, args)
-		interaction:replyDeferred()
-		
-		if not fs.existsSync(USERS) then interaction:reply("users.txt does not exist") return end
-		
-		local url = urlParse(args.url or "")
-		
-		if url.host and url.host ~= "steamcommunity.com" then interaction:reply("invalid site") return end
-		
-		local res, body = parseId(url.path)
-		body = body or ""
-		
-		local id64 = body:match("<steamID64>(.-)</steamID64>")
-		if not id64 then interaction:reply("could not locate steam account id on steam") return end
-		
-		id = ll.strtoull(id64)
-		if not id then interaction:reply("could not read steamID64") return end
-		
-		id = string.format("STEAM_%s:%s:%s", 
-			ll.tostring(bit32.rshift(bit32.band(id, 0xFF00000000000000ULL), 56)), 
-			ll.tostring(bit32.band(id, 1ULL)), 
-			ll.tostring(bit32.rshift(bit32.band(id, 0xFFFFFFFFULL), 1))
-		)
-		
-		local name = body:match("<steamID><!%[CDATA%[(.-)%]%]></steamID>")
-		
-		local users = keyvalue.decode(fs.readFileSync(USERS)).Users
-		
-		if users.admin[id64] then interaction:reply("this account is already an admin") return end
-		users.admin = users.admin or {}
-		users.admin[id64] = id
-		
-		fs.writeFileSync(USERS, keyvalue.encode({Users = users}))
-		
-		local image = body:match("<avatarIcon><!%[CDATA%[(.-)%]%]></avatarIcon>")
-		
-		local desc = string.format("added %s (`%s`) to admin perms", name or "unknown", id)
-		
-		interaction:reply({
-			embed = {
-				description = desc,
-				thumbnail = image and {url = image}
-			}
-		})
-		
-		benbebot:info(string.format("added %s (%s) to gmod admin perms", name or "unknown", id))
-	end)
 	
 end
 
