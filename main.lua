@@ -23,6 +23,10 @@ local portAdd = los.isProduction() and 0 or 1
 local privateServer = server.new("0.0.0.0", 26420 + portAdd)
 local publicServer = privateServer:new(26430 + portAdd)
 
+local exaroton = require("exaroton")
+
+local exarotonClient = exaroton.client.new("Bearer " .. TOKENS.exaroton)
+
 benbebot:defaultCommandCallback(function(interaction)
 	interaction:reply({embed = {
 		description = "couldnt find command, [please report this error](https://github.com/Benbebop/benbebots/issues)"
@@ -337,9 +341,9 @@ end
 local GARRYSMOD_DIR
 do -- game server
 	
+	local cmd = benbebot:getCommand("1097727252168445953")
+	
 	do -- garrys mod
-		
-		local cmd = benbebot:getCommand("1097727252168445953")
 		
 		local http, json, querystring, uv, los, keyvalue = require("coro-http"), require("json"), require("querystring"), require("uv"), require("los"), require("source-engine/key-value")
 		
@@ -433,7 +437,7 @@ do -- game server
 		
 		-- start server
 		
-		cmd:used({"start"}, function(interaction, args)
+		cmd:used({"gmod","start"}, function(interaction, args)
 			
 		end)
 		
@@ -465,7 +469,7 @@ do -- game server
 		
 		local USERS = pathJoin(GARRYSMOD_DIR, "garrysmod/settings/users.txt")
 		
-		cmd:used({"admin"}, function(interaction, args)
+		cmd:used({"gmod","admin"}, function(interaction, args)
 			interaction:replyDeferred()
 			
 			if not fs.existsSync(USERS) then interaction:reply("users.txt does not exist") return end
@@ -515,28 +519,46 @@ do -- game server
 		
 	end
 	
-	do -- minecraft aternos
+	do -- minecraft
+		
+		local server = exarotonClient:getServer("mPDAx5chPlm8yrts")
+		
+		benbebot:on("ready", function()
+			server.websocket:connect()
+		end)
+		
+		server.websocket:on("message")
 		
 		local util = require("util")
 		
-		local cmd = benbebot:getCommand("1116912599800483920")
-		
-		local SAVE_SUBDIR = "breadbag7"
+		local SAVE_SUBDIR = server.id or "undef"
 		local SAVE_DIR = appdata.path("game-backups", "minecraft", SAVE_SUBDIR)
 		fs.mkdirSync(appdata.path("game-backups")) fs.mkdirSync(appdata.path("game-backups", "minecraft")) fs.mkdirSync(appdata.path("game-backups", "minecraft", SAVE_SUBDIR))
 		
-		--[[local function saveWorld()
+		cmd:used({"minecraft","start"}, function(interaction)
+			server:start()
+		end)
 		
+		cmd:used({"minecraft","stop"}, function(interaction)
+			server:stop()
+		end)
+		
+		local function saveWorld()
+			local world = server:getFile("world")
 		end
 		
-		cmd:used({"saveworld"}, function(interaction)
+		cmd:used({"minecraft","createmap"}, function(interaction)
+			
+		end)
+		
+		cmd:used({"minecraft","backup"}, function(interaction)
 			local success, err = saveWorld()
 			if success then interaction:reply("saved world")
 			else interaction:reply(err)
 			end
-		end)]]
+		end)
 		
-		cmd:used({"savestatus"}, function(interaction)
+		cmd:used({"minecraft","backupstatus"}, function(interaction)
 			interaction:replyDeferred()
 			local earliest, latest, latestData, count, size = util.nearHuge, -util.nearHuge, nil, 0, 0
 			for f,t in fs.scandirSync(SAVE_DIR) do
@@ -551,7 +573,7 @@ do -- game server
 			end
 			
 			interaction:reply({embed = {
-				description = ("save info for %s"):format(SAVE_SUBDIR),
+				description = ("save info for %s (%s)"):format(SAVE_SUBDIR, server.name or "undef"),
 				fields = {
 					{name = "#", value = count, inline = true},
 					{name = "Earliest", value = util.createTimestamp("sdt", earliest), inline = true},

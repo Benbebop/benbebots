@@ -56,50 +56,76 @@ assert(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", {
 	
 	{
 		type = 1,
-		name = "gmod",
-		description = "modify the gmod server",
+		name = "gameserver",
+		description = "control the game servers",
 		id = "1097727252168445953",
 		options = {
 			{
-				type = 1,
-				name = "start",
-				description = "start the gmod server",
+				type = 2,
+				name = "gmod",
+				description = "control the gmod game server",
 				options = {
 					{
-						type = 3,
-						name = "gamemode",
-						description = "gamemode to start the server on"
+						type = 1,
+						name = "start",
+						description = "start the gmod server",
+						options = {
+							{
+								type = 3,
+								name = "gamemode",
+								description = "gamemode to start the server on"
+							},{
+								type = 3,
+								name = "map",
+								description = "map to start the server on"
+							}
+						}
 					},{
-						type = 3,
-						name = "map",
-						description = "map to start the server on"
+						type = 1,
+						name = "addon",
+						description = "add a new addon to the server",
+						options = {
+							{
+								type = 3,
+								name = "gamemode",
+								description = "gamemode to attach the addon to"
+							},{
+								type = 3,
+								name = "url",
+								description = "url / id of the addon"
+							}
+						}
+					},{
+						type = 1,
+						name = "admin",
+						description = "toggle steam account's admin perms on the server, only use this for your own account",
+						options = {
+							{
+								type = 3,
+								name = "url",
+								description = "url / steamid of your steam account",
+								required = true
+							}
+						}
 					}
 				}
 			},{
-				type = 1,
-				name = "addon",
-				description = "add a new addon to the server",
+				type = 2,
+				name = "minecraft",
+				description = "control the minecraft server",
 				options = {
 					{
-						type = 3,
-						name = "gamemode",
-						description = "gamemode to attach the addon to"
+						type = 1,
+						name = "createmap",
+						description = "create a map of an image"
 					},{
-						type = 3,
-						name = "url",
-						description = "url / id of the addon"
-					}
-				}
-			},{
-				type = 1,
-				name = "admin",
-				description = "toggle steam account's admin perms on the server, only use this for your own account",
-				options = {
-					{
-						type = 3,
-						name = "url",
-						description = "url / steamid of your steam account",
-						required = true
+						type = 1,
+						name = "backup",
+						description = "force a save of the most recent version of the world it can get"
+					},{
+						type = 1,
+						name = "backupstatus",
+						description = "status of the saves",
 					}
 				}
 			}
