@@ -116,8 +116,34 @@ assert(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", {
 				options = {
 					{
 						type = 1,
+						name = "start",
+						description = "start the server"
+					},{
+						type = 1,
+						name = "stop",
+						description = "stop the server"
+					},{
+						type = 1,
 						name = "createmap",
-						description = "create a map of an image"
+						description = "create a map of an image",
+						options = {
+							{
+								type = 11,
+								name = "image",
+								description = "image to put on the map"
+							}
+						}
+					},{
+						type = 1,
+						name = "getmap",
+						description = "create a map of an image",
+						options = {
+							{
+								type = 3,
+								name = "mapname",
+								description = "name of map to output"
+							}
+						}
 					},{
 						type = 1,
 						name = "backup",

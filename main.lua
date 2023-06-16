@@ -521,13 +521,13 @@ do -- game server
 	
 	do -- minecraft
 		
+		local nbt, json, miniz, https, url = require("nbt"), require("json"), require("miniz"), require("https"), require("url")
+		
 		local server = exarotonClient:getServer("mPDAx5chPlm8yrts")
 		
 		benbebot:on("ready", function()
-			server.websocket:connect()
+			--server.websocket:connect()
 		end)
-		
-		server.websocket:on("message")
 		
 		local util = require("util")
 		
@@ -536,20 +536,142 @@ do -- game server
 		fs.mkdirSync(appdata.path("game-backups")) fs.mkdirSync(appdata.path("game-backups", "minecraft")) fs.mkdirSync(appdata.path("game-backups", "minecraft", SAVE_SUBDIR))
 		
 		cmd:used({"minecraft","start"}, function(interaction)
-			server:start()
+			if not (interaction.member:hasRole("1111726132660813886") or interaction.user.id == "565367805160062996") then interaction:reply("this command is restricted", true) return end
+			interaction:replyDeferred(true)
+			local success, err = server:start()
+			if not success then interaction:reply(err, true) return end
+			interaction:reply("starting server", true)
 		end)
 		
 		cmd:used({"minecraft","stop"}, function(interaction)
-			server:stop()
+			interaction:replyDeferred(true)
+			local success, err = server:stop()
+			if not success then interaction:reply(err, true) return end
+			interaction:reply("stopping server", true)
+		end)
+		
+		local MAP_COLORS = json.parse(fs.readFileSync("resource/minecraft/map-colors.json"))
+		local MAP_COLORS_VERSION, MAP_COLORS = MAP_COLORS.version, MAP_COLORS.data
+		
+		cmd:used({"minecraft","createmap"}, function(interaction, args)
+			local source = args.image
+			local fCat, fType = source.content_type:match("^(.-)/(.-)$")
+			if fCat ~= "image" then interaction:reply("file must be an image", true) return end
+			
+			interaction:replyDeferred()
+			
+			local stdin, stdout, stderr = uv.new_pipe(), uv.new_pipe(), uv.new_pipe()
+			
+			local colorBytes, n = {}, 0
+			local buffer = {}
+			local mainThread, procThread = coroutine.running(), coroutine.create(function(exit)
+				if exit then return end
+				repeat
+					local data = table.concat(buffer)
+					buffer = {}
+					
+					local cursor, packet = 1, data:sub(1,4)
+					while #packet >= 4 do
+						local r,g,b,a = string.unpack(">I1>I1>I1>I1", packet)
+						
+						if a <= 0 then -- pixel is transparent
+							table.insert(colorBytes, 0) n = n + 1
+						else
+							local minDist, minIndex = math.huge, nil
+							for i,v in pairs(MAP_COLORS) do
+								if v[1] then
+									local distSqr = (v[1] - r) ^ 2 + (v[2] - g) ^ 2 + (v[3] - b) ^ 2
+									if minDist >= distSqr then
+										minDist, minIndex = distSqr, i
+									end
+									if distSqr <= 0 then break end
+								end
+							end
+							
+							table.insert(colorBytes, tonumber(minIndex)) n = n + 1
+						end
+						
+						cursor = cursor + 4
+						if #buffer > 0 then -- shouldnt ever happen but just in case
+							data = data .. table.concat(buffer)
+							buffer = {}
+						end
+						packet = data:sub(cursor, cursor + 3)
+					end
+					
+					buffer = {packet}
+				until (n >= 16384) or coroutine.yield()
+			end)
+			
+			local errBuffer = {}
+			assert(uv.spawn("bin/ffmpeg", {
+				stdio = {stdin, stdout, stderr},
+				args = {
+					"-hide_banner", "-loglevel", "error",
+					"-i", "-", -- in args
+					"-f", "rawvideo", "-pix_fmt", "rgba", "-s", "128x128", "-" -- out args
+				}
+			},function()
+				coroutine.resume(procThread, true)
+				coroutine.resume(mainThread)
+				stdout:close()
+				stderr:close()
+			end))
+			
+			stdout:read_start(function(err, data)
+				assert(not err, err)
+				if not data then return end
+				
+				table.insert(buffer, data)
+				
+				if coroutine.status(procThread) ~= "suspended" then return end
+				assert(coroutine.resume(procThread))
+			end)
+			
+			stderr:read_start(function(err, data)
+				assert(not err, err)
+				if not data then return end
+				
+				table.insert(errBuffer, data)
+			end)
+			
+			local req = url.parse(source.url)
+			req.method = "GET"
+			
+			assert(https.request(req, function(res)
+				res:on("data", function(chunk) stdin:write(chunk) end)
+				res:on("end", function(chunk) stdin:close() end)
+			end)):done()
+			
+			coroutine.yield()
+			
+			local mapData = miniz.compress(nbt.newCompound({
+				data = nbt.newCompound({
+					scale = nbt.newByte(0),
+					dimension = nbt.newString(""),
+					trackingPosition = nbt.newByte(0),
+					unlimitedTracking = nbt.newByte(0),
+					locked = nbt.newByte(1),
+					xCenter = nbt.newInt(0),
+					yCenter = nbt.newInt(0),
+					banners = nbt.newList(nbt.TAG_COMPOUND, {}),
+					frames = nbt.newList(nbt.TAG_COMPOUND, {}),
+					colors = nbt.newByteArray(colorBytes)
+				}),
+				DataVersion = nbt.newInt(MAP_COLORS_VERSION)
+			}):encode())
+			
+			interaction:reply({file = {"map.dat", mapData}})
+			
+		end)
+		
+		cmd:used({"minecraft","getmap"}, function(interaction)
+			
 		end)
 		
 		local function saveWorld()
 			local world = server:getFile("world")
 		end
-		
-		cmd:used({"minecraft","createmap"}, function(interaction)
-			
-		end)
 		
 		cmd:used({"minecraft","backup"}, function(interaction)
 			local success, err = saveWorld()

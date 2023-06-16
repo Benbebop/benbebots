@@ -13,3 +13,9 @@
 [submodule "deps/lit-sqlite3"]
 	path = deps/lit-sqlite3
 	url = https://github.com/SinisterRectus/lit-sqlite3
+[submodule "bin/ffmpeg"]
+	path = bin/ffmpeg
+	url = https://github.com/FFmpeg/FFmpeg
+[submodule "deps/lua-nbt"]
+	path = deps/lua-nbt
+	url = https://github.com/MikuAuahDark/lua-nbt
