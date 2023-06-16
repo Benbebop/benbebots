@@ -19,3 +19,6 @@
 [submodule "deps/lua-nbt"]
 	path = deps/lua-nbt
 	url = https://github.com/MikuAuahDark/lua-nbt
+[submodule "deps/exaroton"]
+	path = deps/exaroton
+	url = https://github.com/Benbebop/Exaroton-Luvit
