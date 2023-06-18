@@ -36,6 +36,13 @@ end)
 local BOT_GUILD = "1068640496139915345"
 local TEST_CHANNEL = "1068657073321169067"
 
+local function reseedRandom()
+	local seed = require("uv").gettimeofday()
+	math.randomseed(seed)
+
+	genericLogger:info("Seeded random (%d)", seed)
+end
+
 -- SMOKE SERVER --
 
 local SMOKE_SERVER = "1036666698104832021"
@@ -1143,6 +1150,8 @@ do -- clips --
 	end)
 	
 	local function sendClip()
+		reseedRandom()
+		
 		local clip, content, success
 		for i=1,5 do
 			clip = clips[math.random(2,#clips)]
@@ -1788,11 +1797,7 @@ else
 	genericLogger:info("TCP servers started")
 end
 
-local sec, msec = require("uv").gettimeofday()
-local seed = sec + msec
-math.randomseed(seed)
-
-genericLogger:info("Seeded random (%d)", seed)
+reseedRandom()
 
 clock:start()
 
