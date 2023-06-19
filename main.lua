@@ -996,6 +996,7 @@ do -- clips --
 	local function saveClips()
 		fs.writeFileSync(CLIP_FILE, json.stringify(clips or {{version = 3}}))
 	end
+	
 	familyGuy:onSync("ready", function()
 		if (not clips[1].version) or (clips[1].version < 3) then -- fix outdated tables
 			for _,v in ipairs(clips) do
@@ -1149,31 +1150,36 @@ do -- clips --
 		familyGuyStats.Users = validUsers.n
 	end)
 	
+	local PREV_CLIP_FILE = appdata.path("previous-clips.json")
+	local prevClips = json.parse(fs.readFileSync(PREV_CLIP_FILE) or "{}") or {}
+	
 	local function sendClip()
-		reseedRandom()
-		
-		local clip, content, success
-		for i=1,5 do
-			clip = clips[math.random(2,#clips)]
-			
-			content = ("https://cdn.discordapp.com/attachments/%s/%s/%s"):format(clip[2], clip[3], clip[4])
-			
-			local res = http.request("HEAD", content)
-			
-			if res.code >= 200 and res.code < 300 then success = true break end
-			
-			familyGuy:output("warning", "family guy clip %s no longer exists (get attempt %s)", clip[1], i)
-			
-			--removeEntry(clip[1])
-		end
-		
-		if not success then
-			return
-		end
-		
-		local err, user
+		local err, user, clip, content, success
 		for i=1,5 do
 			user = los.isProduction() and validUsers[math.random(validUsers.n)] or familyGuy:getChannel(TEST_CHANNEL)
+			
+			local prevClip = prevClips[user.id]
+			
+			for i=1,5 do
+				clip = clips[math.random(2,#clips)]
+				
+				if clip[1] ~= prevClip then
+					content = ("https://cdn.discordapp.com/attachments/%s/%s/%s"):format(clip[2], clip[3], clip[4])
+					
+					local res = http.request("HEAD", content)
+					
+					if res.code >= 200 and res.code < 300 then success = true break end
+					
+					familyGuy:output("warning", "family guy clip %s no longer exists (get attempt %s)", clip[1], i)
+					
+					--removeEntry(clip[1])
+				else
+					familyGuy:output("warning", "family guy clip %s is a duplicate of previous clip to %s (get attempt %s)", clip[1], user.id, i)
+				end
+			end
+			
+			if not success then return end
+			
 			success, err = user:send(content)
 			
 			if success then break end
@@ -1186,9 +1192,10 @@ do -- clips --
 			end
 		end
 		
-		if not success then
-			return
-		end
+		if not success then return end
+		
+		prevClip[user.id] = clip[1]
+		fs.writeFileSync(PREV_CLIP_FILE, json.stringify(prevClips or "{}"))
 		
 		familyGuyStats.Clips = familyGuyStats.Clips + 1
 		familyGuy:output("info", "sent family guy clip (ID %s) to %s", clip[1], user.name)
