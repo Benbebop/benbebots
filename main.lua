@@ -1195,7 +1195,7 @@ do -- clips --
 		if not success then return end
 		
 		prevClip[user.id] = clip[1]
-		fs.writeFileSync(PREV_CLIP_FILE, json.stringify(prevClips or "{}"))
+		fs.writeFileSync(PREV_CLIP_FILE, json.stringify(prevClips or {}))
 		
 		familyGuyStats.Clips = familyGuyStats.Clips + 1
 		familyGuy:output("info", "sent family guy clip (ID %s) to %s", clip[1], user.name)
