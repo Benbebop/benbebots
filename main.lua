@@ -1194,7 +1194,7 @@ do -- clips --
 		
 		if not success then return end
 		
-		prevClip[user.id] = clip[1]
+		prevClips[user.id] = clip[1]
 		fs.writeFileSync(PREV_CLIP_FILE, json.stringify(prevClips or {}))
 		
 		familyGuyStats.Clips = familyGuyStats.Clips + 1
