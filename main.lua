@@ -13,12 +13,13 @@ fs.mkdirSync(appdata.path("logs"))
 local benbebot = discordia.Client({logFile=appdata.path("logs/bbb_discordia.log"),gatewayFile=appdata.path("logs/bbb_gateway.json"),logLevel=logLevel})
 local familyGuy = discordia.Client({logFile=appdata.path("logs/fg_discordia.log"),gatewayFile=appdata.path("logs/fg_gateway.json"),logLevel=logLevel,cacheAllMembers=true})
 local cannedFood = discordia.Client({logFile=appdata.path("logs/cf_discordia.log"),gatewayFile=appdata.path("logs/cf_gateway.json"),logLevel=logLevel})
+local uncannyCat = discordia.Client({logFile=appdata.path("logs/uc_discordia.log"),gatewayFile=appdata.path("logs/uc_gateway.json"),logLevel=logLevel,cacheAllMembers=true})
 local genericLogger = discordia.Client()
-benbebot._logger:setPrefix("BBB") familyGuy._logger:setPrefix("FLG") cannedFood._logger:setPrefix("CNF") genericLogger._logger:setPrefix("   ")
-benbebot._logChannel, familyGuy._logChannel, cannedFood._logChannel = "1091403807973441597", "1091403807973441597", "1091403807973441597"
-benbebot:enableIntents(discordia.enums.gatewayIntent.guildMembers) familyGuy:enableIntents(discordia.enums.gatewayIntent.guildMembers)
+benbebot._logger:setPrefix("BBB") familyGuy._logger:setPrefix("FLG") cannedFood._logger:setPrefix("CNF") uncannyCat._logger:setPrefix("UCC") genericLogger._logger:setPrefix("   ")
+benbebot._logChannel, familyGuy._logChannel, cannedFood._logChannel, uncannyCat._logChannel = "1091403807973441597", "1091403807973441597", "1091403807973441597", "1091403807973441597"
+benbebot:enableIntents(discordia.enums.gatewayIntent.guildMembers) familyGuy:enableIntents(discordia.enums.gatewayIntent.guildMembers) uncannyCat:enableIntents(discordia.enums.gatewayIntent.guildMembers)
 local stats = require("stats")
-local benbebotStats, familyGuyStats, cannedFoodStats = stats(benbebot, "1068663730759536670"), stats(benbebot, "1068675455022026873"), stats(benbebot, "1112221100273848380")
+local benbebotStats, familyGuyStats, cannedFoodStats, uncannyStats = stats(benbebot, "1068663730759536670"), stats(benbebot, "1068675455022026873"), stats(benbebot, "1112221100273848380"), stats(benbebot, "1124878312943124531")
 local portAdd = los.isProduction() and 0 or 1
 local privateServer = server.new("0.0.0.0", 26420 + portAdd)
 local publicServer = privateServer:new(26430 + portAdd)
@@ -1785,11 +1786,12 @@ end
 local readys, thread = 0, coroutine.running()
 local function func() readys = readys + 1 coroutine.resume(thread) end
 
-benbebot:run("Bot " .. TOKENS.benbebot) benbebot:onceSync("ready", func)
-familyGuy:run("Bot " .. TOKENS.familyGuy) familyGuy:onceSync("ready", func)
-if TOKENS.cannedFood then cannedFood:run(TOKENS.cannedFood) cannedFood:onceSync("ready", func) else readys = readys + 1 end
+benbebot:onceSync("ready", func) benbebot:run("Bot " .. TOKENS.benbebot)
+familyGuy:onceSync("ready", func) familyGuy:run("Bot " .. TOKENS.familyGuy)
+uncannyCatc:onceSync("ready", func) uncannyCatc:run("Bot " .. TOKENS.uncanny)
+if TOKENS.cannedFood then cannedFood:onceSync("ready", func) else readys = readys + 1 end cannedFood:run(TOKENS.cannedFood)
 
-repeat coroutine.yield() until readys >= 3
+repeat coroutine.yield() until readys >= 4
 
 genericLogger:info("All bots ready")
 
