@@ -491,14 +491,15 @@ do -- game server
 			
 			local stdio = {nil, uv.new_pipe(), uv.new_pipe()}
 			
-			local onExit = function()
-				gmodActive = false
-			end
+			local onExit = function() end
 			assert(uv.spawn(pathJoin(uv.cwd(), "bin/SrcdsConRedirect.exe"), {
 				args = args,
 				stdio = stdio,
 				cwd = GARRYSMOD_DIR
-			}, function(...) onExit(...) end))
+			}, function(...)
+				gmodActive = false
+				onExit(...)
+			end))
 			
 			-- setup stdio
 			
@@ -551,10 +552,24 @@ do -- game server
 			}})
 			gmodInitReply:setEmbed({description = string.format("started server at p2p:%s\n\n%s", p2pJoinCommand:match("p2p:(%d+)"), message.link)})
 			
-			gmod:emit("ready", p2pJoinCommand, nil, message)
+			stdio[2]:read_stop()
+			obuffer = ""
+			stdio[2]:read_start(function(err, data)
+				if err then table.insert(ebuffer, err) return end
+				if not data then return end
+				obuffer = obuffer .. data
+				
+				local success = false
+				for line in obuffer:gmatch("([^\n\r]+)[\n\r]+") do
+					success = true
+					gmod:emit("raw", line)
+				end
+				if success then obuffer = "" end
+			end)
 			
+			gmod:emit("ready", p2pJoinCommand, nil, message)
 			onExit = function(...)
-				gmod:emit("stop", ...)
+				gmod:emit("stop", table.concat(ebuffer), ...)
 			end
 		end)
 		
@@ -650,6 +665,10 @@ do -- game server
 			local channel = benbebot:getChannel(GARRYSMOD_CHANNEL)
 			channel:send({embed = {description = "server stopped"}})
 			channel:setTopic()
+		end)
+		
+		gmod:on("raw", function(line)
+			benbebot:getChannel(GARRYSMOD_CHANNEL):send(line)
 		end)
 		
 	end
