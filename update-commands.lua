@@ -83,6 +83,10 @@ assert(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", {
 						}
 					},{
 						type = 1,
+						name = "stop",
+						description = "stop the gmod server"
+					},{
+						type = 1,
 						name = "addon",
 						description = "add a new addon to the server",
 						options = {

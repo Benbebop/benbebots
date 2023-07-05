@@ -492,7 +492,7 @@ do -- game server
 			local stdio = {nil, uv.new_pipe(), uv.new_pipe()}
 			
 			local onExit = function() end
-			assert(uv.spawn(pathJoin(uv.cwd(), "bin/SrcdsConRedirect.exe"), {
+			gmodActive = assert(uv.spawn(pathJoin(uv.cwd(), "bin/SrcdsConRedirect.exe"), {
 				args = args,
 				stdio = stdio,
 				cwd = GARRYSMOD_DIR
@@ -571,6 +571,13 @@ do -- game server
 			onExit = function(...)
 				gmod:emit("stop", table.concat(ebuffer), ...)
 			end
+		end)
+		
+		cmd:used({"gmod","stop"}, function(interaction)
+			if type(gmodActive) ~= "userdata" then interaction:reply("server must be online first") return end
+			local success, err = gmodActive:kill()
+			if not success then interaction:reply(err) return end
+			interaction:reply("successfully killed server instance") return end
 		end)
 		
 		-- admin stuff
