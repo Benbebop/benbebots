@@ -1496,7 +1496,7 @@ do -- netrc
 		table.insert(html, "<a href=\"/netrc/new\">+new</a>")
 		table.insert(html, "</body>")
 		
-		return {code = 200}, table.concat(html)
+		return {{"Cache-Control", "no-store"}, code = 200}, table.concat(html)
 	end, {method = {"GET"}})
 	
 	privateServer:on("/netrc/new", function(res)
