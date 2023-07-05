@@ -28,9 +28,10 @@ end]]
 assert(request(familyGuy, "PUT", "/commands", {
 	
 	{
-		type = 2,
-		name = "block family guy clips",
-		id = "1112628264075280464"
+		type = 1,
+		name = "blockclips",
+		description = "stop/start recieving family guy clips",
+		id = "1125992137733972029"
 	}
 	
 }))
@@ -491,7 +492,7 @@ assert(request(familyGuy, "PUT", "/guilds/1068640496139915345/commands", {
 		type = 1,
 		name = "clip",
 		description = "manage family guy clips",
-		id = "1112626905087225896",
+		id = "1125992663582257242",
 		options = {
 			{
 				type = 1,
@@ -541,7 +542,7 @@ assert(request(familyGuy, "PUT", "/guilds/1068640496139915345/commands", {
 		type = 1,
 		name = "message",
 		description = "manage family guy clips",
-		id = "1112896749997129808",
+		id = "1125992663582257243",
 		options = {
 			{
 				type = 3,

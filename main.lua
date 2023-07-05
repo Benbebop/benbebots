@@ -93,7 +93,7 @@ do -- log dms
 		sudodm:moveUp(sudodm.position)
 	end)
 	
-	familyGuy:getCommand("1112896749997129808"):used({}, function(interaction, args)
+	familyGuy:getCommand("1125992663582257243"):used({}, function(interaction, args)
 		local res, content
 		if args.attachment then
 			res, content = http.request("GET", args.attachment.url)
@@ -1068,7 +1068,7 @@ do -- clips --
 		end
 	end)
 	
-	local clipCmd = familyGuy:getCommand("1112626905087225896")
+	local clipCmd = familyGuy:getCommand("1125992663582257242")
 	
 	clipCmd:used({"add"}, function(interaction, args)
 		local file = args.file
@@ -1272,7 +1272,7 @@ do -- clips --
 		interaction:reply("sent clip")
 	end)
 	
-	familyGuy:getCommand("1112628264075280464"):used({}, function(interaction)
+	familyGuy:getCommand("1125992137733972029"):used({}, function(interaction)
 		interaction:replyDeferred(true)
 		local blocked = isBlocked(interaction.user.id)
 		
