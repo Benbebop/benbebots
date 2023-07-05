@@ -1828,10 +1828,10 @@ end
 local readys, thread = 0, coroutine.running()
 local function func() readys = readys + 1 coroutine.resume(thread) end
 
-benbebot:onceSync("ready", func) benbebot:run("Bot " .. TOKENS.benbebot)
-familyGuy:onceSync("ready", func) familyGuy:run("Bot " .. TOKENS.familyGuy)
-uncannyCatc:onceSync("ready", func) uncannyCatc:run("Bot " .. TOKENS.uncanny)
-if TOKENS.cannedFood then cannedFood:onceSync("ready", func) else readys = readys + 1 end cannedFood:run(TOKENS.cannedFood)
+benbebot:onceSync("ready", func) benbebot:onceSync("error", func) benbebot:run("Bot " .. tostring(TOKENS.benbebot))
+familyGuy:onceSync("ready", func) familyGuy:onceSync("error", func) familyGuy:run("Bot " .. tostring(TOKENS.familyGuy))
+uncannyCat:onceSync("ready", func) uncannyCat:onceSync("error", func) uncannyCat:run("Bot " .. tostring(TOKENS.uncanny))
+cannedFood:onceSync("ready", func) cannedFood:onceSync("error", func) cannedFood:run(tostring(TOKENS.cannedFood))
 
 repeat coroutine.yield() until readys >= 4
 
