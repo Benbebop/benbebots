@@ -402,25 +402,6 @@ do -- game server
 			collections = tbl
 		end)
 		
-		local function getGSLT()
-			local tokens = steamRequest("GET", "IGameServersService", "GetAccountList", 1)
-			if type(tokens) ~= "table" then return nil, "failed to fetch game server account" end
-			tokens = tokens.response
-			
-			if tokens.is_banned then return nil, "game server account has been banned" end
-			
-			local server
-			for _,v in ipairs(tokens.servers) do
-				if v.memo == "garrysmodserver" then
-					server = v
-					break
-				end
-			end
-			if not server then return nil, "game server token does not exist" end
-			
-			return server
-		end
-		
 		-- get executable
 		
 		local pathJoin = require("path").join
@@ -445,7 +426,62 @@ do -- game server
 		
 		-- start server
 		
+		local function getGSLT()
+			local tokens = steamRequest("GET", "IGameServersService", "GetAccountList", 1)
+			if type(tokens) ~= "table" then return nil, "failed to fetch game server account" end
+			tokens = tokens.response
+			
+			if tokens.is_banned then return nil, "game server account has been banned" end
+			
+			local server
+			for _,v in ipairs(tokens.servers) do
+				if v.memo == "garrysmodserver" then
+					server = v
+					break
+				end
+			end
+			if not server then return nil, "game server token does not exist" end
+			
+			return server
+		end
+		
+		local function addArg(tbl, part1, part2)
+			table.insert(tbl,tostring(part1)) table.insert(tbl,tostring(part2))
+		end
+		
 		cmd:used({"gmod","start"}, function(interaction, args)
+			-- create args
+			
+			local args = {"-console", "-p2p"}
+			addArg(args, "+maxplayers", 32)
+			addArg(args, "+gamemod", "sandbox")
+			addArg(args, "+map", "gm_construct")
+			
+			local gslt, err = getGSLT()
+			if gslt then
+				p(gslt)
+				addArg(args, "+sv_setsteamaccount", gslt.token)
+			else benbebot:output("warning", "could not get gslt: %s", err) end
+			
+			-- spawn srcds process
+			
+			local stdio = {nil, uv.new_pipe(), uv.new_pipe()}
+			
+			uv.spawn(pathJoin(uv.cwd(), "bin/SrcdsConRedirect.exe"), {
+				args = args,
+				stdio = stdio,
+				cwd = GARRYSMOD_DIR
+			}, function()
+				
+			end)
+			
+			stdio[2]:read_start(function() -- out
+				
+			end)
+			
+			stdio[3]:read_start(function() -- err
+				
+			end)
 			
 		end)
 		
@@ -523,6 +559,12 @@ do -- game server
 			})
 			
 			benbebot:info(string.format("added %s (%s) to gmod admin perms", name or "unknown", id))
+		end)
+		
+		-- update
+		
+		cmd:used({"gmod","update"}, function(interaction)
+			
 		end)
 		
 	end
