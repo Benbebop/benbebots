@@ -1062,6 +1062,42 @@ do -- misc stats --
 	
 end
 
+do -- wakatime --
+	
+	local http, openssl, json = require("coro-http"), require("openssl"), require("json")
+	
+	local function find(tbl, name)
+		for _,v in ipairs(tbl) do
+			if v.name == name then
+				return v
+			end
+		end
+	end
+	
+	local function func()
+		local res, body = http.request("GET", "https://wakatime.com/api/v1/users/current/stats", {{"Authorization", "Basic " .. openssl.base64(TOKENS.wakatime)}})
+		if res.code < 200 or res.code >= 300 then return end
+		
+		body = json.parse(body).data
+		
+		local time
+		
+		if body.projects then
+			local project = find(body.projects, "benbebots")
+			time = project.text
+		elseif body.languages then
+			local language = find(body.languages, "Lua")
+			time = language.text
+		end
+		
+		benbebot:getChannel("1085752519487135795"):setName(time or "Programming")
+	end
+	
+	clock:on("day", func)
+	benbebot:on("ready", func)
+	
+end
+
 -- CANNED FOOD --
 
 do -- nothing wacky here
