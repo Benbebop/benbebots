@@ -353,7 +353,7 @@ do -- game server
 	
 	do -- garrys mod
 		
-		local http, json, querystring, uv, los, keyvalue = require("coro-http"), require("json"), require("querystring"), require("uv"), require("los"), require("source-engine/key-value")
+		local http, json, querystring, uv, los, keyvalue, timer = require("coro-http"), require("json"), require("querystring"), require("uv"), require("los"), require("source-engine/key-value"), require("timer")
 		
 		local function steamRequest(method, interface, method2, version, parameters, ...)
 			parameters = parameters or {}
@@ -408,7 +408,7 @@ do -- game server
 		
 		local STEAM_DIR = los.type() == "win32" and "C:/Program Files (x86)/Steam" or "~/.steam/steam"
 		
-		local libraryfolders = keyvalue.decode(assert(fs.readFileSync(STEAM_DIR .. "/steamapps/libraryfolders.vdf"))).libraryfolders
+		local libraryfolders = keyvalue.decode(assert(fs.readFileSync(pathJoin(STEAM_DIR, "steamapps/libraryfolders.vdf")))).libraryfolders
 		local installindex = "0"
 		for i,v in pairs(libraryfolders) do
 			for l in pairs(v.apps) do
@@ -417,14 +417,17 @@ do -- game server
 		end
 		local installpath = libraryfolders[installindex].path
 		
-		if fs.existsSync(installpath .. "/steamapps/appmanifest_4020.acf") then
-			local manifest = keyvalue.decode(fs.readFileSync(installpath .. "/steamapps/appmanifest_4020.acf")).AppState
-			GARRYSMOD_DIR = pathJoin(installpath, manifest.installdir)
+		local manifestFile = pathJoin(installpath, "steamapps/appmanifest_4020.acf")
+		if fs.existsSync(manifestFile) then
+			local manifest = keyvalue.decode(fs.readFileSync(manifestFile)).AppState
+			GARRYSMOD_DIR = pathJoin(installpath, "steamapps/common", manifest.installdir)
 		else
-			GARRYSMOD_DIR = pathJoin(installpath, "GarrysModDS")
+			GARRYSMOD_DIR = pathJoin(installpath, "steamapps/common/GarrysModDS")
 		end
 		
 		-- start server
+		
+		local GARRYSMOD_CHANNEL = "1068641386024407041"
 		
 		local function getGSLT()
 			local tokens = steamRequest("GET", "IGameServersService", "GetAccountList", 1)
@@ -449,7 +452,29 @@ do -- game server
 			table.insert(tbl,tostring(part1)) table.insert(tbl,tostring(part2))
 		end
 		
+		local function truncateLines(str, count)
+			local lines, l = {}, 0
+			for line in str:gmatch("[^\n\r]+") do
+				table.insert(lines, line)
+				l = l + 1
+				if l > count then
+					table.remove(lines, 1)
+				end
+			end
+			return table.concat(lines, "\n")
+		end
+		
+		local gmod = discordia.Emitter()
+		
+		local gmodActive, gmodReady = false, false
+		local gmodInitReply
+		
 		cmd:used({"gmod","start"}, function(interaction, args)
+			if gmodActive then interaction:reply("server is already in progress", true) return end
+			gmodActive = true
+			
+			interaction:replyDeferred()
+			
 			-- create args
 			
 			local args = {"-console", "-p2p"}
@@ -459,30 +484,78 @@ do -- game server
 			
 			local gslt, err = getGSLT()
 			if gslt then
-				p(gslt)
-				addArg(args, "+sv_setsteamaccount", gslt.token)
+				addArg(args, "+sv_setsteamaccount", gslt.login_token)
 			else benbebot:output("warning", "could not get gslt: %s", err) end
 			
 			-- spawn srcds process
 			
 			local stdio = {nil, uv.new_pipe(), uv.new_pipe()}
 			
-			uv.spawn(pathJoin(uv.cwd(), "bin/SrcdsConRedirect.exe"), {
+			local onExit = function()
+				gmodActive = false
+			end
+			assert(uv.spawn(pathJoin(uv.cwd(), "bin/SrcdsConRedirect.exe"), {
 				args = args,
 				stdio = stdio,
 				cwd = GARRYSMOD_DIR
-			}, function()
-				
-			end)
+			}, function(...) onExit(...) end))
 			
-			stdio[2]:read_start(function() -- out
-				
+			-- setup stdio
+			
+			local embedScheme = {
+				title = "starting server",
+				description = "```\n```"
+			}
+			
+			local obuffer, ebuffer = {}, {}
+			local modified = false
+			
+			stdio[2]:read_start(function(err, data) -- out
+				if err then table.insert(ebuffer, err) return end
+				if not data then return end
+				table.insert(obuffer, data)
+				modified = true
 			end)
 			
 			stdio[3]:read_start(function() -- err
-				
+				if err then table.insert(ebuffer, err) return end
+				if not data then return end
+				table.insert(ebuffer, data)
+				modified = true
 			end)
 			
+			interaction:reply({embed = embedScheme})
+			gmodInitReply = interaction:getReply()
+			
+			-- wait for p2p id
+			
+			local p2pJoinCommand
+			repeat
+				if modified then
+					local str = table.concat(obuffer)
+					p2pJoinCommand = str:match("%-+%sSteam%sP2P%s%-+.-`([^`]+).-%-+")
+					if p2pJoinCommand then break end
+					
+					embedScheme.description = string.format("```\n%s\n```", truncateLines(str, 7))
+					modified = false
+					gmodInitReply:setEmbed(embedScheme)
+				else
+					timer.sleep(1000)
+				end
+			until not gmodActive
+			if not p2pJoinCommand then gmodInitReply:update({content = "server closed while starting"}) return end
+			
+			local message = benbebot:getChannel(GARRYSMOD_CHANNEL):send({embed = {
+				title = "gmod server is online",
+				description = string.format("join with the console command `%s`", p2pJoinCommand)
+			}})
+			gmodInitReply:setEmbed({description = string.format("started server at p2p:%s\n\n%s", p2pJoinCommand:match("p2p:(%d+)"), message.link)})
+			
+			gmod:emit("ready", p2pJoinCommand, nil, message)
+			
+			onExit = function(...)
+				gmod:emit("stop", ...)
+			end
 		end)
 		
 		-- admin stuff
@@ -565,6 +638,18 @@ do -- game server
 		
 		cmd:used({"gmod","update"}, function(interaction)
 			
+		end)
+		
+		-- server events
+		
+		gmod:on("ready", function(joinStr, options)
+			benbebot:getChannel(GARRYSMOD_CHANNEL):setTopic("ONLINE")
+		end)
+		
+		gmod:on("stop", function()
+			local channel = benbebot:getChannel(GARRYSMOD_CHANNEL)
+			channel:send({embed = {description = "server stopped"}})
+			channel:setTopic()
 		end)
 		
 	end
@@ -759,7 +844,7 @@ do -- game server
 	
 end
 
-do -- get files --
+--[[do -- get files --
 	local fs, appdata, watcher, path = require("fs"), require("directory"), require("fs-watcher"), require("path")
 	
 	local cmd = benbebot:getCommand("1100968409765777479")
@@ -873,7 +958,7 @@ do -- get files --
 		
 		interaction:reply({file = {path.basename(pa), content}}, true)
 	end)
-end
+end]]
 
 do -- bot control --
 	local uv, jit, los = require("uv"), require("jit"), require("los")
