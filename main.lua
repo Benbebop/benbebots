@@ -14,12 +14,13 @@ local benbebot = discordia.Client({logFile=appdata.path("logs/bbb_discordia.log"
 local familyGuy = discordia.Client({logFile=appdata.path("logs/fg_discordia.log"),gatewayFile=appdata.path("logs/fg_gateway.json"),logLevel=logLevel,cacheAllMembers=true})
 local cannedFood = discordia.Client({logFile=appdata.path("logs/cf_discordia.log"),gatewayFile=appdata.path("logs/cf_gateway.json"),logLevel=logLevel})
 local uncannyCat = discordia.Client({logFile=appdata.path("logs/uc_discordia.log"),gatewayFile=appdata.path("logs/uc_gateway.json"),logLevel=logLevel,cacheAllMembers=true})
+local fnafBot = discordia.Client({logFile=appdata.path("logs/fn_discordia.log"),gatewayFile=appdata.path("logs/fn_gateway.json"),logLevel=logLevel})
 local genericLogger = discordia.Client()
 benbebot._logger:setPrefix("BBB") familyGuy._logger:setPrefix("FLG") cannedFood._logger:setPrefix("CNF") uncannyCat._logger:setPrefix("UCC") genericLogger._logger:setPrefix("   ")
 benbebot._logChannel, familyGuy._logChannel, cannedFood._logChannel, uncannyCat._logChannel = "1091403807973441597", "1091403807973441597", "1091403807973441597", "1091403807973441597"
 benbebot:enableIntents(discordia.enums.gatewayIntent.guildMembers) familyGuy:enableIntents(discordia.enums.gatewayIntent.guildMembers) uncannyCat:enableIntents(discordia.enums.gatewayIntent.guildMembers)
 local stats = require("stats")
-local benbebotStats, familyGuyStats, cannedFoodStats, uncannyStats = stats(benbebot, "1068663730759536670"), stats(benbebot, "1068675455022026873"), stats(benbebot, "1112221100273848380"), stats(benbebot, "1124878312943124531")
+local benbebotStats, familyGuyStats, cannedFoodStats, uncannyStats, fnafStats = stats(benbebot, "1068663730759536670"), stats(benbebot, "1068675455022026873"), stats(benbebot, "1112221100273848380"), stats(benbebot, "1124878312943124531"), stats(benbebot, "1126386629343461438")
 local portAdd = los.isProduction() and 0 or 1
 local privateServer = server.new("0.0.0.0", 26420 + portAdd)
 local publicServer = privateServer:new(26430 + portAdd)
@@ -577,7 +578,7 @@ do -- game server
 			if type(gmodActive) ~= "userdata" then interaction:reply("server must be online first") return end
 			local success, err = gmodActive:kill()
 			if not success then interaction:reply(err) return end
-			interaction:reply("successfully killed server instance") return end
+			interaction:reply("successfully killed server instance")
 		end)
 		
 		-- admin stuff
@@ -1516,6 +1517,35 @@ do -- reaction roles
 	
 end
 
+do -- gnerb
+	
+	local GNERB_CHANNEL = "1126370471382880377"
+	local POST_TIME = 7 -- 12:00 am pst
+	
+	local function func()
+		local channel = fnafBot:getChannel(GNERB_CHANNEL)
+		channel:send({file = "resource/gnerb.jpg"})
+		
+		fnafStats.gnerbs = (fnafStats.gnerbs or 0) + 1
+		channel:setTopic(string.format("%d gnerbs", fnafStats.gnerbs))
+		fnafBot:info("sent gnerb")
+	end
+	
+	clock:on("hour", function(date)
+		if date.hour ~= POST_TIME then return end
+		func()
+	end)
+	
+	fnafBot:getCommand("1126382357054771282"):used({"new"}, function(interaction)
+		interaction:replyDeferred(true)
+		
+		func()
+		
+		interaction:reply("\240\159\145\141", true)
+	end)
+	
+end
+
 do -- remote manage server
 	local http, fs, url = require("coro-http"), require("fs"), require("url")
 	
@@ -1978,9 +2008,10 @@ local function func() readys = readys + 1 coroutine.resume(thread) end
 benbebot:onceSync("ready", func) benbebot:onceSync("error", func) benbebot:run("Bot " .. tostring(TOKENS.benbebot))
 familyGuy:onceSync("ready", func) familyGuy:onceSync("error", func) familyGuy:run("Bot " .. tostring(TOKENS.familyGuy))
 uncannyCat:onceSync("ready", func) uncannyCat:onceSync("error", func) uncannyCat:run("Bot " .. tostring(TOKENS.uncanny))
+fnafBot:onceSync("ready", func) fnafBot:onceSync("error", func) fnafBot:run("Bot " .. tostring(TOKENS.fnaf))
 cannedFood:onceSync("ready", func) cannedFood:onceSync("error", func) cannedFood:run(tostring(TOKENS.cannedFood))
 
-repeat coroutine.yield() until readys >= 4
+repeat coroutine.yield() until readys >= 5
 
 genericLogger:info("All bots ready")
 
@@ -1997,6 +2028,6 @@ end
 
 reseedRandom()
 
-clock:start()
+clock:start(true)
 
 genericLogger:info("Started clock")
