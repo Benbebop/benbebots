@@ -1306,8 +1306,8 @@ do -- clips --
 	clipCmd:used({"add"}, function(interaction, args)
 		local file = args.file
 		if file.content_type ~= "video/mp4" then interaction:reply("file must be a mp4 video file") return end
-		local ratio = file.width / file.height
-		if ratio < 1 then interaction:reply("file cannot be a verticle aspect ratio") return end
+		--[[local ratio = file.width / file.height
+		if ratio < 1 then interaction:reply("file cannot be a verticle aspect ratio") return end]]
 		interaction:replyDeferred()
 		
 		local res, content = http.request("GET", file.url)
