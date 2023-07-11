@@ -40,7 +40,7 @@ assert(request(familyGuy, "PUT", "/commands", {
 
 -- GUILD COMMANDS --
 
-assert(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", {
+assert(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", { -- benbebots
 	
 	{
 		type = 1,
@@ -504,6 +504,17 @@ assert(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", {
 				description = "status of the saves",
 			}
 		}
+	},
+	
+}))
+
+assert(request(benbebot, "PUT", "/guilds/822165179692220476/commands", { -- breadbag
+	
+	{
+		type = 1,
+		name = "pingthatlittleannoyingchild",
+		description = "io larry hateee",
+		id = "1128437755614081052"
 	},
 	
 }))

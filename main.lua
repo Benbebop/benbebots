@@ -45,6 +45,16 @@ local function reseedRandom()
 	genericLogger:info("Seeded random (%d)", seed)
 end
 
+-- BREAD BAG --
+
+do -- ping --
+	
+	benbebot:getCommand("1128437755614081052"):used({}, function(interaction)
+		interaction:reply(string.format("<@463065400960221204>"))
+	end)
+	
+end
+
 -- SMOKE SERVER --
 
 local SMOKE_SERVER = "1036666698104832021"
@@ -354,7 +364,7 @@ do -- game server
 	
 	do -- garrys mod
 		
-		local http, json, querystring, uv, los, keyvalue, timer, steamworks = require("coro-http"), require("json"), require("querystring"), require("uv"), require("los"), require("source-engine/key-value"), require("timer"), require("steamworks")
+		local http, json, querystring, uv, los, keyvalue, timer, steamworks = require("coro-http"), require("json"), require("querystring"), require("uv"), require("los"), require("source-engine/key-value"), require("timer"), nil
 		
 		local function steamRequest(method, interface, method2, version, parameters, ...)
 			parameters = parameters or {}
