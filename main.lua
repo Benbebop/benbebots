@@ -659,9 +659,43 @@ do -- game server
 		
 		-- update
 		
-		cmd:used({"gmod","update"}, function(interaction)
+		local updateActive
+		
+		--[[cmd:used({"gmod","update"}, function(interaction)
+			if updateActive then interaction:reply("already updating :)", true) return end
+			updateActive = true
 			
-		end)
+			local thread = coroutine.running()
+			
+			local stdio = {nil, uv.new_pipe(), uv.new_pipe()}
+			updateActive = assert(uv.spawn(pathJoin(STEAM_DIR, "steamcmd.exe"), {
+				args = {
+					"+login", "anonymous",
+					"+app_update", "4020", "validate",
+					"+quit"
+				}, stdio = stdio
+			}, function(...)
+				coroutine.resume(thread)
+			end))
+			
+			local buffer = ""
+			
+			local func()
+				if err then table.insert(buffer, err) return end
+				if not data then return end
+				buffer = buffer .. data
+				
+				
+			end
+			
+			stdio[2]:read_start(func)
+			stdio[3]:read_start(func)
+			
+			coroutine.yield()
+			
+			gmodActive = false
+			
+		end)]]
 		
 		-- server events
 		
