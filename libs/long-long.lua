@@ -1,4 +1,8 @@
-local ffi = require("ffi")
+local ffi, bit32 = require("ffi"), require("bit")
+
+local function extractBits(num, mask, disp)
+	return bit32.rshift(bit32.band(num, mask), disp)
+end
 
 local ll = {}
 
@@ -43,6 +47,15 @@ end
 
 function ll.tostring(longlong)
 	return tostring(longlong):sub(1, -4)
+end
+
+function ll.pack(num)
+	return string.pack("LL", bit32.lshift(bit32.band(num, 0xFFFFFFFFULL), 32), bit32.band(num, 0x00000000FFFFFFFFULL))
+end
+
+function ll.unpack(str)
+	local high, low = string.unpack("LL")
+	return 
 end
 
 return ll
