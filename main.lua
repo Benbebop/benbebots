@@ -50,7 +50,7 @@ end
 do -- ping --
 	
 	benbebot:getCommand("1128437755614081052"):used({}, function(interaction)
-		interaction:reply(string.format("<@463065400960221204>"))
+		interaction:reply("<@463065400960221204>")
 	end)
 	
 end
