@@ -1250,7 +1250,7 @@ do -- nothing wacky here
 			end
 			if not rightUser then return end
 		end
-		local delay = math.random(1,12000)
+		local delay = math.random(1,4000)
 		timer.sleep(delay)
 		message:addReaction(emoji)
 		cannedFood:info("Reacted to message in %s with a delay of %ds", message.guild.name, delay / 1000)
