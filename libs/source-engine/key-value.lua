@@ -90,7 +90,7 @@ function kv.decode(str)
 	curmap.tbl = tbl
 	local curtbl = curmap.tbl
 	local c pos, c = scanWhite(str, pos)
-	repeat
+	while pos do
 		local token
 		if c == "\"" then token, pos = scanString(str, pos)
 		else token, pos = scanToken(str, pos) end
@@ -109,7 +109,7 @@ function kv.decode(str)
 			curtbl[token] = val
 		end
 		pos, c = scanWhite(str, pos)
-	until not pos
+	end
 	return tbl
 end
 
