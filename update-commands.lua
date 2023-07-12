@@ -75,8 +75,9 @@ assert(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", { -- ben
 						options = {
 							{
 								type = 3,
-								name = "collection",
-								description = "collection to start the server on"
+								name = "gamemode",
+								description = "gamemode to start the server on",
+								autocomplete = true
 							},{
 								type = 3,
 								name = "map",
@@ -96,26 +97,29 @@ assert(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", { -- ben
 							{
 								type = 3,
 								name = "collection",
-								description = "collection to add the addon to"
+								description = "collection to add the addon to",
+								required = true,
+								autocomplete = true
 							},{
 								type = 3,
 								name = "url",
-								description = "url / id of the addon"
+								description = "url / id of the addon",
+								required = true
 							}
 						}
 					},{
 						type = 1,
-						name = "collection",
-						description = "add a new addon to the server",
+						name = "gamemode",
+						description = "add a new gamemode to the server",
 						options = {
 							{
 								type = 3,
-								name = "collection",
-								description = "collection to add the addon to"
+								name = "name",
+								description = "name of the collection to add the gamemode to"
 							},{
 								type = 3,
 								name = "url",
-								description = "url / id of the addon"
+								description = "url / id of the gamemode's addon"
 							}
 						}
 					},{
@@ -171,10 +175,22 @@ assert(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", { -- ben
 						type = 1,
 						name = "backup",
 						description = "force a save of the most recent version of the world it can get"
-					},{
-						type = 1,
-						name = "backupstatus",
-						description = "status of the saves",
+					}
+				}
+			},{
+				type = 1,
+				name = "backupstatus",
+				description = "get info on the backups",
+				options = {
+					{
+						type = 3,
+						name = "game",
+						description = "game to get the backups for",
+						choices = {
+							{name = "Garry's Mod", value = "garrysmod"},
+							{name = "Minecraft", value = "minecraft"}
+						},
+						required = true
 					}
 				}
 			}

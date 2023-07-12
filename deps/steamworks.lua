@@ -3343,7 +3343,7 @@ do
 	end
 end
 
-require("fs").writeFileSync("steam_appid.txt", "4020")
+require("fs").writeFileSync("steam_appid.txt", "4000")
 
 local steamworks = {}
 
