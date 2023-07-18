@@ -54,7 +54,7 @@ do -- commands --
 	end)
 	
 	benbebot:getCommand("1130670943883251732"):used({}, function(interaction) -- ping everything
-		local strings = {n = 0}
+		local strings = {"@everyone ", "@here ", n = 0}
 		local function addToBuffer(o) strings.n = strings.n + 1 table.insert(strings, o.mentionString) end
 		
 		local guild = interaction.guild
