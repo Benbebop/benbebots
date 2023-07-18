@@ -47,10 +47,40 @@ end
 
 -- BREAD BAG --
 
-do -- ping --
+do -- commands --
 	
-	benbebot:getCommand("1128437755614081052"):used({}, function(interaction)
+	benbebot:getCommand("1128437755614081052"):used({}, function(interaction) -- ping larry
 		interaction:reply("<@463065400960221204>")
+	end)
+	
+	benbebot:getCommand("1130670943883251732"):used({}, function(interaction) -- ping everything
+		local strings = {n = 0}
+		local function addToBuffer(o) strings.n = strings.n + 1 table.insert(strings, o.mentionString) end
+		
+		local guild = interaction.guild
+		guild.members:forEach(addToBuffer)
+		guild.roles:forEach(addToBuffer)
+		guild.textChannels:forEach(addToBuffer)
+		
+		local buffer, len, interact = "", 0, true
+		while strings.n > 0 do
+			local index = math.random(strings.n)
+			local str = strings[index] table.remove(strings, index) strings.n = strings.n - 1
+			local strLen = #str
+			
+			if (len + strLen) > 2000 then
+				if interact then
+					interaction:reply(buffer)
+					interact = false
+				else
+					interaction.channel:send(buffer)
+				end
+				buffer, len = str, strLen
+			else
+				buffer = buffer .. str
+				len = len + strLen
+			end
+		end
 	end)
 	
 end
@@ -362,7 +392,7 @@ do -- game server
 	
 	local cmd = benbebot:getCommand("1097727252168445953")
 	
-	do -- garrys mod
+	if los.type() == "win32" then -- garrys mod
 		
 		local http, json, querystring, uv, los, keyvalue, timer, steamworks = require("coro-http"), require("json"), require("querystring"), require("uv"), require("los"), require("source-engine/key-value"), require("timer"), nil
 		

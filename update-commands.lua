@@ -533,6 +533,13 @@ assert(request(benbebot, "PUT", "/guilds/822165179692220476/commands", { -- brea
 		id = "1128437755614081052"
 	},
 	
+	{
+		type = 1,
+		name = "everything",
+		description = "command that pings sunny",
+		id = "1130670943883251732"
+	},
+	
 }))
 
 assert(request(familyGuy, "PUT", "/guilds/1068640496139915345/commands", {
