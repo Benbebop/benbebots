@@ -18,7 +18,7 @@ local fnafBot = discordia.Client({logFile=appdata.path("logs/fn_discordia.log"),
 local genericLogger = discordia.Client()
 benbebot._logger:setPrefix("BBB") familyGuy._logger:setPrefix("FLG") cannedFood._logger:setPrefix("CNF") uncannyCat._logger:setPrefix("UCC") genericLogger._logger:setPrefix("   ")
 benbebot._logChannel, familyGuy._logChannel, cannedFood._logChannel, uncannyCat._logChannel = "1091403807973441597", "1091403807973441597", "1091403807973441597", "1091403807973441597"
-benbebot:enableIntents(discordia.enums.gatewayIntent.guildMembers) familyGuy:enableIntents(discordia.enums.gatewayIntent.guildMembers) uncannyCat:enableIntents(discordia.enums.gatewayIntent.guildMembers)
+benbebot:enableIntents(discordia.enums.gatewayIntent.guildMembers) familyGuy:enableIntents(discordia.enums.gatewayIntent.guildMembers) uncannyCat:enableIntents(discordia.enums.gatewayIntent.guildMembers, discordia.enums.gatewayIntent.messageContent)
 local stats = require("stats")
 local benbebotStats, familyGuyStats, cannedFoodStats, uncannyStats, fnafStats = stats(benbebot, "1068663730759536670"), stats(benbebot, "1068675455022026873"), stats(benbebot, "1112221100273848380"), stats(benbebot, "1124878312943124531"), stats(benbebot, "1126386629343461438")
 local portAdd = los.isProduction() and 0 or 1
@@ -1643,6 +1643,177 @@ do -- clips --
 			setBlocked(interaction.user.id)
 			
 			interaction:reply("you will no longer recieve family guy clips", true)
+		end
+	end)
+	
+end
+
+-- UNCANNY CAT --
+
+do -- clips --
+	
+	local json, http, uv, timer, urlParse, los = require("json"), require("coro-http"), require("uv"), require("timer"), require("url").parse, require("los")
+	
+	local BLOCKSIZE, ALLOWED_TYPES, TIME_BETWEEN = 100, {"video/mp4", "video/gif", "gifv", "image", "video"}, 2 * 86400
+	local BLOCKED_FILE = appdata.path("uc-blocked-users.json")
+	
+	local nextTimeStamp = math.huge
+	local validUsers = {n = 0}
+	local blockedUsers = json.parse(fs.readFileSync(BLOCKED_FILE) or "{}") or {}
+	
+	local function saveUsers()
+		fs.writeFileSync(BLOCKED_FILE, json.stringify(blockedUsers or {}))
+	end
+	
+	local function isBlocked(userId)
+		local blocked = false
+		for i,v in ipairs(blockedUsers) do
+			if v == userId then blocked = i break end
+		end
+		return blocked
+	end
+	
+	local function setBlocked(userId)
+		table.insert(blockedUsers, userId)
+		saveUsers()
+		
+		local index
+		for i,v in ipairs(validUsers) do
+			if v.id == userId then
+				index = i
+				break
+			end
+		end
+		if index then
+			table.remove(validUsers, index)
+			validUsers.n = validUsers.n - 1
+			--familyGuyStats.Users = validUsers.n
+		end
+	end
+	
+	local function calcNextTimeStamp()
+		local delay = math.floor(TIME_BETWEEN / validUsers.n)
+		local sec = uv.gettimeofday()
+		nextTimeStamp = math.floor(sec / delay + 1) * delay
+		return nextTimeStamp
+	end
+	
+	uncannyCat:on("ready", function()
+		for user in uncannyCat.users:iter() do
+			if not isBlocked(user.id) then
+				validUsers.n = validUsers.n + 1
+				table.insert(validUsers, user)
+			end
+		end
+		
+		calcNextTimeStamp()
+	end)
+	
+	local clips = {}
+	
+	local function refreshClips()
+		clips = {}
+		local channel = uncannyCat:getChannel("1124571481284825179")
+		if not channel then uncannyCat:output("error", "unable to get cat source channel") return end
+		
+		local count = 0
+		local messages = channel:getMessagesAfter(channel:getFirstMessage(), BLOCKSIZE)
+		if not messages then return end
+		while #messages > 0 do
+			local sorted = messages:toArray("createdAt")
+			for _,m in ipairs(sorted) do
+				local embed = m.attachment or m.embed
+				if embed then
+					local valid = false
+					for i,v in ipairs(ALLOWED_TYPES) do
+						if (embed.type or embed.contentType) == v then
+							valid = true
+							break
+						end
+					end
+					if valid then
+						table.insert(clips, embed.url)
+					end
+				end
+			end
+			messages = channel:getMessagesAfter(sorted[#sorted], BLOCKSIZE)
+		end
+	end
+	
+	uncannyCat:on("ready", refreshClips)
+	clock:on("day", refreshClips)
+	
+	local function sendClip()
+		local err, user, clip, content, success
+		for i=1,5 do
+			user = los.isProduction() and validUsers[math.random(validUsers.n)] or uncannyCat:getChannel(TEST_CHANNEL)
+			
+			for i=1,5 do
+				clip = clips[math.random(1,#clips)]
+				
+				if clip[1] ~= prevClip then
+					content = clip
+					
+					local res = http.request("HEAD", content)
+					
+					if res.code >= 200 and res.code < 300 then success = true break end
+					
+					uncannyCat:output("warning", "uncanny cat %s no longer exists (get attempt %s)", clip[1], i)
+					
+					--removeEntry(clip[1])
+				else
+					uncannyCat:output("warning", "uncanny cat %s is a duplicate of previous cat to %s (get attempt %s)", clip[1], user.id, i)
+				end
+			end
+			
+			if not success then return end
+			
+			success, err = user:send(content)
+			
+			if success then break end
+			
+			if err:match("^%s*HTTP%s*Error%s*50007") then -- user blocked error code
+				uncannyCat:output("warning", "failed to send cat to %s (blocked), adding to blocked users (attempt %s), %s", user.name, i, err)
+				setBlocked(user.id)
+			else
+				uncannyCat:output("warning", "failed to send cat to %s (attempt %s), %s", user.name, i, err)
+			end
+		end
+		
+		if not success then return end
+		
+		--familyGuyStats.Clips = familyGuyStats.Clips + 1
+		uncannyCat:output("info", "sent uncanny cat (ID %s) to %s", clip[1], user.name)
+		return
+	end
+	
+	clock:on("sec", function()
+		local sec = uv.gettimeofday()
+		
+		if sec > nextTimeStamp then
+			calcNextTimeStamp()
+			
+			sendClip()
+		end
+	end)
+	
+	uncannyCat:getCommand("1131710344042127413"):used({}, function(interaction)
+		interaction:replyDeferred(true)
+		local blocked = isBlocked(interaction.user.id)
+		
+		if blocked then
+			table.remove(blockedUsers, blocked)
+			saveUsers()
+			
+			table.insert(validUsers, interaction.user)
+			validUsers.n = validUsers.n + 1
+			--familyGuyStats.Users = validUsers.n
+			
+			interaction:reply("you are now canny", true)
+		else
+			setBlocked(interaction.user.id)
+			
+			interaction:reply("you are now uncanny", true)
 		end
 	end)
 	
