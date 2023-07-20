@@ -1687,7 +1687,7 @@ do -- clips --
 		if index then
 			table.remove(validUsers, index)
 			validUsers.n = validUsers.n - 1
-			--familyGuyStats.Users = validUsers.n
+			uncannyStats.Users = validUsers.n
 		end
 	end
 	
@@ -1755,7 +1755,7 @@ do -- clips --
 				
 				if res.code >= 200 and res.code < 300 then success = true break end
 				
-				uncannyCat:output("warning", "uncanny cat %s no longer exists (get attempt %s)", clip, i)
+				uncannyCat:output("warning", "uncanny cat %s no longer exists (get attempt %s)", "?", i)
 				
 				--removeEntry(clip[1])
 			end
@@ -1776,8 +1776,8 @@ do -- clips --
 		
 		if not success then return end
 		
-		--familyGuyStats.Clips = familyGuyStats.Clips + 1
-		uncannyCat:output("info", "sent uncanny cat (ID %s) to %s", clip, user.name)
+		uncannyStats.Clips = uncannyStats.Clips + 1
+		uncannyCat:output("info", "sent uncanny cat %s to %s", "?", user.name)
 		return
 	end
 	
@@ -1820,7 +1820,7 @@ do -- clips --
 			
 			table.insert(validUsers, interaction.user)
 			validUsers.n = validUsers.n + 1
-			--familyGuyStats.Users = validUsers.n
+			uncannyStats.Users = validUsers.n
 			
 			interaction:reply("you are now canny", true)
 		else
