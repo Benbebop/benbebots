@@ -870,10 +870,6 @@ do -- game server
 		
 		local util = require("util")
 		
-		local SAVE_SUBDIR = server.id or "undef"
-		local SAVE_DIR = appdata.path("game-backups", "minecraft", SAVE_SUBDIR)
-		fs.mkdirSync(appdata.path("game-backups")) fs.mkdirSync(appdata.path("game-backups", "minecraft")) fs.mkdirSync(appdata.path("game-backups", "minecraft", SAVE_SUBDIR))
-		
 		cmd:used({"minecraft","start"}, function(interaction)
 			if not (interaction.member:hasRole("1111726132660813886") or interaction.user.id == "565367805160062996") then interaction:reply("this command is restricted", true) return end
 			interaction:replyDeferred(true)
@@ -1008,43 +1004,76 @@ do -- game server
 			
 		end)
 		
-		local function saveWorld()
-			local world = server:getFile("world")
-		end
-		
-		cmd:used({"minecraft","backup"}, function(interaction)
-			local success, err = saveWorld()
-			if success then interaction:reply("saved world")
-			else interaction:reply(err)
-			end
-		end)
-		
-		cmd:used({"minecraft","backupstatus"}, function(interaction)
-			interaction:replyDeferred()
-			local earliest, latest, latestData, count, size = util.nearHuge, -util.nearHuge, nil, 0, 0
-			for f,t in fs.scandirSync(SAVE_DIR) do
-				if t == "file" then
-					local stats = fs.statSync(SAVE_DIR .. "/" .. f)
-					if stats then
-						count = count + 1
-						size = size + stats.size
-						earliest, latest = math.min(earliest, stats.birthtime.sec), math.max(latest, stats.birthtime.sec)
-					end
+	end
+	
+	local pathJoin = require("path").join
+	
+	local BACKUP_DIR = appdata.path("game-backups")
+	
+	local function getBackupInfo(name, ...)
+		local earliest, latest, count, size = util.nearHuge, -util.nearHuge, 0, 0
+		for f,t in ... do
+			if t == "file" then
+				local stats = fs.statSync(SAVE_DIR .. "/" .. f)
+				if stats then
+					count = count + 1
+					size = size + stats.size
+					earliest, latest = math.min(earliest, stats.birthtime.sec), math.max(latest, stats.birthtime.sec)
 				end
 			end
-			
-			interaction:reply({embed = {
-				description = ("save info for %s (%s)"):format(SAVE_SUBDIR, server.name or "undef"),
-				fields = {
-					{name = "#", value = count, inline = true},
-					{name = "Earliest", value = util.createTimestamp("sdt", earliest), inline = true},
-					{name = "Latest", value = util.createTimestamp("sdt", latest), inline = true},
-					{name = "Storage Size", value = util.fileSizeString(size), inline = true}
-				}
-			}})
-		end)
+		end
 		
+		return {embed = {
+			description = ("save info for %s"):format(name),
+			fields = {
+				{name = "Count", value = count, inline = true},
+				{name = "Earliest", value = util.createTimestamp("sdt", earliest), inline = true},
+				{name = "Latest", value = util.createTimestamp("sdt", latest), inline = true},
+				{name = "Storage Size", value = util.fileSizeString(size), inline = true}
+			}
+		}}
 	end
+	
+	cmd:used({"backups", "minecraft"}, function(interaction, args)
+		interaction:replyDeferred()
+		local dir = pathJoin(BACKUP_DIR, "minecraft", args.id)
+		if not fs.existsSync(dir) then interaction:reply("id does not exist") return end
+		
+		interaction:reply(getBackupInfo(args.id, fs.scandirSync(dir)))
+	end)
+	
+	privateServer:on("/backup/upload/minecraft", function(res)
+		if res.method == "GET" then
+			return {code = 200}, [[<body>
+	<form action="/backup/upload?type=minecraft" method="post" enctype="multipart/form-data">
+		<label for="ident">id</label><br>
+		<input type="text" id="ident" name="ident" value="input id"><br>
+		<label for="world">world</label><br>
+		<input type="file" id="world" name="world"><br><br>
+		<input type="submit" value="submit">
+	</form>
+</body>]]
+		end
+	end, {method = {"GET"}})
+	
+	cmd:used({"backups", "garrysmod"}, function(interaction, args)
+		interaction:replyDeferred()
+		interaction:reply(getBackupInfo(args.id, pathJoin(BACKUP_DIR, "garrysmod")))
+	end)
+	
+	cmd:used({"backups", "subnautica"}, function(interaction, args)
+		interaction:replyDeferred()
+		interaction:reply(getBackupInfo(args.id, pathJoin(BACKUP_DIR, "subnautica")))
+	end)
+	
+	--[[cmd:used({"backups", "all"}, function(interaction, args)
+		interaction:replyDeferred()
+		interaction:reply(getBackupInfo(args.id, pathJoin(BACKUP_DIR, "subnautica")))
+	end)]]
+	
+	privateServer:on("/backup/upload", function(res)
+		p(res)
+	end, {method = {"GET", "POST"}})
 	
 end
 
@@ -1743,13 +1772,6 @@ do -- netrc
 	local MY_URL = "http://10.0.0.222:" .. 26420 + portAdd
 	local NETRC_FILE = appdata.secretPath(".netrc")
 	io.open(NETRC_FILE, "ab"):close()
-	
-	privateServer:redirect("/netrc/get", "/netrc/index")
-	privateServer:redirect("/netrc/set", "/netrc/index")
-	privateServer:redirect("/netrc/lst", "/netrc/index")
-	privateServer:redirect("/netrc/list", "/netrc/index")
-	privateServer:redirect("/netrc/del", "/netrc/index")
-	privateServer:redirect("/netrc/delete", "/netrc/index")
 	
 	function parse(l)
 		return l:match("machine%s*([^%s]+)"), {login = l:match("login%s*([^%s]+)"),

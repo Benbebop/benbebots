@@ -178,19 +178,33 @@ assert(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", { -- ben
 					}
 				}
 			},{
-				type = 1,
-				name = "backupstatus",
+				type = 2,
+				name = "backups",
 				description = "get info on the backups",
 				options = {
 					{
-						type = 3,
-						name = "game",
-						description = "game to get the backups for",
-						choices = {
-							{name = "Garry's Mod", value = "garrysmod"},
-							{name = "Minecraft", value = "minecraft"}
-						},
-						required = true
+						type = 1,
+						name = "minecraft",
+						description = "backups for the minecraft servers"
+						options = {
+							{
+								type = 3,
+								name = "id",
+								description = "id of server"
+							}
+						}
+					},{
+						type = 1,
+						name = "garrysmod",
+						description = "backups of the garrysmod servers"
+					},{
+						type = 1,
+						name = "subnautica",
+						description = "backups of the subnautica servers",
+					},{
+						type = 1,
+						name = "all",
+						description = "backups of everything",
 					}
 				}
 			}
