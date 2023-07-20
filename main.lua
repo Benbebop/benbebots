@@ -1777,7 +1777,7 @@ do -- clips --
 		if not success then return end
 		
 		--familyGuyStats.Clips = familyGuyStats.Clips + 1
-		uncannyCat:output("info", "sent uncanny cat (ID %s) to %s", clip[1], user.name)
+		uncannyCat:output("info", "sent uncanny cat (ID %s) to %s", clip, user.name)
 		return
 	end
 	
@@ -1789,6 +1789,25 @@ do -- clips --
 			
 			sendClip()
 		end
+	end)
+	
+	local clipCmd = uncannyCat:getCommand("1131728984305057932")
+	
+	clipCmd:used({"status"}, function(interaction, args)
+		validUsers.n = #validUsers
+		interaction:reply({embed = {
+			description = ("next video will be sent <t:%d:R>"):format(nextTimeStamp),
+			fields = {
+				{name = "Users", value = validUsers.n, inline = true},
+				{name = "Blocked Users", value = #blockedUsers, inline = true},
+			}
+		}})
+	end)
+	
+	clipCmd:used({"force"}, function(interaction, args)
+		sendClip()
+		
+		interaction:reply("sent clip")
 	end)
 	
 	uncannyCat:getCommand("1131710344042127413"):used({}, function(interaction)

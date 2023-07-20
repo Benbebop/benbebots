@@ -642,6 +642,28 @@ assert(request(familyGuy, "PUT", "/guilds/1068640496139915345/commands", {
 	
 }))
 
+assert(request(uncannyCat, "PUT", "/guilds/1068640496139915345/commands", {
+	
+	{
+		type = 1,
+		name = "cats",
+		description = "manage uncanny cats",
+		id = "1131728984305057932",
+		options = {
+			{
+				type = 1,
+				name = "status",
+				description = "status of the cat sending"
+			},{
+				type = 1,
+				name = "force",
+				description = "force a cat to send"
+			}
+		}
+	}
+	
+}))
+
 assert(request(fnafBot, "PUT", "/guilds/1124505130348314644/commands", {
 	
 	{
