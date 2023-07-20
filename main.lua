@@ -1749,21 +1749,15 @@ do -- clips --
 			user = los.isProduction() and validUsers[math.random(validUsers.n)] or uncannyCat:getChannel(TEST_CHANNEL)
 			
 			for i=1,5 do
-				clip = clips[math.random(1,#clips)]
+				content = clips[math.random(1,#clips)]
 				
-				if clip[1] ~= prevClip then
-					content = clip
-					
-					local res = http.request("HEAD", content)
-					
-					if res.code >= 200 and res.code < 300 then success = true break end
-					
-					uncannyCat:output("warning", "uncanny cat %s no longer exists (get attempt %s)", clip[1], i)
-					
-					--removeEntry(clip[1])
-				else
-					uncannyCat:output("warning", "uncanny cat %s is a duplicate of previous cat to %s (get attempt %s)", clip[1], user.id, i)
-				end
+				local res = http.request("HEAD", content)
+				
+				if res.code >= 200 and res.code < 300 then success = true break end
+				
+				uncannyCat:output("warning", "uncanny cat %s no longer exists (get attempt %s)", clip, i)
+				
+				--removeEntry(clip[1])
 			end
 			
 			if not success then return end
