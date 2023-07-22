@@ -1662,7 +1662,7 @@ do -- clips --
 	
 	local json, http, uv, timer, urlParse, los = require("json"), require("coro-http"), require("uv"), require("timer"), require("url").parse, require("los")
 	
-	local BLOCKSIZE, ALLOWED_TYPES, TIME_BETWEEN = 100, {"video/mp4", "video/gif", "gifv", "image", "video"}, 86400 / 4
+	local BLOCKSIZE, ALLOWED_TYPES, TIME_BETWEEN = 100, {"video/mp4", "video/gif", "gifv", "image", "video"}, 86400
 	local BLOCKED_FILE = appdata.path("uc-blocked-users.json")
 	
 	local nextTimeStamp = math.huge
