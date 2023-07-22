@@ -18,7 +18,7 @@ local fnafBot = discordia.Client({logFile=appdata.path("logs/fn_discordia.log"),
 local genericLogger = discordia.Client()
 benbebot._logger:setPrefix("BBB") familyGuy._logger:setPrefix("FLG") cannedFood._logger:setPrefix("CNF") uncannyCat._logger:setPrefix("UCC") genericLogger._logger:setPrefix("   ")
 benbebot._logChannel, familyGuy._logChannel, cannedFood._logChannel, uncannyCat._logChannel = "1091403807973441597", "1091403807973441597", "1091403807973441597", "1091403807973441597"
-benbebot:enableIntents(discordia.enums.gatewayIntent.guildMembers) familyGuy:enableIntents(discordia.enums.gatewayIntent.guildMembers) uncannyCat:enableIntents(discordia.enums.gatewayIntent.guildMembers, discordia.enums.gatewayIntent.messageContent)
+benbebot:enableIntents(discordia.enums.gatewayIntent.guildMembers, discordia.enums.gatewayIntent.guildPresences) familyGuy:enableIntents(discordia.enums.gatewayIntent.guildMembers) uncannyCat:enableIntents(discordia.enums.gatewayIntent.guildMembers, discordia.enums.gatewayIntent.messageContent)
 local stats = require("stats")
 local benbebotStats, familyGuyStats, cannedFoodStats, uncannyStats, fnafStats = stats(benbebot, "1068663730759536670"), stats(benbebot, "1068675455022026873"), stats(benbebot, "1112221100273848380"), stats(benbebot, "1124878312943124531"), stats(benbebot, "1126386629343461438")
 local portAdd = los.isProduction() and 0 or 1
@@ -81,6 +81,14 @@ do -- commands --
 				len = len + strLen
 			end
 		end
+	end)
+	
+end
+
+do -- league 
+	
+	benbebot:on("presenceUpdate", function(member)
+		if member.guild.id ~= "822165179692220476" then return end
 	end)
 	
 end
@@ -1805,6 +1813,8 @@ do -- clips --
 	end)
 	
 	clipCmd:used({"force"}, function(interaction, args)
+		interaction:replyDeferred()
+		
 		sendClip()
 		
 		interaction:reply("sent clip")
@@ -2344,6 +2354,37 @@ do -- events
 		saveEvents()
 		
 		interaction:reply("succesfully created event: " .. args.id)
+	end)
+	
+end
+
+do -- say hi to fish21 
+	
+	local ACTIVE_STATUS = {"online", "dnd"}
+	
+	local wasOnline = true
+	benbebot:on("ready", function() benbebot:getUser("823215010461384735") end)
+	
+	local function isOffline(status)
+		for _,v in ipairs(ACTIVE_STATUS) do
+			if v == status then return false end
+		end
+		return true
+	end
+	
+	benbebot:on("presenceUpdate", function(member)
+		if wasOnline then return end
+		if member.id ~= "823215010461384735" then return end
+		if isOffline(status) then return end
+		
+		wasOnline = true
+		member.author:send("https://cdn.discordapp.com/attachments/1068657073321169067/1132195619189035018/goodmorning.mp4")
+	end)
+	
+	clock:on("hour", function(date)
+		if date.hour == 8 then return end
+		
+		wasOnline = false
 	end)
 	
 end
