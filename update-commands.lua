@@ -203,7 +203,8 @@ assert(request(benbebot, "PUT", "/guilds/1068640496139915345/commands", { -- ben
 							{
 								type = 3,
 								name = "id",
-								description = "id of server"
+								description = "id of server",
+								autocomplete = true
 							}
 						}
 					},{
@@ -566,6 +567,20 @@ assert(request(benbebot, "PUT", "/guilds/822165179692220476/commands", { -- brea
 		description = "command that pings sunny",
 		id = "1130670943883251732"
 	},
+	
+	{
+		type = 1,
+		name = "christalmighty",
+		description = "play fish21 videos in a vc",
+		id = "1135788072395608064",
+		options = {
+			{
+				type = 3,
+				name = "vido",
+				description = "force a vido"
+			}
+		}
+	}
 	
 }))
 

@@ -93,6 +93,34 @@ do -- league
 	
 end
 
+do -- play fish21 videos
+	
+	local youtube = require("web/youtube").new(TOKENS.youtube)
+	
+	--[[benbebot:getCommand("1135788072395608064"):used({}, function(interaction, args)
+		local video
+		
+		if args.vido then
+			
+		else
+			
+		end
+	end]]
+	
+end
+
+do -- XD
+	
+	benbebot:on("voiceUpdate", function(member)
+		if member.guild.id ~= "822165179692220476" then return end
+		if member.id ~= "459880024187600937" then return end
+		if not member.muted then return end
+		
+		member:unmute()
+	end)
+	
+end
+
 -- SMOKE SERVER --
 
 local SMOKE_SERVER = "1036666698104832021"
@@ -1042,6 +1070,25 @@ do -- game server
 		}}
 	end
 	
+	local idCache
+	
+	cmd:autocomplete({"backups", "minecraft"}, function(interaction, args)
+		if not idCache then
+			idCache = fs.readdirSync(pathJoin(BACKUP_DIR, "minecraft"))
+			timer.setTimeout(60000, function() idCache = nil end)
+		end
+		
+		local tbl = {}
+		for _,v in ipairs(idCache) do
+			local place = string.find(idCache, args.id, nil, true)
+			if place then
+				for l,k in ipairs(tbl) do
+					
+				end
+			end
+		end
+	end)
+	
 	cmd:used({"backups", "minecraft"}, function(interaction, args)
 		interaction:replyDeferred()
 		local dir = pathJoin(BACKUP_DIR, "minecraft", args.id)
@@ -1066,12 +1113,12 @@ do -- game server
 	
 	cmd:used({"backups", "garrysmod"}, function(interaction, args)
 		interaction:replyDeferred()
-		interaction:reply(getBackupInfo(args.id, pathJoin(BACKUP_DIR, "garrysmod")))
+		interaction:reply(getBackupInfo("garrysmod", pathJoin(BACKUP_DIR, "garrysmod")))
 	end)
 	
 	cmd:used({"backups", "subnautica"}, function(interaction, args)
 		interaction:replyDeferred()
-		interaction:reply(getBackupInfo(args.id, pathJoin(BACKUP_DIR, "subnautica")))
+		interaction:reply(getBackupInfo("subnautica", pathJoin(BACKUP_DIR, "subnautica")))
 	end)
 	
 	--[[cmd:used({"backups", "all"}, function(interaction, args)
