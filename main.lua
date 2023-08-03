@@ -119,6 +119,13 @@ do -- XD
 		member:unmute()
 	end)
 	
+	local fakeMember = {unmute = function() end}
+	local fakeGuild = {getMember = function() return fakeMember end}
+	
+	benbebot:on("ready", function()
+		((benbebot:getGuild("822165179692220476") or fakeGuild):getMember("459880024187600937") or fakeMember):unmute()
+	end)
+	
 end
 
 -- SMOKE SERVER --
