@@ -1,4 +1,4 @@
-local uv, timer, data = require("uv"), require("timer"), require("directory")
+local uv, timer, data, fs = require("uv"), require("timer"), require("directory"), require("fs")
 
 local processes, threads, paused = {}, {}, false
 
@@ -21,6 +21,8 @@ for i=2,#args do
 				args = {file},
 				stdio = {stdin, stdout, stderr}
 			}, function()
+				if errbuffer then fs.writeFileSync(data.path("io", file .. "_err.log"), table.concat(errbuffer)) end
+				
 				if not paused then
 					timer.setTimeout(5000, function()
 						if paused then return end

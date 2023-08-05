@@ -43,4 +43,17 @@ function util.createTimestamp(tsType, tsTime)
 	return (types[tsType] or "<t:%d>"):format(util.range(math.floor(tsTime), 2^56))
 end
 
+function util.indexTable(tbl, indexes)
+	for _,v in ipairs(indexes) do
+		if type(tbl) ~= "table" then return nil end
+		tbl = tbl[v]
+	end
+	return tbl
+end
+
+function util.ninsert(tbl, value)
+	tbl.n = (tbl.n or 0) + 1
+	tbl[tbl.n] = value
+end
+
 return util

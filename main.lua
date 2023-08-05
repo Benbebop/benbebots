@@ -95,17 +95,77 @@ end
 
 do -- play fish21 videos
 	
-	local youtube = require("web/youtube").new(TOKENS.youtube)
+	local youtube, util, json = require("web/youtube").new(TOKENS.youtube), require("util"), require("json")
+	local ffmpegPipe = require("ffmpeg-pipe")
 	
-	--[[benbebot:getCommand("1135788072395608064"):used({}, function(interaction, args)
+	local videos = {n = 0}
+	
+	local FISH_VIDEO_PLAYLIST = "UULFi7mOHUUzZ1Jron1ov7MQkw"
+	
+	benbebot:on("ready", function()
+		local page, total
+		repeat
+			local res, body = youtube:request("GET", "playlistItems", {part = "contentDetails", playlistId = FISH_VIDEO_PLAYLIST, maxResults = 50, pageToken = page})
+			if res.code ~= 200 then benbebot:output("error", "failed to get playlist page (%s)", page) return end
+			body = json.parse(body)
+			if not body then benbebot:output("error", "youtube provided invalid json") return end
+			total = total or util.indexTable(body, {"pageInfo", "totalResults"})
+			for _,v in ipairs(body.items or {}) do
+				local id = util.indexTable(v, {"contentDetails", "videoId"})
+				if id then util.ninsert(videos, id) end
+			end
+			page = body.nextPageToken
+		until not page
+		
+		if videos.n ~= total then benbebot:output("warning", "cached video count (%d) does not match provided count (%d)", videos.n, total) end
+	end)
+	
+	local inSession = false
+	
+	benbebot:getCommand("1135788072395608064"):used({}, function(interaction, args)
+		interaction:replyDeferred()
+		
+		local channel = util.indexTable(interaction, {"member", "voiceChannel"})
+		if not channel then interaction:reply("you must be in a voice channel to use this command") return end
+		
+		local connection, err = channel:join()
+		if not connection then interaction:reply(string.format("could not join voice channel (%s)", err)) return end
+		
 		local video
 		
 		if args.vido then
-			
+			video = youtube.parseUrl(args.vido)
 		else
-			
+			video = videos[math.random(videos.n)]
 		end
-	end]]
+		
+		if not connection then interaction:reply("i really dont care enough to write this error") return end
+		interaction:reply("starting :)") 
+		
+		repeat
+			
+			local res, body = youtube:request("GET", "playlistItems", {part = "snippet", playlistId = FISH_VIDEO_PLAYLIST, maxResults = 1, videoId = video})
+			if res.code ~= 200 then interaction.channel:send(string.format("could not find video on fish21 channel (%s)", video)) connection:close() return end
+			
+			p(video)
+			
+			local stdin = uv.new_pipe(true)
+			uv.spawn("yt-dlp", {
+				args = {"-o", "-", video},
+				stdio = {0, stdin, 2}
+			})
+			local stream = ffmpegPipe(stdin, 48000, 2)
+			
+			connection:_play(stream)
+			
+			if not repeatMode then
+				video = videos[math.random(videos.n)]
+			end
+			
+		until not inSession
+		
+		connection:close()
+	end)
 	
 end
 
