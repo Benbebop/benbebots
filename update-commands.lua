@@ -575,9 +575,24 @@ assert(request(benbebot, "PUT", "/guilds/822165179692220476/commands", { -- brea
 		id = "1135788072395608064",
 		options = {
 			{
-				type = 3,
-				name = "vido",
-				description = "force a vido"
+				type = 1,
+				name = "stop",
+				description = "stop everything :)"
+			},{
+				type = 1,
+				name = "skip",
+				description = "skip current video"
+			},{
+				type = 1,
+				name = "start",
+				description = "play fish21 videos in a vc",
+				options = {
+					{
+						type = 3,
+						name = "vido",
+						description = "force a vido"
+					}
+				}
 			}
 		}
 	}

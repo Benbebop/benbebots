@@ -36,4 +36,8 @@ function FFmpegPipe:__init(stdin, rate, channels)
 
 end
 
+function FFmpegPipe:kill()
+	return self._child:kill()
+end
+
 return FFmpegPipe

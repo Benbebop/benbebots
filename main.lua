@@ -120,16 +120,20 @@ do -- play fish21 videos
 		if videos.n ~= total then benbebot:output("warning", "cached video count (%d) does not match provided count (%d)", videos.n, total) end
 	end)
 	
-	local inSession = false
+	local session
 	
-	benbebot:getCommand("1135788072395608064"):used({}, function(interaction, args)
-		interaction:replyDeferred()
+	local cmd = benbebot:getCommand("1135788072395608064")
+	
+	cmd:used({"start"}, function(interaction, args)
+		if session then interaction:reply("already doing something, stupid", true) return end
+		session = {}
 		
 		local channel = util.indexTable(interaction, {"member", "voiceChannel"})
-		if not channel then interaction:reply("you must be in a voice channel to use this command") return end
+		if not channel then interaction:reply("you must be in a voice channel to use this command", true) session = nil return end
 		
-		local connection, err = channel:join()
-		if not connection then interaction:reply(string.format("could not join voice channel (%s)", err)) return end
+		interaction:replyDeferred()
+		local err session.connection, err = channel:join()
+		if not session.connection then interaction:reply(string.format("could not join voice channel (%s)", err)) session = nil return end
 		
 		local video
 		
@@ -139,35 +143,50 @@ do -- play fish21 videos
 			video = videos[math.random(videos.n)]
 		end
 		
-		if not connection then interaction:reply("i really dont care enough to write this error") return end
+		if not video then interaction:reply("i really dont care enough to write this error") return end
 		interaction:reply("starting :)") 
 		
+		session.running = true
 		repeat
-			
 			local res, body = youtube:request("GET", "playlistItems", {part = "snippet", playlistId = FISH_VIDEO_PLAYLIST, maxResults = 1, videoId = video})
-			if res.code ~= 200 then interaction.channel:send(string.format("could not find video on fish21 channel (%s)", video)) connection:close() return end
+			if res.code ~= 200 then interaction.channel:send(string.format("could not find video on fish21 channel (%s)", video)) break end
 			body = json.parse(body)
-			if not body then interaction.channel:send("bwomp") connection:close() return end
-			if util.indexTable(body, {"pageInfo", "totalResults"}) < 1 then interaction.channel:send("bwomp") connection:close() return end
+			if not body then break end
+			if util.indexTable(body, {"pageInfo", "totalResults"}) < 1 then break end
 			interaction.channel:send(string.format("playing %s", tostring(util.indexTable(body, {"items", 1, "snippet", "title"}))))
 			
 			local stdin = uv.new_pipe(true)
-			uv.spawn("yt-dlp", {
+			session.downloader = uv.spawn("yt-dlp", {
 				args = {"-o", "-", video},
 				stdio = {0, stdin, 2}
 			})
-			local stream = ffmpegPipe(stdin, 48000, 2)
+			session.stream = ffmpegPipe(stdin, 48000, 2)
 			
-			connection:_play(stream)
+			connection:_play(session.stream)
 			
-			if not repeatMode then
+			session.downloader:kill()
+			session.stream:kill()
+			
+			if not doRepeat then
 				video = videos[math.random(videos.n)]
 			end
-			
-		until not inSession
+		until not session.running
 		
-		connection:close()
+		session.connection:close()
+		session = nil
 	end)
+	
+	local function stop(mode, interaction)
+		if (not session) or (not session.running) then interaction:reply("not playing anything :/", true) return end
+		if util.indexTable(interaction, {"member", "voiceChannel"}) ~= session.connection.channel then interaction:reply("you must be in the same channel to stop the bot", true) return end
+		
+		if mode then session.running = false end
+		session.downloader:kill()
+		session.stream:kill()
+	end
+	
+	cmd:used({"stop"}, function(...) stop(true, ...) end)
+	cmd:used({"skip"}, function(...) stop(false, ...) end)
 	
 end
 
