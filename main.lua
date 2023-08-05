@@ -146,8 +146,10 @@ do -- play fish21 videos
 			
 			local res, body = youtube:request("GET", "playlistItems", {part = "snippet", playlistId = FISH_VIDEO_PLAYLIST, maxResults = 1, videoId = video})
 			if res.code ~= 200 then interaction.channel:send(string.format("could not find video on fish21 channel (%s)", video)) connection:close() return end
-			
-			p(video)
+			body = json.parse(body)
+			if not body then interaction.channel:send("bwomp") connection:close() return end
+			if util.indexTable(body, {"pageInfo", "totalResults"}) < 1 then interaction.channel:send("bwomp") connection:close() return end
+			interaction.channel:send(string.format("playing %s", tostring(util.indexTable(body, {"items", 1, "snippet", "title"}))))
 			
 			local stdin = uv.new_pipe(true)
 			uv.spawn("yt-dlp", {
