@@ -85,6 +85,78 @@ do -- commands --
 	
 end
 
+do -- nicklockdown
+	
+	local timer = require("timer")
+
+	local lockdownIndex = false
+
+	local arrestQueue = {}
+	benbebot:on("memberUpdate", function(member)
+		if not lockdownIndex then return end
+		if member.guild.id ~= "822165179692220476" then return end
+
+		local lockdownName = lockdownIndex[member.id]
+		if not lockdownName then
+			lockdownIndex[member.id] = member.nickname
+			return
+		end
+
+		-- arrest pending --
+		local arrest = arrestQueue[member.id]
+		if arrest then
+			if member.nickname == lockdownName then
+				timer.clearTimeout(arrest)
+				arrestQueue[member.id] = nil
+				member.user:send(string.format("you have succesfully restored your nickname in %s, ban cancelled.", member.guild))
+				return
+			end
+			member.user:send(string.format("your nickname in %s still does not match logged lockdown name: \"%s\".", member.guild.name, lockdownName))
+			return
+		end
+
+		-- create arrest --
+		if member.nickname == lockdownName then return end
+		member.user:send(string.format("it appears you have changed your nickname from %s in %s while it is on nickname lockdown. if you do not change your nickname back you will be banned in 10 minutes. make good use of your remaining time!", lockdownName, member.guild.name))
+		arrestQueue[member.id] = timer.setTimeout(600000, function()
+			arrestQueue[member.id] = nil
+			member.user:send("looks like you ran out of time stupid")
+			member:kick("violated nickname lockdown")
+		end)
+	end)
+
+	local processing = false
+	benbebot:getCommand("1160813279518670919"):used({}, function(interaction)
+		if processing then interaction:replyDeferred("WAIT FOR A FUCKING SECOND IM BUSY") return end
+		processing = true
+		if not lockdownIndex then
+			interaction:reply("fetching current nicknames... please wait 3 seconds...")
+			interaction.guild:requestMembers()
+			timer.sleep(2500)
+			lockdownIndex = {}
+			interaction.guild.members:forEach(function(member)
+				lockdownIndex[member.id] = member.nickname
+			end)
+			interaction:getReply():setContent("lockdown now in order")
+			processing = false
+			return
+		end
+		
+		interaction:reply("lifting lockdown... please wait...")
+
+		for i,v in pairs(arrestQueue) do
+			benbebot:getUser(i):send("lockdown has been lifted, your ban has been cancelled.")
+			timer.clearTimeout(v)
+		end
+		arrestQueue = {}
+		processing = false
+
+		lockdownIndex = false
+		interaction:getReply():setContent("lockdown has been lifted")
+	end)
+
+end
+
 do -- league 
 	
 	benbebot:on("presenceUpdate", function(member)
@@ -1797,7 +1869,7 @@ do -- clips --
 	
 	local json, http, uv, timer, urlParse, los = require("json"), require("coro-http"), require("uv"), require("timer"), require("url").parse, require("los")
 	
-	local BLOCKSIZE, ALLOWED_TYPES, TIME_BETWEEN = 100, {"video/mp4", "video/gif", "gifv", "image", "video"}, 86400
+	local BLOCKSIZE, ALLOWED_TYPES, TIME_BETWEEN = 100, {"video/mp4", "video/gif", "gifv", "image", "video"}, 345600
 	local BLOCKED_FILE = appdata.path("uc-blocked-users.json")
 	
 	local nextTimeStamp = math.huge
