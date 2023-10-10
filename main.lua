@@ -853,7 +853,8 @@ do -- nothing wacky here
 			"884714408922742784", -- librarian
 			"564829092621451274", -- alphaplace
 			"750840603113422889", -- gabe
-			"1020127285229146112" -- ghetto smosh
+			"1020127285229146112", -- ghetto smosh
+			"983936473218818078" -- idfk
 		}
 	else
 		channels = {
