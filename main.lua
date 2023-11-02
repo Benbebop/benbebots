@@ -52,11 +52,25 @@ do
 
 	local BREADBAG = "822165179692220476"
 
-	local HASH_FILE = "./resource/breadbag_icon.hash"
-	local LOGO_FILE_TEMP = "./resource/breadbag_icon.tmp"
-	local LOGO_FILE_PART = "./resource/breadbag_icon.part.png"
-	local LOGO_FILE_A = "/var/www/breadbag-wiki/resources/assets/breadbag_icon.png"
-	local LOGO_FILE_B = "/var/www/breadbag-wiki/resources/assets/breadbag_icon_130.png"
+	local WIKI_PATH = "/var/www/breadbag-wiki/"
+	local HASH_FILE = appdata.path("breadbag_icon.hash")
+	local LOGO_FILE_TEMP = appdata.tempPath("breadbag_icon.tmp")
+	local LOGO_FILES = {
+		{appdata.tempPath("breadbag_icon.png"), WIKI_PATH .. "resources/assets/breadbag_icon.png"},
+		{appdata.tempPath("breadbag_icon.png"), WIKI_PATH .. "resources/assets/breadbag_icon_130.png"},
+		{appdata.tempPath("breadbag_icon.ico"), WIKI_PATH .. "favicon.ico"}
+	}
+	local function processLogo(part, args, dest)
+		part, dest = appdata.tempPath(part), WIKI_PATH .. dest
+		args[#args + 1] = part
+
+		local proc = spawn("ffmpeg", {args = args})
+		proc:waitExit()
+
+		fs.unlinkSync(LOGO_FILE_TEMP)
+		fs.unlinkSync(dest)
+		fs.renameSync(part, dest)
+	end
 
 	local function dlBreadBagIcon(guild)
 		if not guild.icon then return end
@@ -68,14 +82,10 @@ do
 		local _, body = http.request("GET", guild.iconURL)
 		fs.writeFileSync(LOGO_FILE_TEMP, body)
 
-		local proc = spawn("ffmpeg", {stdio = {true, 1, 2}, args = {"-y", "-i", LOGO_FILE_TEMP, LOGO_FILE_PART}})
-		--TODO: procedural input
-
-		proc:waitExit()
-		
-		fs.unlinkSync(LOGO_FILE_TEMP)
-		fs.unlinkSync(LOGO_FILE_A)
-		fs.renameSync(LOGO_FILE_PART, LOGO_FILE_A)
+		processLogo("breadbag_icon.png", {"-y", "-i", LOGO_FILE_TEMP, "-vf", "scale=100x100"}, "resources/assets/breadbag_icon.png")
+		processLogo("breadbag_icon.png", {"-y", "-i", LOGO_FILE_TEMP, "-vf", "scale=135x155"}, "resources/assets/breadbag_icon_1x.png")
+		--ffmpeg -i breadbag_icon.png -filter_complex split[r32][r16],[r32]scale=32x32,[r16]scale=16x16 out.ico
+		processLogo("breadbag_icon.ico", {"-y", "-i", LOGO_FILE_TEMP, "-filter_complex", "split[r32][r16],[r32]scale32x32,[r16]scale16x16"}, "favicon.ico")
 	end
 	
 	benbebot:on("ready", function() dlBreadBagIcon(benbebot:getGuild(BREADBAG)) end)
