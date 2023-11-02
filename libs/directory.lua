@@ -11,7 +11,7 @@ if opsys == "win32" then
 	SECRETPATH = path.normalize(path.join(os.getenv( "LOCALAPPDATA" ), "/../../benbebot-secrets"))
 elseif opsys == "linux" then
 	PATH = path.join(os.getenv("HOME"), "/.benbebots")
-	TEMPPATH = "/var/tmp/benbebots"
+	TEMPPATH = "/tmp/benbebots"
 	SECRETPATH = path.join(os.getenv("HOME"), "/.benbebots-secrets")
 elseif opsys == "OSX" then -- i dont use OSX and dont care so idk if this works
 	PATH = "~/Library/Application Support/benbebots"
