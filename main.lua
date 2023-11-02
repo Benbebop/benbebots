@@ -55,11 +55,7 @@ do
 	local WIKI_PATH = "/var/www/breadbag-wiki/"
 	local HASH_FILE = appdata.path("breadbag_icon.hash")
 	local LOGO_FILE_TEMP = appdata.tempPath("breadbag_icon.tmp")
-	local LOGO_FILES = {
-		{appdata.tempPath("breadbag_icon.png"), WIKI_PATH .. "resources/assets/breadbag_icon.png"},
-		{appdata.tempPath("breadbag_icon.png"), WIKI_PATH .. "resources/assets/breadbag_icon_130.png"},
-		{appdata.tempPath("breadbag_icon.ico"), WIKI_PATH .. "favicon.ico"}
-	}
+	
 	local function processLogo(part, args, dest)
 		part, dest = appdata.tempPath(part), WIKI_PATH .. dest
 		args[#args + 1] = part
