@@ -3,5 +3,6 @@ submodules are mostly for attribution, for most of the you will want to lit inst
 lit install SinisterRectus/discordia
 lit install SinisterRectus/sqlite3
 lit install TohruMKDM/fs-watcher
+lit install creationix/coro-spawn
 
 and for lua-nbt you will want to extract nbt.lua into the deps directory
