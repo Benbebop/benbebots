@@ -55,8 +55,8 @@ do
 	local HASH_FILE = "./resource/breadbag_icon.hash"
 	local LOGO_FILE_TEMP = "./resource/breadbag_icon.tmp"
 	local LOGO_FILE_PART = "./resource/breadbag_icon.part.png"
-	local LOGO_FILE_A = "./resource/breadbag_icon.png"
-	local LOGO_FILE_B = "./resource/breadbag_icon_130.png"
+	local LOGO_FILE_A = "/var/www/breadbag-wiki/resources/assets/breadbag_icon.png"
+	local LOGO_FILE_B = "/var/www/breadbag-wiki/resources/assets/breadbag_icon_130.png"
 
 	local function dlBreadBagIcon(guild)
 		if not guild.icon then return end
