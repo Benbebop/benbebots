@@ -60,10 +60,11 @@ do
 		part, dest = appdata.tempPath(part), WIKI_PATH .. dest
 		args[#args + 1] = part
 
-		local proc = spawn("ffmpeg", {args = args})
+		p(args)
+
+		local proc = spawn("ffmpeg", {stdio = {nil,1,2}, args = args})
 		proc:waitExit()
 
-		fs.unlinkSync(LOGO_FILE_TEMP)
 		fs.unlinkSync(dest)
 		fs.renameSync(part, dest)
 	end
@@ -72,7 +73,7 @@ do
 		if not guild.icon then return end
 
 		local logoHash = fs.readFileSync(HASH_FILE) or ""
-		if logoHash == guild.icon then return end
+		--if logoHash == guild.icon then return end
 		fs.writeFileSync(HASH_FILE, guild.icon)
 		
 		local _, body = http.request("GET", guild.iconURL)
@@ -81,7 +82,7 @@ do
 		processLogo("breadbag_icon.png", {"-y", "-i", LOGO_FILE_TEMP, "-vf", "scale=100x100"}, "resources/assets/breadbag_icon.png")
 		processLogo("breadbag_icon.png", {"-y", "-i", LOGO_FILE_TEMP, "-vf", "scale=135x155"}, "resources/assets/breadbag_icon_1x.png")
 		--ffmpeg -i breadbag_icon.png -filter_complex split[r32][r16],[r32]scale=32x32,[r16]scale=16x16 out.ico
-		processLogo("breadbag_icon.ico", {"-y", "-i", LOGO_FILE_TEMP, "-filter_complex", "split[r32][r16],[r32]scale32x32,[r16]scale16x16"}, "favicon.ico")
+		processLogo("breadbag_icon.ico", {"-y", "-i", LOGO_FILE_TEMP, "-filter_complex", "split[r32][r16],[r32]scale=32x32,[r16]scale=16x16"}, "favicon.ico")
 	end
 	
 	benbebot:on("ready", function() dlBreadBagIcon(benbebot:getGuild(BREADBAG)) end)
