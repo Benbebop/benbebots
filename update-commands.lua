@@ -595,8 +595,15 @@ assert(request(benbebot, "PUT", "/guilds/822165179692220476/commands", { -- brea
 				}
 			}
 		}
-	}
+	},
 	
+	{
+		type = 1,
+		id = "1160813279518670919",
+		name = "nicklockdown",
+		description = "start scaring people who change their nick :)"
+	}
+
 }))
 
 assert(request(familyGuy, "PUT", "/guilds/1068640496139915345/commands", {

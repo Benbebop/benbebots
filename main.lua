@@ -47,6 +47,46 @@ end
 
 -- BREAD BAG --
 
+do
+	local spawn, http = require("coro-spawn"), require("coro-http")
+
+	local BREADBAG = "822165179692220476"
+
+	local HASH_FILE = "./resource/breadbag_icon.hash"
+	local LOGO_FILE_TEMP = "./resource/breadbag_icon.tmp"
+	local LOGO_FILE_PART = "./resource/breadbag_icon.part.png"
+	local LOGO_FILE_A = "./resource/breadbag_icon.png"
+	local LOGO_FILE_B = "./resource/breadbag_icon_130.png"
+
+	local function dlBreadBagIcon(guild)
+		if not guild.icon then return end
+
+		local logoHash = fs.readFileSync(HASH_FILE) or ""
+		if logoHash == guild.icon then return end
+		fs.writeFileSync(HASH_FILE, guild.icon)
+		
+		local _, body = http.request("GET", guild.iconURL)
+		fs.writeFileSync(LOGO_FILE_TEMP, body)
+
+		local proc = spawn("ffmpeg", {stdio = {true, 1, 2}, args = {"-y", "-i", LOGO_FILE_TEMP, LOGO_FILE_PART}})
+		--TODO: procedural input
+
+		proc:waitExit()
+		
+		fs.unlinkSync(LOGO_FILE_TEMP)
+		fs.unlinkSync(LOGO_FILE_A)
+		fs.renameSync(LOGO_FILE_PART, LOGO_FILE_A)
+	end
+	
+	benbebot:on("ready", function() dlBreadBagIcon(benbebot:getGuild(BREADBAG)) end)
+
+	benbebot:on("guildUpdate", function(guild)
+		if guild.id ~= BREADBAG then return end
+		dlBreadBagIcon(guild)
+	end)
+
+end
+
 do -- commands --
 	
 	benbebot:getCommand("1128437755614081052"):used({}, function(interaction) -- ping larry
@@ -840,7 +880,7 @@ end
 -- CANNED FOOD --
 
 do -- nothing wacky here
-	local emoji, timer = require("querystring").urldecode("%F0%9F%A5%AB"), require("timer")
+	local emoji, timer = "\240\159\165\171", require("timer")
 	
 	local channels
 	

@@ -22,3 +22,6 @@
 [submodule "deps/exaroton"]
 	path = deps/exaroton
 	url = https://github.com/Benbebop/Exaroton-Luvit
+[submodule "bin/srcds-stdio"]
+	path = bin/srcds-stdio
+	url = https://github.com/Benbebop/Lua-Srcds-Stdio
