@@ -1114,6 +1114,8 @@ do -- clips --
 			for i=1,5 do
 				clip = clips[math.random(2,#clips)]
 				
+				if not clip then return end
+
 				if clip[1] ~= prevClip then
 					content = ("https://cdn.discordapp.com/attachments/%s/%s/%s"):format(clip[2], clip[3], clip[4])
 					
