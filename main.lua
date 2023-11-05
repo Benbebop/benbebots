@@ -73,7 +73,7 @@ do
 		if not guild.icon then return end
 
 		local logoHash = fs.readFileSync(HASH_FILE) or ""
-		--if logoHash == guild.icon then return end
+		if logoHash == guild.icon then return end
 		fs.writeFileSync(HASH_FILE, guild.icon)
 		
 		local _, body = http.request("GET", guild.iconURL)
