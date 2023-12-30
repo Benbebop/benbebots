@@ -901,7 +901,8 @@ do -- nothing wacky here
 			"564829092621451274", -- alphaplace
 			"750840603113422889", -- gabe
 			"1020127285229146112", -- ghetto smosh
-			"983936473218818078" -- idfk
+			"983936473218818078", -- idfk
+			"1190395853844791309" -- boykisser
 		}
 	else
 		channels = {
