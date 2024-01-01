@@ -1,31 +1,18 @@
 package main
 
 import (
-	"database/sql"
-	"log"
-
-	"github.com/bwmarrin/discordgo"
+	"github.com/diamondburned/arikawa/v3/gateway"
+	"github.com/diamondburned/arikawa/v3/session"
 	_ "github.com/go-sql-driver/mysql"
 )
 
 func benbebot(token string) {
-	client, err := discordgo.New("Bot " + token)
-	if err != nil {
-		log.Fatal(err)
+	client := session.New("Bot" + token)
+
+	if db != nil {
+		client.AddHandler(func(message *gateway.MessageCreateEvent) {
+
+		})
 	}
 
-	db, err := sql.Open("mysql", "")
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = db.Ping()
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	// STATISTICS //
-	client.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
-
-	})
 }
