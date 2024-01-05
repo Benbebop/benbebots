@@ -17,76 +17,47 @@ func sqlCatchWarning() sqlWarning {
 	return warn
 }
 
-func sqlUpdate() {
+func sqlGetUsername() string {
 	row := db.QueryRow("SELECT USER()")
 	var username string
 	if err := row.Scan(&username); err == nil {
-		log.Printf("updating database as %s", username)
+		return username
 	}
+	return ""
+}
+
+// TODO pass variable arguments to exec
+func sqlAssertWarn(code uint16, out string, query string, pass ...string) {
+	_, err := db.Exec(query)
+	if err != nil {
+		log.Fatalln(err)
+	} else if out != "" && sqlCatchWarning().code != code {
+		log.Println(out)
+	}
+}
+
+func sqlUpdate() {
+	log.Printf("updating database as %s", sqlGetUsername())
 
 	// TODO proper warning handling
 	// TODO compare table type
 	// benbebot user
-	_, err := db.Exec("CREATE USER IF NOT EXISTS 'benbebot'@'localhost' IDENTIFIED BY '" + tokens["sql"].Password + "'") // cant prepare a create user statement but we provide password so it should be fine
-	if err != nil {
-		log.Fatalln(err)
-	} else if sqlCatchWarning().code != 1973 {
-		log.Println("added benbebot@localhost user")
-	}
+	sqlAssertWarn(1973, "added benbebot@localhost user", "CREATE USER IF NOT EXISTS 'benbebot'@'localhost' IDENTIFIED BY '"+tokens["sql"].Password+"'") // cant prepare a create user statement but we provide password so it should be fine
 
 	// breadbag database
-	_, err = db.Exec("CREATE DATABASE IF NOT EXISTS breadbagDiscord")
-	if err != nil {
-		log.Fatalln(err)
-	} else if sqlCatchWarning().code != 1007 {
-		log.Println("added breadbagDiscord database")
-	}
-	_, err = db.Exec("GRANT CREATE, ALTER, DROP, INSERT, UPDATE, DELETE, SELECT ON breadbagDiscord.* TO 'benbebot'@'localhost'")
-	if err != nil {
-		log.Fatalln(err)
-	}
-	log.Println("granted permissions for breadbagDiscord")
-	_, err = db.Exec("USE breadbagDiscord")
-	if err != nil {
-		log.Fatalln(err)
-	}
+	sqlAssertWarn(1007, "added breadbagdiscord database", "CREATE DATABASE IF NOT EXISTS breadbagdiscord")
+	sqlAssertWarn(0000, "granted permissions for breadbagdiscord", "GRANT CREATE, ALTER, DROP, INSERT, UPDATE, DELETE, SELECT ON breadbagdiscord.* TO 'benbebot'@'localhost'")
+	sqlAssertWarn(0000, "", "USE breadbagdiscord")
 
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS vcHours (name CHAR(60), hours DOUBLE UNSIGNED)")
-	if err != nil {
-		log.Fatalln(err)
-	} else if sqlCatchWarning().code != 1050 {
-		log.Println("added voice chat hours table")
-	}
+	sqlAssertWarn(1050, "added voice chat hours table", "CREATE TABLE IF NOT EXISTS vcHours (name CHAR(60), hours DOUBLE UNSIGNED)")
 
 	// clips database
-	_, err = db.Exec("CREATE DATABASE IF NOT EXISTS discordClips")
-	if err != nil {
-		log.Fatalln(err)
-	} else if sqlCatchWarning().code != 1007 {
-		log.Println("added discordClips database")
-	}
-	_, err = db.Exec("GRANT CREATE, ALTER, DROP, INSERT, UPDATE, DELETE, SELECT ON discordClips.* TO 'benbebot'@'localhost'")
-	if err != nil {
-		log.Fatalln(err)
-	}
-	log.Println("granted permissions for discordClips")
-	_, err = db.Exec("USE discordClips")
-	if err != nil {
-		log.Fatalln(err)
-	}
+	sqlAssertWarn(1007, "added discordclips database", "CREATE DATABASE IF NOT EXISTS discordclips")
+	sqlAssertWarn(0000, "granted permissions for discordclips", "GRANT CREATE, ALTER, DROP, INSERT, UPDATE, DELETE, SELECT ON discordclips.* TO 'benbebot'@'localhost'")
+	sqlAssertWarn(0000, "", "USE discordclips")
 
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS familyguy (id INT UNSIGNED NOT NULL AUTO_INCREMENT, upload VARCHAR(255), PRIMARY KEY (id))")
-	if err != nil {
-		log.Fatalln(err)
-	} else if sqlCatchWarning().code != 1050 {
-		log.Println("added family guy clips table")
-	}
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS youngsheldon (id INT UNSIGNED NOT NULL AUTO_INCREMENT, upload VARCHAR(255), PRIMARY KEY (id))")
-	if err != nil {
-		log.Fatalln(err)
-	} else if sqlCatchWarning().code != 1050 {
-		log.Println("added young sheldon clips table")
-	}
+	sqlAssertWarn(1050, "added family guy clips table", "CREATE TABLE IF NOT EXISTS familyguy (id INT UNSIGNED NOT NULL AUTO_INCREMENT, upload VARCHAR(255), PRIMARY KEY (id))")
+	sqlAssertWarn(1050, "added young sheldon clips table", "CREATE TABLE IF NOT EXISTS youngsheldon (id INT UNSIGNED NOT NULL AUTO_INCREMENT, upload VARCHAR(255), PRIMARY KEY (id))")
 
 	db.Close()
 	log.Println("update complete")
