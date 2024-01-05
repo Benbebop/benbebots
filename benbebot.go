@@ -1,18 +1,25 @@
 package main
 
 import (
+	"log"
+
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/session"
-	_ "github.com/go-sql-driver/mysql"
 )
 
-func benbebot(token string) {
-	client := session.New("Bot" + token)
+func benbebot() {
+	client := session.New("Bot " + tokens["benbebot"].Password)
+	client.AddIntents(gateway.IntentGuildPresences | gateway.IntentGuildMembers | gateway.IntentMessageContent) // privileged
+	client.AddIntents(gateway.IntentGuildMessages | gateway.IntentDirectMessages)
+	client.AddIntents(gateway.IntentGuilds)
+	client.AddHandler(createReadyAnnouncer(*client))
 
-	if db != nil {
-		client.AddHandler(func(message *gateway.MessageCreateEvent) {
+	// voice chat hour counter
+	//var activeVoiceChats []string
 
-		})
-	}
+	client.AddHandler(func(c *gateway.MessageCreateEvent) {
+		log.Println(c.Author.Username, "sent", c.Content)
+	})
 
+	startSession(*client)
 }

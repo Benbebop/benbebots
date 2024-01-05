@@ -1,14 +1,39 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"log"
 	"os"
 
+	"github.com/diamondburned/arikawa/v3/gateway"
+	"github.com/diamondburned/arikawa/v3/session"
 	netrc "github.com/fhs/go-netrc/netrc"
 	"github.com/go-sql-driver/mysql"
 	"gopkg.in/ini.v1"
 )
+
+// bot utility commands //
+
+func createReadyAnnouncer(client session.Session) func(*gateway.ReadyEvent) {
+	return func(*gateway.ReadyEvent) {
+		me, _ := client.Me()
+		log.Println("Connected to discord as", me.Tag())
+	}
+}
+
+func startSession(client session.Session) {
+	if err := client.Open(context.Background()); err != nil {
+		log.Fatalln("Failed to connect:", err)
+	}
+
+	_, err := client.Me()
+	if err != nil {
+		log.Fatalln("Failed to get myself:", err)
+	}
+}
+
+// startup //
 
 var cfg *ini.File
 var db *sql.DB
@@ -66,11 +91,6 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	sqlToken, ok := tokens["sql"]
-	if !ok {
-		log.Println("WARNING: Missing sql token")
-	}
-
 	if len(os.Args) > 1 {
 		if os.Args[1] == "command-update" {
 			commandUpdate()
@@ -78,7 +98,7 @@ func main() {
 			if len(os.Args) > 2 {
 				err = connectDatabase("root", os.Args[2])
 			} else {
-				err = connectDatabase(sqlToken.Login, sqlToken.Password)
+				err = connectDatabase("benbebot", tokens["sql"].Password)
 			}
 			if err != nil {
 				log.Fatalln(err)
@@ -87,15 +107,20 @@ func main() {
 			sqlUpdate()
 		}
 	} else {
-		err = connectDatabase(sqlToken.Login, sqlToken.Password)
+		err = connectDatabase("benbebot", tokens["sql"].Password)
 		if err != nil {
 			log.Fatalln(err)
 		}
+		log.Println("Connected to sql database as", sqlGetUsername())
+		defer db.Close()
+
+		go fnafBot()
+
+		go familyguy()
+		go familyguyTwo()
 
 		go benbebot()
-		go familyguy()
 
-		go gnerb()
-		go cannedfood()
+		select {}
 	}
 }
