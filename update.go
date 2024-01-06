@@ -7,7 +7,6 @@ import (
 
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
-	"github.com/diamondburned/arikawa/v3/session"
 )
 
 type sqlWarning struct {
@@ -152,7 +151,7 @@ func commandUpdate(reset bool) {
 	}
 
 	for name, profile := range toUnmarshal {
-		client := session.New("Bot " + tokens[name].Password)
+		client := api.NewClient("Bot " + tokens[name].Password)
 
 		app, err := client.CurrentApplication()
 		if err != nil {
@@ -178,8 +177,6 @@ func commandUpdate(reset bool) {
 				toMarshal[name][guildID] = commands
 			}
 		}
-
-		client.Close()
 	}
 
 	outData, err := json.MarshalIndent(toMarshal, "", "\t")
