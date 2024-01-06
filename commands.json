@@ -1,3 +1,30 @@
 {
-    "global":{}
+	"familyGuy": {
+		"0": [
+			{
+				"id": "1125992137733972029",
+				"type": 1,
+				"application_id": "1021287182641668096",
+				"name": "blockclips",
+				"description": "stop/start recieving family guy clips",
+				"version": "1193072788047675403",
+				"dm_permission": false,
+				"default_permission": false
+			}
+		]
+	},
+	"sheldon": {
+		"0": [
+			{
+				"id": "1131710344042127413",
+				"type": 1,
+				"application_id": "1051307811461660752",
+				"name": "blockcats",
+				"description": "stop/start recieving cats",
+				"version": "1193065249323089921",
+				"dm_permission": false,
+				"default_permission": false
+			}
+		]
+	}
 }

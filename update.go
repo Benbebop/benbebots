@@ -1,7 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
+	"os"
+
+	"github.com/diamondburned/arikawa/v3/api"
+	"github.com/diamondburned/arikawa/v3/discord"
+	"github.com/diamondburned/arikawa/v3/session"
 )
 
 type sqlWarning struct {
@@ -114,6 +120,79 @@ func sqlUpdate() {
 	log.Println("update complete")
 }
 
-func commandUpdate() {
+func createCommandsToCommands(inputs []api.CreateCommandData) []discord.Command {
+	output := make([]discord.Command, len(inputs))
+	for index, input := range inputs {
+		output[index] = discord.Command{
+			Type:                     input.Type,
+			Name:                     input.Name,
+			NameLocalizations:        input.NameLocalizations,
+			Description:              input.Description,
+			DescriptionLocalizations: input.DescriptionLocalizations,
+			Options:                  input.Options,
+			DefaultMemberPermissions: input.DefaultMemberPermissions,
+			NoDMPermission:           input.NoDMPermission,
+			NoDefaultPermission:      input.NoDefaultPermission,
+		}
+	}
+	return output
+}
 
+func commandUpdate(reset bool) {
+	var toUnmarshal map[string]map[discord.GuildID][]api.CreateCommandData
+	toMarshal := make(map[string]map[discord.GuildID][]discord.Command)
+
+	inData, err := os.ReadFile("commands.json")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	err = json.Unmarshal(inData, &toUnmarshal)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	for name, profile := range toUnmarshal {
+		client := session.New("Bot " + tokens[name].Password)
+
+		app, err := client.CurrentApplication()
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		for guildID, cmds := range profile {
+			var commands []discord.Command
+			if guildID == 0 {
+				commands, err = client.BulkOverwriteCommands(app.ID, cmds)
+			} else {
+				if err != nil {
+					log.Println(err)
+					continue
+				}
+				commands, err = client.BulkOverwriteGuildCommands(app.ID, guildID, cmds)
+			}
+			toMarshal[name] = make(map[discord.GuildID][]discord.Command)
+
+			if err != nil {
+				toMarshal[name][guildID] = createCommandsToCommands(cmds)
+				log.Println(err)
+			} else {
+				toMarshal[name][guildID] = commands
+			}
+		}
+
+		client.Close()
+	}
+
+	outData, err := json.MarshalIndent(toMarshal, "", "\t")
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	if _, err = os.Stat("commands_old.json"); err != nil {
+		err = os.Rename("commands.json", "commands_old.json")
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}
+	err = os.WriteFile("commands.json", outData, 0777)
 }

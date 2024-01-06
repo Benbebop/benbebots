@@ -93,7 +93,11 @@ func main() {
 
 	if len(os.Args) > 1 {
 		if os.Args[1] == "command-update" {
-			commandUpdate()
+			if len(os.Args) > 2 && os.Args[2] == "reset" {
+				commandUpdate(true)
+			} else {
+				commandUpdate(false)
+			}
 		} else if os.Args[1] == "sql-update" {
 			if len(os.Args) > 2 {
 				err = connectDatabase("root", os.Args[2])
@@ -116,8 +120,8 @@ func main() {
 
 		go fnafBot()
 
-		go familyguy()
-		go familyguyTwo()
+		go familyguy("familyGuy")
+		go familyguy("sheldon")
 
 		go benbebot()
 
