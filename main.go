@@ -52,12 +52,17 @@ func parseTokens() error {
 }
 
 func parseConfig() error {
-	file, err := ini.LooseLoad("config.ini")
+	var err error
+	cfg, err = ini.LoadSources(ini.LoadOptions{
+		Loose:                     true,
+		Insensitive:               true,
+		UnescapeValueDoubleQuotes: true,
+		AllowShadows:              true,
+	}, "config.ini")
 	if err != nil {
 		return err
 	}
 
-	cfg = file
 	return nil
 }
 
@@ -78,6 +83,14 @@ func connectDatabase(user string, passwd string) error {
 
 	db = database
 	return nil
+}
+
+func getCfg(section string, name string) *ini.Key {
+	val, err := cfg.Section(section).GetKey(name)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	return val
 }
 
 func main() {
