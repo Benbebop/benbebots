@@ -161,12 +161,15 @@ func commandUpdate(reset bool) {
 		}
 		for guildID, cmds := range profile {
 			var commands []discord.Command
+
 			if guildID == 0 {
 				commands, err = client.BulkOverwriteCommands(app.ID, cmds)
 			} else {
 				commands, err = client.BulkOverwriteGuildCommands(app.ID, guildID, cmds)
 			}
-			toMarshal[name] = make(map[discord.GuildID][]discord.Command)
+			if _, ok := toMarshal[name]; !ok {
+				toMarshal[name] = make(map[discord.GuildID][]discord.Command)
+			}
 
 			if err != nil {
 				toMarshal[name][guildID] = createCommandsToCommands(cmds)
