@@ -91,16 +91,17 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	if len(os.Args) > 1 {
+	argLen := len(os.Args)
+	if argLen > 1 {
 		if os.Args[1] == "command-update" {
-			if len(os.Args) > 2 && os.Args[2] == "reset" {
+			if argLen > 2 && os.Args[2] == "reset" {
 				commandUpdate(true)
 			} else {
 				commandUpdate(false)
 			}
 			return
 		} else if os.Args[1] == "sql-update" {
-			if len(os.Args) > 2 {
+			if argLen > 2 {
 				err = connectDatabase("root", os.Args[2])
 			} else {
 				err = connectDatabase("benbebot", tokens["sql"].Password)
@@ -111,6 +112,16 @@ func main() {
 
 			sqlUpdate()
 			return
+		} else if argLen > 2 && os.Args[1] == "test" {
+			switch os.Args[2] {
+			case "benbebot":
+				benbebot()
+			case "fnaf":
+				fnafBot()
+			default:
+				log.Fatalln("unknown")
+			}
+			select {}
 		}
 	}
 	err = connectDatabase("benbebot", tokens["sql"].Password)
