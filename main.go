@@ -98,6 +98,7 @@ func main() {
 			} else {
 				commandUpdate(false)
 			}
+			return
 		} else if os.Args[1] == "sql-update" {
 			if len(os.Args) > 2 {
 				err = connectDatabase("root", os.Args[2])
@@ -109,22 +110,22 @@ func main() {
 			}
 
 			sqlUpdate()
+			return
 		}
-	} else {
-		err = connectDatabase("benbebot", tokens["sql"].Password)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		log.Println("Connected to sql database as", sqlGetUsername())
-		defer db.Close()
-
-		go fnafBot()
-
-		go familyguy("familyGuy")
-		go familyguy("sheldon")
-
-		go benbebot()
-
-		select {}
 	}
+	err = connectDatabase("benbebot", tokens["sql"].Password)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	log.Println("Connected to sql database as", sqlGetUsername())
+	defer db.Close()
+
+	go fnafBot()
+
+	go familyguy("familyGuy")
+	go familyguy("sheldon")
+
+	go benbebot()
+
+	select {}
 }
