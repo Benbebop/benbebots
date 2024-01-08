@@ -1,13 +1,19 @@
 package main
 
 import (
+	"context"
 	"embed"
+	"errors"
 	"io"
+	"io/fs"
 	"log"
+	"os"
 	"time"
 
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
+	"github.com/diamondburned/arikawa/v3/gateway"
+	"github.com/diamondburned/arikawa/v3/session"
 	"github.com/diamondburned/arikawa/v3/utils/sendpart"
 )
 
@@ -25,7 +31,6 @@ func getWaitTime(now time.Time, gnerbtime uint, dayAdd int) (time.Duration, time
 var gnerbFS embed.FS
 var gnerbReader io.Reader
 var gnerbTimer *time.Timer
-var err error
 
 func fnafBot() { // gnerb
 	client := api.NewClient("Bot " + tokens["fnaf"].Password)
@@ -43,6 +48,7 @@ func fnafBot() { // gnerb
 				gnerbTimer = time.NewTimer(sleep - lostTime)
 				<-gnerbTimer.C
 
+				var err error
 				gnerbReader, err = gnerbFS.Open("resource/gnerb.jpg")
 				if err != nil {
 					log.Fatalln(err)
@@ -72,4 +78,79 @@ func fnafBot() { // gnerb
 		log.Println(me.Tag() + " is ready")
 		return
 	}
+}
+
+func loginCannedFood() (*session.Session, error) {
+	var err error
+	for i := 1; i < 3; i++ {
+		client, err := session.Login(context.Background(), tokens["cannedFood"].Login, tokens["cannedFood"].Password, "")
+		if err == nil {
+			os.WriteFile(dirs.Data+"cannedFood.token", []byte(client.Token), 0600)
+			return client, nil
+		}
+		log.Println(err)
+	}
+	return nil, err
+}
+
+var cannedFoodEmoji = discord.NewAPIEmoji(discord.NullEmojiID, `🥫`)
+
+func cannedFood() {
+	var client *session.Session
+	if t, err := os.ReadFile(dirs.Data + "cannedFood.token"); err == nil {
+		token := string(t)
+		tmpClient := api.NewClient(token)
+		_, err := tmpClient.Me()
+		if err != nil {
+			log.Println("CannedFood token errored, logging in")
+			client, err = loginCannedFood()
+			if err != nil {
+				log.Fatalln(err)
+			}
+		} else {
+			client = session.New(token)
+		}
+	} else {
+		if !errors.Is(err, fs.ErrNotExist) {
+			log.Println(err)
+		} else {
+			log.Println("CannedFood token missing, logging in")
+		}
+		client, err = loginCannedFood()
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}
+	client.AddHandler(createReadyAnnouncer(*client))
+
+	var validChannels []discord.ChannelID
+	for _, v := range getCfg("bot.cannedfood", "channels").StringsWithShadows(",") {
+		channel, err := discord.ParseSnowflake(v)
+		if err == nil {
+			validChannels = append(validChannels, discord.ChannelID(channel))
+		}
+	}
+
+	client.AddHandler(func(message *gateway.MessageCreateEvent) {
+		var valid bool
+		for _, channel := range validChannels {
+			if message.ChannelID == channel {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			return
+		}
+
+		err := client.React(message.ChannelID, message.ID, cannedFoodEmoji)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		log.Println("CannedFood reacted to a message")
+	})
+
+	startSession(*client)
 }

@@ -172,11 +172,15 @@ func main() {
 			benbebot()
 		case "fnaf":
 			fnafBot()
+		case "cannedfood":
+			cannedFood()
 		default:
 			log.Fatalln("unknown")
 		}
 		select {}
 	}
+
+	go cannedFood()
 
 	go fnafBot()
 
