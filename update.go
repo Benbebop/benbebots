@@ -157,8 +157,13 @@ func commandUpdate(reset bool) {
 		log.Fatalln(err)
 	}
 
-	for name, profile := range toUnmarshal {
-		client := api.NewClient("Bot " + tokens[name].Password)
+	for index, profile := range toUnmarshal {
+		client := api.NewClient("Bot " + tokens[index].Password)
+		myUser, err := client.Me()
+		if err != nil {
+			log.Println(err)
+			continue
+		}
 
 		app, err := client.CurrentApplication()
 		if err != nil {
@@ -166,22 +171,30 @@ func commandUpdate(reset bool) {
 			continue
 		}
 		for guildID, cmds := range profile {
+			guildName := "all guilds"
 			var commands []discord.Command
 
 			if guildID == 0 {
 				commands, err = client.BulkOverwriteCommands(app.ID, cmds)
 			} else {
+				guild, err := client.Guild(guildID)
+				if err != nil {
+					log.Println(err)
+					continue
+				}
+				guildName = guild.Name
 				commands, err = client.BulkOverwriteGuildCommands(app.ID, guildID, cmds)
 			}
-			if _, ok := toMarshal[name]; !ok {
-				toMarshal[name] = make(map[discord.GuildID][]discord.Command)
+			if _, ok := toMarshal[index]; !ok {
+				toMarshal[index] = make(map[discord.GuildID][]discord.Command)
 			}
 
 			if err != nil {
-				toMarshal[name][guildID] = createCommandsToCommands(cmds)
-				log.Printf("[%s][%d] %s", name, guildID, err)
+				toMarshal[index][guildID] = createCommandsToCommands(cmds)
+				log.Printf("Failed to update commands for %s in %s: %s.\n", myUser.Username, guildName, err)
 			} else {
-				toMarshal[name][guildID] = commands
+				toMarshal[index][guildID] = commands
+				log.Printf("Updated %d commands for %s in %s.\n", len(commands), myUser.Username, guildName)
 			}
 		}
 	}
