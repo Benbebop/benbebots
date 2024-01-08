@@ -125,16 +125,6 @@ func main() {
 
 			sqlUpdate()
 			return
-		} else if argLen > 2 && os.Args[1] == "test" {
-			switch os.Args[2] {
-			case "benbebot":
-				benbebot()
-			case "fnaf":
-				fnafBot()
-			default:
-				log.Fatalln("unknown")
-			}
-			select {}
 		}
 	}
 	err = connectDatabase("benbebot", tokens["sql"].Password)
@@ -143,6 +133,18 @@ func main() {
 	}
 	log.Println("Connected to sql database as", sqlGetUsername())
 	defer db.Close()
+
+	if argLen > 2 && os.Args[1] == "test" {
+		switch os.Args[2] {
+		case "benbebot":
+			benbebot()
+		case "fnaf":
+			fnafBot()
+		default:
+			log.Fatalln("unknown")
+		}
+		select {}
+	}
 
 	go fnafBot()
 
