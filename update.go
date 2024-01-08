@@ -123,6 +123,7 @@ func createCommandsToCommands(inputs []api.CreateCommandData) []discord.Command 
 	output := make([]discord.Command, len(inputs))
 	for index, input := range inputs {
 		output[index] = discord.Command{
+			ID:                       input.ID,
 			Type:                     input.Type,
 			Name:                     input.Name,
 			NameLocalizations:        input.NameLocalizations,
