@@ -1,11 +1,14 @@
 package main
 
 import (
+	"embed"
+	"io"
 	"log"
 	"time"
 
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
+	"github.com/diamondburned/arikawa/v3/utils/sendpart"
 )
 
 func getWaitTime(now time.Time, gnerbtime uint, dayAdd int) (time.Duration, time.Time) {
@@ -17,6 +20,12 @@ func getWaitTime(now time.Time, gnerbtime uint, dayAdd int) (time.Duration, time
 	}
 	return waitTime, postTime
 }
+
+//go:embed resource/gnerb.jpg
+var gnerbFS embed.FS
+var gnerbReader io.Reader
+var gnerbTimer *time.Timer
+var err error
 
 func fnafBot() { // gnerb
 	client := api.NewClient("Bot " + tokens["fnaf"].Password)
@@ -31,10 +40,18 @@ func fnafBot() { // gnerb
 			var lostTime time.Duration
 			log.Printf("Sending next gnerb in %dm.", sleep/time.Minute)
 			for {
-				time.Sleep(sleep - lostTime)
+				gnerbTimer = time.NewTimer(sleep - lostTime)
+				<-gnerbTimer.C
 
+				gnerbReader, err = gnerbFS.Open("resource/gnerb.jpg")
+				if err != nil {
+					log.Fatalln(err)
+				}
 				m, err := client.SendMessageComplex(channel, api.SendMessageData{
-					Content: "test",
+					Files: []sendpart.File{{
+						Name:   "gnerb.jpg",
+						Reader: gnerbReader,
+					}},
 				})
 				if err != nil {
 					log.Println(err)
