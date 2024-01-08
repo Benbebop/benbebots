@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"io/fs"
 	"log"
 	"os"
 
@@ -38,6 +40,10 @@ func startSession(client session.Session) {
 var cfg *ini.File
 var db *sql.DB
 var tokens = map[string]netrc.Machine{}
+var dirs struct {
+	Data string
+	Temp string
+}
 
 func parseTokens() error {
 	mach, _, err := netrc.ParseFile("tokens.netrc")
@@ -93,6 +99,27 @@ func getCfg(section string, name string) *ini.Key {
 	return val
 }
 
+func getDirs() error {
+	dir, err := os.UserCacheDir()
+	if err != nil {
+		return err
+	}
+	dirs.Data = dir + "/benbebots/"
+	if _, err := os.Stat(dirs.Data); errors.Is(err, os.ErrNotExist) {
+		return os.Mkdir(dirs.Data, fs.FileMode(0777))
+	} else if err != nil {
+		return err
+	}
+
+	dirs.Temp = os.TempDir() + "/benbebots/"
+	if _, err := os.Stat(dirs.Data); errors.Is(err, os.ErrNotExist) {
+		return os.MkdirAll(dirs.Data, fs.FileMode(0777))
+	} else if err != nil {
+		return err
+	}
+	return nil
+}
+
 func main() {
 	err := parseTokens()
 	if err != nil {
@@ -100,6 +127,11 @@ func main() {
 	}
 
 	err = parseConfig()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	err = getDirs()
 	if err != nil {
 		log.Fatalln(err)
 	}
