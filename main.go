@@ -106,14 +106,14 @@ func main() {
 
 	argLen := len(os.Args)
 	if argLen > 1 {
-		if os.Args[1] == "command-update" {
+		if os.Args[1] == "update-commands" {
 			if argLen > 2 && os.Args[2] == "reset" {
 				commandUpdate(true)
 			} else {
 				commandUpdate(false)
 			}
 			return
-		} else if os.Args[1] == "sql-update" {
+		} else if os.Args[1] == "update-sql" {
 			if argLen > 2 {
 				err = connectDatabase("root", os.Args[2])
 			} else {
