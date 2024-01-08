@@ -115,6 +115,12 @@ func sqlUpdate() {
 	sqlAssertWarn(1050, "added family guy clips table", sqlCompareTable("discord_clips", "family_guy", "id INT UNSIGNED NOT NULL AUTO_INCREMENT, message BIGINT UNSIGNED, PRIMARY KEY (id)"))
 	sqlAssertWarn(1050, "added young sheldon clips table", sqlCompareTable("discord_clips", "young_sheldon", "id INT UNSIGNED NOT NULL AUTO_INCREMENT, message BIGINT UNSIGNED, PRIMARY KEY (id)"))
 
+	// gnerb database
+	sqlAssertWarn(1007, "added gnerb database", "CREATE DATABASE IF NOT EXISTS gnerb")
+	sqlAssertWarn(0000, "granted permissions for gnerb", "GRANT CREATE, ALTER, DROP, INSERT, UPDATE, DELETE, SELECT ON gnerb.* TO 'benbebot'@'localhost'")
+
+	sqlAssertWarn(1050, "added gnerb send delay table", sqlCompareTable("gnerb", "send_lost_time", "date DATE DEFAULT CURRENT_TIMESTAMP, lost INT, PRIMARY KEY (time)"))
+
 	db.Close()
 	log.Println("update complete")
 }

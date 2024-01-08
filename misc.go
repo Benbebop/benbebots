@@ -28,9 +28,10 @@ func fnafBot() { // gnerb
 		go func() {
 			channel := discord.ChannelID(desination)
 			sleep, postTime := getWaitTime(time.Now().UTC(), gnerbtime, 0)
+			var lostTime time.Duration
 			log.Printf("Sending next gnerb in %dm.", sleep/time.Minute)
 			for {
-				time.Sleep(sleep)
+				time.Sleep(sleep - lostTime)
 
 				m, err := client.SendMessageComplex(channel, api.SendMessageData{
 					Content: "test",
@@ -38,8 +39,11 @@ func fnafBot() { // gnerb
 				if err != nil {
 					log.Println(err)
 				}
+
 				messageRecieved := m.ID.Time().UTC()
-				log.Printf("Sent gnerb, lost %dms (%s, %s).", messageRecieved.Sub(postTime)/time.Millisecond, postTime.Local().Format(time.Layout), messageRecieved.Local().Format(time.Layout))
+				lostTime = messageRecieved.Sub(postTime)
+				db.Exec("REPLACE INTO gnerb.send_lost_time (lost) VALUES ( ? )", lostTime.Microseconds())
+				log.Printf("Sent gnerb, lost %dms.", lostTime/time.Millisecond)
 
 				sleep, postTime = getWaitTime(time.Now().UTC(), gnerbtime, 1)
 			}
