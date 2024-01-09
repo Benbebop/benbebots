@@ -1,39 +1,16 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"io/fs"
 	"log"
 	"os"
 
-	"github.com/diamondburned/arikawa/v3/gateway"
-	"github.com/diamondburned/arikawa/v3/session"
 	netrc "github.com/fhs/go-netrc/netrc"
 	"github.com/go-sql-driver/mysql"
 	"gopkg.in/ini.v1"
 )
-
-// bot utility commands //
-
-func createReadyAnnouncer(client session.Session) func(*gateway.ReadyEvent) {
-	return func(*gateway.ReadyEvent) {
-		me, _ := client.Me()
-		log.Println("Connected to discord as", me.Tag())
-	}
-}
-
-func startSession(client session.Session) {
-	if err := client.Open(context.Background()); err != nil {
-		log.Fatalln("Failed to connect:", err)
-	}
-
-	_, err := client.Me()
-	if err != nil {
-		log.Fatalln("Failed to get myself:", err)
-	}
-}
 
 // startup //
 
@@ -174,6 +151,10 @@ func main() {
 			fnafBot()
 		case "cannedfood":
 			cannedFood()
+		case "familyguy":
+			familyguy("familyGuy")
+		case "sheldon":
+			familyguy("sheldon")
 		default:
 			log.Fatalln("unknown")
 		}

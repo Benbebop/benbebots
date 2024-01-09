@@ -1,14 +1,20 @@
 package main
 
 import (
+	"log"
+
 	"github.com/diamondburned/arikawa/v3/gateway"
-	"github.com/diamondburned/arikawa/v3/session"
+	"github.com/diamondburned/arikawa/v3/state"
 )
 
 func familyguy(name string) {
-	client := session.New("Bot " + tokens[name].Password)
+	client := state.New("Bot " + tokens[name].Password)
 	client.AddIntents(gateway.IntentGuildMembers) // privileged
-	client.AddHandler(createReadyAnnouncer(*client))
+	client.AddHandler(func(*gateway.ReadyEvent) {
+		me, _ := client.Me()
+		log.Println("Connected to discord as", me.Tag())
+	})
 
-	startSession(*client)
+	err := client.Connect(client.Context())
+	log.Fatalln("client closed: ", err)
 }

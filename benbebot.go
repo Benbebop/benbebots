@@ -12,14 +12,11 @@ func benbebot() {
 	client.AddIntents(gateway.IntentGuildPresences | gateway.IntentGuildMembers | gateway.IntentMessageContent) // privileged
 	client.AddIntents(gateway.IntentGuildMessages | gateway.IntentDirectMessages)
 	client.AddIntents(gateway.IntentGuilds)
-	client.AddHandler(createReadyAnnouncer(*client))
-
-	// voice chat hour counter
-	//var activeVoiceChats []string
-
-	client.AddHandler(func(c *gateway.MessageCreateEvent) {
-		log.Println(c.Author.Username, "sent", c.Content)
+	client.AddHandler(func(*gateway.ReadyEvent) {
+		me, _ := client.Me()
+		log.Println("Connected to discord as", me.Tag())
 	})
 
-	startSession(*client)
+	err := client.Connect(client.Context())
+	log.Fatalln("client closed: ", err)
 }

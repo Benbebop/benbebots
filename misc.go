@@ -122,7 +122,10 @@ func cannedFood() {
 			log.Fatalln(err)
 		}
 	}
-	client.AddHandler(createReadyAnnouncer(*client))
+	client.AddHandler(func(*gateway.ReadyEvent) {
+		me, _ := client.Me()
+		log.Println("Connected to discord as", me.Tag())
+	})
 
 	var validChannels []discord.ChannelID
 	for _, v := range getCfg("bot.cannedfood", "channels").StringsWithShadows(",") {
@@ -160,5 +163,6 @@ func cannedFood() {
 		log.Printf("CannedFood reacted to a message after %dms\n", delay.Milliseconds())
 	})
 
-	startSession(*client)
+	err := client.Connect(client.Context())
+	log.Fatalln("client closed: ", err)
 }
