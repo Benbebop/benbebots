@@ -68,14 +68,6 @@ func connectDatabase(user string, passwd string) error {
 	return nil
 }
 
-func getCfg(section string, name string) *ini.Key {
-	val, err := cfg.Section(section).GetKey(name)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	return val
-}
-
 func getDirs() error {
 	dir, err := os.UserCacheDir()
 	if err != nil {

@@ -18,9 +18,9 @@ import (
 	"github.com/diamondburned/arikawa/v3/utils/sendpart"
 )
 
-func getWaitTime(now time.Time, gnerbtime uint, dayAdd int) (time.Duration, time.Time) {
+func getWaitTime(now time.Time, gnerbtime time.Duration, dayAdd int) (time.Duration, time.Time) {
 	year, month, day := now.Date()
-	postTime := time.Date(year, month, day+dayAdd, 0, 0, 0, 0, now.Location()).Add(time.Duration(gnerbtime * uint(time.Millisecond)))
+	postTime := time.Date(year, month, day+dayAdd, 0, 0, 0, 0, now.Location()).Add(time.Duration(gnerbtime))
 	waitTime := postTime.Sub(now)
 	if waitTime < 0 {
 		return getWaitTime(now, gnerbtime, dayAdd+1)
@@ -34,15 +34,18 @@ var gnerbReader io.Reader
 var gnerbTimer *time.Timer
 
 func fnafBot() { // gnerb
-	client := api.NewClient("Bot " + tokens["fnaf"].Password)
+	opts := struct {
+		GnerbTime   time.Duration `ini:"gnerbtime"`
+		Destination uint64        `ini:"destination"`
+	}{}
+	cfg.Section("bot.fnaf").MapTo(&opts)
 
-	gnerbtime, _ := getCfg("bot.fnaf", "gnerbtime").Uint()
-	desination, _ := getCfg("bot.fnaf", "destination").Uint64()
+	client := api.NewClient("Bot " + tokens["fnaf"].Password)
 
 	defer func() {
 		go func() {
-			channel := discord.ChannelID(desination)
-			sleep, postTime := getWaitTime(time.Now().UTC(), gnerbtime, 0)
+			channel := discord.ChannelID(opts.Destination)
+			sleep, postTime := getWaitTime(time.Now().UTC(), opts.GnerbTime, 0)
 			var lostTime time.Duration
 			log.Printf("Sending next gnerb in %dm.", sleep/time.Minute)
 			for {
@@ -69,7 +72,7 @@ func fnafBot() { // gnerb
 				db.Exec("REPLACE INTO gnerb.send_lost_time (lost) VALUES ( ? )", lostTime.Microseconds())
 				log.Printf("Sent gnerb, lost %dms.", lostTime/time.Millisecond)
 
-				sleep, postTime = getWaitTime(time.Now().UTC(), gnerbtime, 1)
+				sleep, postTime = getWaitTime(time.Now().UTC(), opts.GnerbTime, 1)
 			}
 		}()
 	}()
@@ -97,6 +100,20 @@ func loginCannedFood() (*session.Session, error) {
 var cannedFoodEmoji = discord.NewAPIEmoji(discord.NullEmojiID, `🥫`)
 
 func cannedFood() {
+	opts := struct {
+		Channels []discord.ChannelID `ini:"-"`
+		Delay    []int64             `ini:"delay"`
+	}{}
+	sect := cfg.Section("bot.cannedfood")
+	sect.MapTo(&opts)
+
+	for _, v := range sect.Key("channels").StringsWithShadows(",") {
+		channel, err := discord.ParseSnowflake(v)
+		if err == nil {
+			opts.Channels = append(opts.Channels, discord.ChannelID(channel))
+		}
+	}
+
 	var client *session.Session
 	if t, err := os.ReadFile(dirs.Data + "cannedFood.token"); err == nil {
 		token := string(t)
@@ -127,21 +144,9 @@ func cannedFood() {
 		log.Println("Connected to discord as", me.Tag())
 	})
 
-	var validChannels []discord.ChannelID
-	for _, v := range getCfg("bot.cannedfood", "channels").StringsWithShadows(",") {
-		channel, err := discord.ParseSnowflake(v)
-		if err == nil {
-			validChannels = append(validChannels, discord.ChannelID(channel))
-		}
-	}
-	sendDelays := getCfg("bot.cannedfood", "delay").Int64s(",")
-	if len(sendDelays) != 2 {
-		log.Fatalln("CannedFood delay must be two numbers")
-	}
-
 	client.AddHandler(func(message *gateway.MessageCreateEvent) {
 		var valid bool
-		for _, channel := range validChannels {
+		for _, channel := range opts.Channels {
 			if message.ChannelID == channel {
 				valid = true
 				break
@@ -151,7 +156,7 @@ func cannedFood() {
 			return
 		}
 
-		delay := time.Duration(sendDelays[0]+rand.Int63n(sendDelays[1]-sendDelays[0])) * time.Millisecond
+		delay := time.Duration(opts.Delay[0]+rand.Int63n(opts.Delay[1]-opts.Delay[0])) * time.Millisecond
 		time.Sleep(delay)
 
 		err := client.React(message.ChannelID, message.ID, cannedFoodEmoji)
