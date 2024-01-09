@@ -6,8 +6,8 @@ name: Go
 on:
   push:
     branches: [ "4.x" ]
-  pull_request:
-    branches: [ "4.x" ]
+    tags:
+      - '*'
 
 jobs:
 
@@ -16,7 +16,14 @@ jobs:
     
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            artifact_name: benbebots
+            asset_name: benbebots-linux-amd64
+          - os: windows-latest
+            artifact_name: benbebots.exe
+            asset_name: benbebots-windows-amd64
+        
 
     steps:
     - uses: actions/checkout@v3
@@ -32,3 +39,11 @@ jobs:
 
     - name: Build
       run: go build -v ./...
+
+    - name: Upload binaries to release
+      uses: svenstaro/upload-release-action@v2
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: ${{ matrix.artifact_name }}
+        asset_name: ${{ matrix.asset_name }}
+        tag: ${{ github.ref }}
