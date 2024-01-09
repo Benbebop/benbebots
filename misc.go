@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/fs"
 	"log"
+	"math/rand"
 	"os"
 	"time"
 
@@ -130,6 +131,10 @@ func cannedFood() {
 			validChannels = append(validChannels, discord.ChannelID(channel))
 		}
 	}
+	sendDelays := getCfg("bot.cannedfood", "delay").Int64s(",")
+	if len(sendDelays) != 2 {
+		log.Fatalln("CannedFood delay must be two numbers")
+	}
 
 	client.AddHandler(func(message *gateway.MessageCreateEvent) {
 		var valid bool
@@ -143,13 +148,16 @@ func cannedFood() {
 			return
 		}
 
+		delay := time.Duration(sendDelays[0]+rand.Int63n(sendDelays[1]-sendDelays[0])) * time.Millisecond
+		time.Sleep(delay)
+
 		err := client.React(message.ChannelID, message.ID, cannedFoodEmoji)
 		if err != nil {
 			log.Println(err)
 			return
 		}
 
-		log.Println("CannedFood reacted to a message")
+		log.Printf("CannedFood reacted to a message after %dms\n", delay.Milliseconds())
 	})
 
 	startSession(*client)
