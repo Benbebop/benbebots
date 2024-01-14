@@ -9,6 +9,7 @@ import (
 	"os"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/diamondburned/arikawa/v3/api"
@@ -23,7 +24,7 @@ func writeErrorLog(inErr error) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	id := strconv.FormatInt(time.Now().UnixMicro(), 36)
+	id := strings.ToUpper(strconv.FormatInt(time.Now().UnixMicro(), 36))
 	os.Mkdir(dir+"/benbebots/errors/", fs.FileMode(0777))
 	file, err := os.OpenFile(fmt.Sprintf("%s/benbebots/errors/%s.log", dir, id), os.O_CREATE|os.O_WRONLY, 0777)
 	if err != nil {
@@ -58,7 +59,7 @@ func cmdErrorResp(inErr error) *api.InteractionResponseData {
 			stk += "..."
 			break
 		}
-		stk += fmt.Sprintf("%s: %d 0x%x", file, line, pc)
+		stk += fmt.Sprintf("%s:%d 0x%x", file, line, pc)
 	}
 
 	return &api.InteractionResponseData{
@@ -68,6 +69,7 @@ func cmdErrorResp(inErr error) *api.InteractionResponseData {
 				Author: &discord.EmbedAuthor{
 					Name: "There was an error!",
 				},
+				URL:         "https://github.com/Benbebop/benbebots/issues/new?body=my%20error%20id%3A%20" + id,
 				Title:       id,
 				Description: inErr.Error(),
 				Footer: &discord.EmbedFooter{
