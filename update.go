@@ -112,8 +112,9 @@ func sqlUpdate() {
 	sqlAssertWarn(1007, "added discord clips database", "CREATE DATABASE IF NOT EXISTS discord_clips")
 	sqlAssertWarn(0000, "granted permissions for discord clips", "GRANT CREATE, ALTER, DROP, INSERT, UPDATE, DELETE, SELECT ON discord_clips.* TO 'benbebot'@'localhost'")
 
-	sqlAssertWarn(1050, "added family guy clips table", sqlCompareTable("discord_clips", "family_guy", "id INT UNSIGNED NOT NULL AUTO_INCREMENT, message BIGINT UNSIGNED, PRIMARY KEY (id)"))
-	sqlAssertWarn(1050, "added young sheldon clips table", sqlCompareTable("discord_clips", "young_sheldon", "id INT UNSIGNED NOT NULL AUTO_INCREMENT, message BIGINT UNSIGNED, PRIMARY KEY (id)"))
+	clipsTable := "id INT UNSIGNED NOT NULL AUTO_INCREMENT, message BIGINT UNSIGNED, name VARCHAR(32), PRIMARY KEY (id)"
+	sqlAssertWarn(1050, "added family guy clips table", sqlCompareTable("discord_clips", "family_guy", clipsTable))
+	sqlAssertWarn(1050, "added young sheldon clips table", sqlCompareTable("discord_clips", "young_sheldon", clipsTable))
 
 	// gnerb database
 	sqlAssertWarn(1007, "added gnerb database", "CREATE DATABASE IF NOT EXISTS gnerb")
