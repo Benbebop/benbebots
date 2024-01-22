@@ -145,11 +145,14 @@ func createCommandsToCommands(inputs []api.CreateCommandData) []discord.Command 
 	return output
 }
 
+var commandFile = "resource/commands.json"
+var commandFileOld = "resource/commands_old.json"
+
 func commandUpdate(reset bool) {
 	var toUnmarshal map[string]map[discord.GuildID][]api.CreateCommandData
 	toMarshal := make(map[string]map[discord.GuildID][]discord.Command)
 
-	inData, err := os.ReadFile("commands.json")
+	inData, err := os.ReadFile(commandFile)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -205,11 +208,11 @@ func commandUpdate(reset bool) {
 		log.Fatalln(err)
 	}
 
-	if _, err = os.Stat("commands_old.json"); err != nil {
-		err = os.Rename("commands.json", "commands_old.json")
+	if _, err = os.Stat(commandFileOld); err != nil {
+		err = os.Rename(commandFile, commandFileOld)
 		if err != nil {
 			log.Fatalln(err)
 		}
 	}
-	err = os.WriteFile("commands.json", outData, 0777)
+	err = os.WriteFile(commandFile, outData, 0777)
 }
