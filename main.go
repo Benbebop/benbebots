@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/diamondburned/arikawa/v3/api"
@@ -157,6 +158,8 @@ func getDirs() error {
 	return nil
 }
 
+var botGoroutineGroup sync.WaitGroup
+
 func main() {
 	err := parseTokens()
 	if err != nil {
@@ -221,14 +224,22 @@ func main() {
 		select {}
 	}
 
+	botGoroutineGroup.Add(1)
 	go cannedFood()
 
+	botGoroutineGroup.Add(1)
 	go fnafBot()
 
+	botGoroutineGroup.Add(2)
 	go familyguy("familyGuy")
 	go familyguy("sheldon")
 
+	botGoroutineGroup.Add(1)
 	go benbebot()
+
+	botGoroutineGroup.Wait()
+
+	log.Println("Launched all discord bots")
 
 	select {}
 }

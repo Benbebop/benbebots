@@ -82,6 +82,8 @@ func fnafBot() { // gnerb
 		log.Println(me.Tag() + " is ready")
 		return
 	}
+
+	botGoroutineGroup.Done()
 }
 
 func loginCannedFood() (*session.Session, error) {
@@ -168,6 +170,6 @@ func cannedFood() {
 		log.Printf("CannedFood reacted to a message after %dms\n", delay.Milliseconds())
 	})
 
-	err := client.Connect(client.Context())
-	log.Fatalln("client closed: ", err)
+	client.Open(client.Context())
+	botGoroutineGroup.Done()
 }

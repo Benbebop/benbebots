@@ -109,6 +109,6 @@ func familyguy(name string) {
 
 	client.AddInteractionHandler(r)
 
-	err := client.Connect(client.Context())
-	log.Fatalln("client closed: ", err)
+	client.Open(client.Context())
+	botGoroutineGroup.Done()
 }

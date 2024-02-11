@@ -17,6 +17,6 @@ func benbebot() {
 		log.Println("Connected to discord as", me.Tag())
 	})
 
-	err := client.Connect(client.Context())
-	log.Fatalln("client closed: ", err)
+	client.Open(client.Context())
+	botGoroutineGroup.Done()
 }
