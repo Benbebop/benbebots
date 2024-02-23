@@ -42,6 +42,7 @@ func writeErrorLog(inErr error) (string, error) {
 		return "", err
 	}
 	file.Close()
+	log.Println(id, inErr)
 	return id, nil
 }
 
