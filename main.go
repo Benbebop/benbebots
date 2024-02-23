@@ -207,6 +207,7 @@ func main() {
 	defer db.Close()
 
 	if argLen > 2 && os.Args[1] == "test" {
+		botGoroutineGroup.Add(1)
 		switch os.Args[2] {
 		case "benbebot":
 			benbebot()
