@@ -28,14 +28,14 @@ func getWaitTime(now time.Time, gnerbtime time.Duration, dayAdd int) (time.Durat
 	return waitTime, postTime
 }
 
-//go:embed resource/gnerb.jpg
+//go:embed resource/pou.png
 var gnerbFS embed.FS
 var gnerbReader io.Reader
 var gnerbTimer *time.Timer
 
 func fnafBot() { // gnerb
 	opts := struct {
-		GnerbTime   time.Duration `ini:"gnerbtime"`
+		Time        time.Duration `ini:"poutime"`
 		Destination uint64        `ini:"destination"`
 	}{}
 	cfg.Section("bot.fnaf").MapTo(&opts)
@@ -45,21 +45,21 @@ func fnafBot() { // gnerb
 	defer func() {
 		go func() {
 			channel := discord.ChannelID(opts.Destination)
-			sleep, postTime := getWaitTime(time.Now().UTC(), opts.GnerbTime, 0)
+			sleep, postTime := getWaitTime(time.Now().UTC(), opts.Time, 0)
 			var lostTime time.Duration
-			log.Printf("Sending next gnerb in %dm.", sleep/time.Minute)
+			log.Printf("Sending next pou in %dm.", sleep/time.Minute)
 			for {
 				gnerbTimer = time.NewTimer(sleep - lostTime)
 				<-gnerbTimer.C
 
 				var err error
-				gnerbReader, err = gnerbFS.Open("resource/gnerb.jpg")
+				gnerbReader, err = gnerbFS.Open("resource/pou.png")
 				if err != nil {
 					log.Fatalln(err)
 				}
 				m, err := client.SendMessageComplex(channel, api.SendMessageData{
 					Files: []sendpart.File{{
-						Name:   "gnerb.jpg",
+						Name:   "pou.png",
 						Reader: gnerbReader,
 					}},
 				})
@@ -72,7 +72,7 @@ func fnafBot() { // gnerb
 				db.Exec("REPLACE INTO gnerb.send_lost_time (lost) VALUES ( ? )", lostTime.Microseconds())
 				log.Printf("Sent gnerb, lost %dms.", lostTime/time.Millisecond)
 
-				sleep, postTime = getWaitTime(time.Now().UTC(), opts.GnerbTime, 1)
+				sleep, postTime = getWaitTime(time.Now().UTC(), opts.Time, 1)
 			}
 		}()
 	}()
