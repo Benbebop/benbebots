@@ -232,9 +232,10 @@ func main() {
 	botGoroutineGroup.Add(1)
 	go fnafBot()
 
-	botGoroutineGroup.Add(2)
-	go familyguy("familyGuy")
-	go familyguy("sheldon")
+	//disabled until i can fix attachment command options
+	//botGoroutineGroup.Add(2)
+	//go familyguy("familyGuy")
+	//go familyguy("sheldon")
 
 	botGoroutineGroup.Add(1)
 	go benbebot()
