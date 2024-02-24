@@ -188,6 +188,10 @@ func commandUpdate(reset bool) {
 				}
 				guildName = guild.Name
 				commands, err = client.BulkOverwriteGuildCommands(app.ID, guildID, cmds)
+				if err != nil {
+					log.Println(err)
+					continue
+				}
 			}
 			if _, ok := toMarshal[index]; !ok {
 				toMarshal[index] = make(map[discord.GuildID][]discord.Command)
@@ -215,4 +219,7 @@ func commandUpdate(reset bool) {
 		}
 	}
 	err = os.WriteFile(commandFile, outData, 0777)
+	if err != nil {
+		log.Fatalln(err)
+	}
 }
