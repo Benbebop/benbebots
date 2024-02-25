@@ -17,6 +17,7 @@ import (
 	"github.com/diamondburned/arikawa/v3/discord"
 	netrc "github.com/fhs/go-netrc/netrc"
 	"github.com/go-sql-driver/mysql"
+	"github.com/syndtr/goleveldb/leveldb"
 	"gopkg.in/ini.v1"
 )
 
@@ -86,6 +87,7 @@ func cmdErrorResp(inErr error) *api.InteractionResponseData {
 
 var cfg *ini.File
 var db *sql.DB
+var ldb *leveldb.DB
 var tokens = map[string]netrc.Machine{}
 var dirs struct {
 	Data string
@@ -153,6 +155,13 @@ func main() {
 	} else if err != nil {
 		return
 	}
+
+	// initialize leveldb
+	ldb, err = leveldb.OpenFile(dirs.Data+"leveldb", nil)
+	if err != nil {
+		return
+	}
+	defer ldb.Close()
 
 	// read args
 	argLen := len(os.Args)
