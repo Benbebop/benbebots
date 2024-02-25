@@ -9,6 +9,8 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/diamondburned/arikawa/v3/api"
@@ -103,8 +105,10 @@ var cannedFoodEmoji = discord.NewAPIEmoji(discord.NullEmojiID, `🥫`)
 
 func cannedFood() {
 	opts := struct {
-		Channels []discord.ChannelID `ini:"-"`
-		Delay    []int64             `ini:"delay"`
+		Channels    []discord.ChannelID `ini:"-"`
+		Delay       []int64             `ini:"delay"`
+		CommandRole uint64              `ini:"commandrole"`
+		BotServer   uint64              `ini:"benbebots"`
 	}{}
 	sect := cfg.Section("bot.cannedfood")
 	sect.MapTo(&opts)
@@ -115,6 +119,7 @@ func cannedFood() {
 			opts.Channels = append(opts.Channels, discord.ChannelID(channel))
 		}
 	}
+	cfg.Section("servers").MapTo(&opts)
 
 	var client *session.Session
 	if t, err := os.ReadFile(dirs.Data + "cannedFood.token"); err == nil {
@@ -146,7 +151,7 @@ func cannedFood() {
 		log.Println("Connected to discord as", me.Tag())
 	})
 
-	client.AddHandler(func(message *gateway.MessageCreateEvent) {
+	client.AddHandler(func(message *gateway.MessageCreateEvent) { // reaction
 		var valid bool
 		for _, channel := range opts.Channels {
 			if message.ChannelID == channel {
@@ -168,6 +173,67 @@ func cannedFood() {
 		}
 
 		log.Printf("CannedFood reacted to a message after %dms\n", delay.Milliseconds())
+	})
+
+	var commandInitiatorString string
+	var commandInitiatorLen int
+	client.AddHandler(func(*gateway.ReadyEvent) {
+		me, _ := client.Me()
+		commandInitiatorString = "<@" + me.ID.String()
+		commandInitiatorLen = len(commandInitiatorString)
+	})
+
+	client.AddHandler(func(message *gateway.MessageCreateEvent) { // commands
+		// check command initiator
+		if len(message.Content) < commandInitiatorLen || message.Content[:commandInitiatorLen] != commandInitiatorString {
+			return
+		}
+
+		// check perms
+		member, err := client.Member(discord.GuildID(opts.BotServer), message.Author.ID)
+		if err != nil {
+			writeErrorLog(err)
+			return
+		}
+
+		allowed := false
+		for _, v := range member.RoleIDs {
+			if opts.CommandRole == uint64(v) {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			return
+		}
+
+		items := strings.Fields(message.Content)
+		if len(items) < 3 {
+			client.SendMessage(message.ChannelID, "invalid syntax!")
+			return
+		}
+
+		switch items[1] {
+		case "add":
+			channelId, err := strconv.ParseUint(items[2][2:len(items[2])-1], 10, 64)
+			if err != nil {
+				id, _ := writeErrorLog(err)
+				client.SendMessage(message.ChannelID, "error "+id+": "+err.Error())
+				return
+			}
+			channel, err := client.Channel(discord.ChannelID(discord.Snowflake(channelId)))
+			if err != nil {
+				id, _ := writeErrorLog(err)
+				client.SendMessage(message.ChannelID, "error "+id+": "+err.Error())
+				return
+			}
+
+			log.Println(channel.ID)
+		case "remove":
+
+		default:
+			client.SendMessage(message.ChannelID, "invalid command!")
+		}
 	})
 
 	client.Open(client.Context())
