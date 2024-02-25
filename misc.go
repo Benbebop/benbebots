@@ -105,20 +105,11 @@ var cannedFoodEmoji = discord.NewAPIEmoji(discord.NullEmojiID, `🥫`)
 
 func cannedFood() {
 	opts := struct {
-		Channels    []discord.ChannelID `ini:"-"`
-		Delay       []int64             `ini:"delay"`
-		CommandRole uint64              `ini:"commandrole"`
-		BotServer   uint64              `ini:"benbebots"`
+		Delay       []int64 `ini:"delay"`
+		CommandRole uint64  `ini:"commandrole"`
+		BotServer   uint64  `ini:"benbebots"`
 	}{}
-	sect := cfg.Section("bot.cannedfood")
-	sect.MapTo(&opts)
-
-	for _, v := range sect.Key("channels").StringsWithShadows(",") {
-		channel, err := discord.ParseSnowflake(v)
-		if err == nil {
-			opts.Channels = append(opts.Channels, discord.ChannelID(channel))
-		}
-	}
+	cfg.Section("bot.cannedfood").MapTo(&opts)
 	cfg.Section("servers").MapTo(&opts)
 
 	var client *session.Session
@@ -151,9 +142,31 @@ func cannedFood() {
 		log.Println("Connected to discord as", me.Tag())
 	})
 
+	var validChannels []discord.ChannelID
+	var validChannelsStr []byte
+	client.AddHandler(func(*gateway.ReadyEvent) {
+		var err error
+		validChannelsStr, err = ldb.Get([]byte("cannedFoodValidChannels"), nil)
+		if err != nil {
+			writeErrorLog(err)
+			return
+		}
+
+		strs := strings.Fields(string(validChannelsStr))
+		validChannels = make([]discord.ChannelID, len(strs))
+		for i, v := range strs {
+			id, err := strconv.ParseUint(v, 10, 64)
+			if err != nil {
+				writeErrorLog(err)
+				return
+			}
+			validChannels[i] = discord.ChannelID(id)
+		}
+	})
+
 	client.AddHandler(func(message *gateway.MessageCreateEvent) { // reaction
 		var valid bool
-		for _, channel := range opts.Channels {
+		for _, channel := range validChannels {
 			if message.ChannelID == channel {
 				valid = true
 				break
@@ -189,7 +202,7 @@ func cannedFood() {
 			return
 		}
 
-		// check perms
+		// check
 		member, err := client.Member(discord.GuildID(opts.BotServer), message.Author.ID)
 		if err != nil {
 			writeErrorLog(err)
@@ -209,7 +222,7 @@ func cannedFood() {
 
 		items := strings.Fields(message.Content)
 		if len(items) < 3 {
-			client.SendMessage(message.ChannelID, "invalid syntax!")
+			client.SendMessageReply(message.ChannelID, "invalid syntax!", message.ID)
 			return
 		}
 
@@ -218,19 +231,43 @@ func cannedFood() {
 			channelId, err := strconv.ParseUint(items[2][2:len(items[2])-1], 10, 64)
 			if err != nil {
 				id, _ := writeErrorLog(err)
-				client.SendMessage(message.ChannelID, "error "+id+": "+err.Error())
+				client.SendMessageReply(message.ChannelID, "error "+id+": "+err.Error(), message.ID)
 				return
 			}
+			log.Println(channelId)
 			channel, err := client.Channel(discord.ChannelID(discord.Snowflake(channelId)))
 			if err != nil {
 				id, _ := writeErrorLog(err)
-				client.SendMessage(message.ChannelID, "error "+id+": "+err.Error())
+				client.SendMessageReply(message.ChannelID, "error "+id+": "+err.Error(), message.ID)
 				return
 			}
 
-			log.Println(channel.ID)
-		case "remove":
+			found := false
+			for _, v := range validChannels {
+				if channel.ID == v {
+					found = true
+					break
+				}
+			}
+			if found {
+				client.SendMessageReply(message.ChannelID, "channel already added", message.ID)
+				return
+			}
 
+			validChannelsNew := append(validChannels, channel.ID)
+			validChannelsStrNew := strconv.AppendUint(append(validChannelsStr, ' '), uint64(channel.ID), 10)
+
+			err = ldb.Put([]byte("cannedFoodValidChannels"), validChannelsStrNew, nil)
+			if err != nil {
+				id, _ := writeErrorLog(err)
+				client.SendMessageReply(message.ChannelID, "error "+id+": "+err.Error(), message.ID)
+				return
+			}
+
+			validChannels = validChannelsNew
+			validChannelsStr = validChannelsStrNew
+
+			client.SendMessageReply(message.ChannelID, "done", message.ID)
 		default:
 			client.SendMessage(message.ChannelID, "invalid command!")
 		}
