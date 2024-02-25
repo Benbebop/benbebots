@@ -234,7 +234,6 @@ func cannedFood() {
 				client.SendMessageReply(message.ChannelID, "error "+id+": "+err.Error(), message.ID)
 				return
 			}
-			log.Println(channelId)
 			channel, err := client.Channel(discord.ChannelID(discord.Snowflake(channelId)))
 			if err != nil {
 				id, _ := writeErrorLog(err)
