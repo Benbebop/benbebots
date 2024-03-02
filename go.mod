@@ -1,6 +1,6 @@
 module benbebop.net/benbebots
 
-go 1.21.5
+go 1.22.0
 
 require (
 	github.com/diamondburned/arikawa/v3 v3.3.5
