@@ -139,96 +139,94 @@ func benbebot() {
 			}
 		}
 
-		go func() {
-			for range time.Tick(opts.Frequency) {
-				id, err := scrapeSoundcloudClient()
-				if err != nil {
-					lgr.Error(err)
-					continue
-				}
-
-				options, err := query.Values(struct {
-					ClientId   string `url:"client_id"`
-					Limit      int    `url:"limit"`
-					Offset     int    `url:"offset"`
-					LinkedPart int    `url:"linked_partitioning"`
-					Version    uint64 `url:"app_version"`
-					Locale     string `url:"app_locale"`
-				}{
-					ClientId:   id,
-					Limit:      20,
-					LinkedPart: 1,
-					Version:    1708424140,
-					Locale:     "en",
-				})
-				if err != nil {
-					lgr.Error(err)
-					continue
-				}
-
-				tracks := struct {
-					Collection []struct {
-						Artwork      string    `json:"artwork_url"`
-						Title        string    `json:"title"`
-						Description  string    `json:"description"`
-						Comments     int       `json:"comment_count"`
-						Likes        int       `json:"likes_count"`
-						Plays        int       `json:"playback_count"`
-						Reposts      int       `json:"reposts_count"`
-						CreatedAt    time.Time `json:"created_at"`
-						Duration     int       `json:"duration"`
-						EmbeddableBy string    `json:"embeddable_by"`
-						Id           int       `json:"id"`
-						Kind         string    `json:"kind"`
-						Permalink    string    `json:"permalink_url"`
-						Public       bool      `json:"public"`
-						Sharing      string    `json:"sharing"`
-					} `json:"collection"`
-					Next string `json:"next_href"`
-				}{}
-				resp, err := http.Get("https://api-v2.soundcloud.com/recent-tracks/soundclown?" + options.Encode())
-				if err != nil {
-					lgr.Error(err)
-					continue
-				}
-				data, err := io.ReadAll(resp.Body)
-				resp.Body.Close()
-				if err != nil {
-					lgr.Error(err)
-					continue
-				}
-				err = json.Unmarshal(data, &tracks)
-				if err != nil {
-					lgr.Error(err)
-					continue
-				}
-
-				toSend, toSendValue := tracks.Collection[0], 0
-				for _, track := range tracks.Collection {
-					sentAlready := false
-					for _, rec := range recents {
-						if track.Permalink == rec {
-							sentAlready = true
-							break
-						}
-					}
-					if sentAlready {
-						continue
-					}
-					value := track.Likes + max(int(float32(track.Plays)*0.15), 1)
-					if value > toSendValue {
-						toSend, toSendValue = track, value
-					}
-				}
-
-				recents[recentsIndex] = toSend.Permalink
-				recentsIndex += 1
-				if recentsIndex >= len(recents) {
-					recentsIndex = 0
-				}
-				client.SendMessage(opts.Channel, toSend.Permalink)
+		crn.AddFunc("0 0 0,12 * * *", func() {
+			id, err := scrapeSoundcloudClient()
+			if err != nil {
+				lgr.Error(err)
+				return
 			}
-		}()
+
+			options, err := query.Values(struct {
+				ClientId   string `url:"client_id"`
+				Limit      int    `url:"limit"`
+				Offset     int    `url:"offset"`
+				LinkedPart int    `url:"linked_partitioning"`
+				Version    uint64 `url:"app_version"`
+				Locale     string `url:"app_locale"`
+			}{
+				ClientId:   id,
+				Limit:      20,
+				LinkedPart: 1,
+				Version:    1708424140,
+				Locale:     "en",
+			})
+			if err != nil {
+				lgr.Error(err)
+				return
+			}
+
+			tracks := struct {
+				Collection []struct {
+					Artwork      string    `json:"artwork_url"`
+					Title        string    `json:"title"`
+					Description  string    `json:"description"`
+					Comments     int       `json:"comment_count"`
+					Likes        int       `json:"likes_count"`
+					Plays        int       `json:"playback_count"`
+					Reposts      int       `json:"reposts_count"`
+					CreatedAt    time.Time `json:"created_at"`
+					Duration     int       `json:"duration"`
+					EmbeddableBy string    `json:"embeddable_by"`
+					Id           int       `json:"id"`
+					Kind         string    `json:"kind"`
+					Permalink    string    `json:"permalink_url"`
+					Public       bool      `json:"public"`
+					Sharing      string    `json:"sharing"`
+				} `json:"collection"`
+				Next string `json:"next_href"`
+			}{}
+			resp, err := http.Get("https://api-v2.soundcloud.com/recent-tracks/soundclown?" + options.Encode())
+			if err != nil {
+				lgr.Error(err)
+				return
+			}
+			data, err := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if err != nil {
+				lgr.Error(err)
+				return
+			}
+			err = json.Unmarshal(data, &tracks)
+			if err != nil {
+				lgr.Error(err)
+				return
+			}
+
+			toSend, toSendValue := tracks.Collection[0], 0
+			for _, track := range tracks.Collection {
+				sentAlready := false
+				for _, rec := range recents {
+					if track.Permalink == rec {
+						sentAlready = true
+						break
+					}
+				}
+				if sentAlready {
+					continue
+				}
+				value := track.Likes + max(int(float32(track.Plays)*0.15), 1)
+				if value > toSendValue {
+					toSend, toSendValue = track, value
+				}
+			}
+
+			recents[recentsIndex] = toSend.Permalink
+			recentsIndex += 1
+			if recentsIndex >= len(recents) {
+				recentsIndex = 0
+			}
+			client.SendMessage(opts.Channel, toSend.Permalink)
+		})
 	})
 
 	r := cmdroute.NewRouter()

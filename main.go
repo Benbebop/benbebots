@@ -15,6 +15,7 @@ import (
 	"github.com/diamondburned/arikawa/v3/discord"
 	netrc "github.com/fhs/go-netrc/netrc"
 	"github.com/go-sql-driver/mysql"
+	"github.com/robfig/cron"
 	"github.com/syndtr/goleveldb/leveldb"
 	"gopkg.in/ini.v1"
 )
@@ -53,6 +54,7 @@ func cmdErrorResp(inErr error) *api.InteractionResponseData {
 
 // startup //
 
+var crn cron.Cron = *cron.New()
 var lgr logger.Logger
 var cfg *ini.File
 var db *sql.DB
@@ -187,6 +189,7 @@ func main() {
 		default:
 			log.Fatalln("unknown")
 		}
+		crn.Start()
 		select {}
 	}
 
@@ -207,6 +210,8 @@ func main() {
 	botGoroutineGroup.Wait()
 
 	log.Println("Launched all discord bots")
+
+	crn.Start()
 
 	select {}
 }
