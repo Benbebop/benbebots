@@ -1,15 +1,22 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
+	"github.com/diamondburned/arikawa/v3/api"
+	"github.com/diamondburned/arikawa/v3/api/cmdroute"
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/session"
+	"github.com/diamondburned/arikawa/v3/utils/json/option"
 	"github.com/google/go-querystring/query"
 	"golang.org/x/net/html"
 )
@@ -223,6 +230,31 @@ func benbebot() {
 			}
 		}()
 	})
+
+	r := cmdroute.NewRouter()
+	r.AddFunc("getlog", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+		var options = struct {
+			Id string `discord:"id"`
+		}{}
+		if err := data.Options.Unmarshal(&options); err != nil {
+			return cmdErrorResp(err)
+		}
+
+		buffer, err := os.ReadFile(lgr.Directory + options.Id + ".log")
+		if err != nil {
+			return cmdErrorResp(err)
+		}
+
+		if len(buffer) > 2000 {
+			return cmdErrorResp(errors.New("too long woops"))
+		}
+
+		return &api.InteractionResponseData{
+			Content: option.NewNullableString(fmt.Sprintf("```\n%s\n```", string(buffer))),
+		}
+	})
+
+	client.AddInteractionHandler(r)
 
 	client.Open(client.Context())
 	botGoroutineGroup.Done()
