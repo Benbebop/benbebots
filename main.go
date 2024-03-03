@@ -8,11 +8,9 @@ import (
 	"log"
 	"os"
 	"runtime"
-	"strconv"
-	"strings"
 	"sync"
-	"time"
 
+	"benbebop.net/benbebots/logger"
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
 	netrc "github.com/fhs/go-netrc/netrc"
@@ -21,38 +19,8 @@ import (
 	"gopkg.in/ini.v1"
 )
 
-func writeErrorLog(inErr error) (string, error) {
-	dir, err := os.UserCacheDir()
-	if err != nil {
-		return "", err
-	}
-	id := strings.ToUpper(strconv.FormatInt(time.Now().UnixMicro(), 36))
-	os.Mkdir(dir+"/benbebots/errors/", fs.FileMode(0777))
-	file, err := os.OpenFile(fmt.Sprintf("%s/benbebots/errors/%s.log", dir, id), os.O_CREATE|os.O_WRONLY, 0777)
-	if err != nil {
-		return "", err
-	}
-	_, err = file.Write([]byte(inErr.Error() + "\n\n"))
-	if err != nil {
-		return "", err
-	}
-	b := make([]byte, 2048)
-	n := runtime.Stack(b, false)
-	_, err = file.Write(b[:n])
-	if err != nil {
-		return "", err
-	}
-	file.Close()
-	log.Println(id, inErr)
-	return id, nil
-}
-
 func cmdErrorResp(inErr error) *api.InteractionResponseData {
-	id, err := writeErrorLog(inErr)
-	if err != nil {
-		log.Println(err)
-		id = "no id"
-	}
+	id := lgr.Error(inErr)
 
 	var stk string
 	for i := 1; i < 6; i++ {
@@ -85,6 +53,7 @@ func cmdErrorResp(inErr error) *api.InteractionResponseData {
 
 // startup //
 
+var lgr logger.Logger
 var cfg *ini.File
 var db *sql.DB
 var ldb *leveldb.DB
@@ -116,27 +85,6 @@ func connectDatabase(user string, passwd string) error {
 var botGoroutineGroup sync.WaitGroup
 
 func main() {
-	// parse tokens
-	mach, _, err := netrc.ParseFile("tokens.netrc")
-	if err != nil {
-		return
-	}
-
-	for _, e := range mach {
-		tokens[e.Name] = *e
-	}
-
-	// parse config
-	cfg, err = ini.LoadSources(ini.LoadOptions{
-		Loose:                     true,
-		Insensitive:               true,
-		UnescapeValueDoubleQuotes: true,
-		AllowShadows:              true,
-	}, "config.ini")
-	if err != nil {
-		return
-	}
-
 	// initialise data directories
 	dir, err := os.UserCacheDir()
 	if err != nil {
@@ -154,6 +102,35 @@ func main() {
 		os.MkdirAll(dirs.Data, fs.FileMode(0777))
 	} else if err != nil {
 		return
+	}
+
+	// parse config
+	cfg, err = ini.LoadSources(ini.LoadOptions{
+		Loose:                     true,
+		Insensitive:               true,
+		UnescapeValueDoubleQuotes: true,
+		AllowShadows:              true,
+	}, "config.ini")
+	if err != nil {
+		return
+	}
+
+	// init logger
+	lgr.Directory = dirs.Data + "logs/"
+	k, err := cfg.Section("bot").GetKey("logurl")
+	if err != nil {
+		return
+	}
+	lgr.Webhook = k.String()
+
+	// parse tokens
+	mach, _, err := netrc.ParseFile("tokens.netrc")
+	if err != nil {
+		return
+	}
+
+	for _, e := range mach {
+		tokens[e.Name] = *e
 	}
 
 	// initialize leveldb

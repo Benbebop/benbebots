@@ -52,7 +52,7 @@ func scrapeSoundcloudClient() (string, error) {
 
 		resp, err := http.Get(url)
 		if err != nil {
-			writeErrorLog(err)
+			lgr.Error(err)
 			continue
 		}
 		defer resp.Body.Close()
@@ -120,7 +120,7 @@ func benbebot() {
 
 		msgs, err := client.Messages(opts.Channel, 30)
 		if err != nil {
-			writeErrorLog(err)
+			lgr.Error(err)
 			return
 		}
 		url := "https://soundcloud.com/"
@@ -136,7 +136,7 @@ func benbebot() {
 			for range time.Tick(opts.Frequency) {
 				id, err := scrapeSoundcloudClient()
 				if err != nil {
-					writeErrorLog(err)
+					lgr.Error(err)
 					continue
 				}
 
@@ -155,7 +155,7 @@ func benbebot() {
 					Locale:     "en",
 				})
 				if err != nil {
-					writeErrorLog(err)
+					lgr.Error(err)
 					continue
 				}
 
@@ -181,18 +181,18 @@ func benbebot() {
 				}{}
 				resp, err := http.Get("https://api-v2.soundcloud.com/recent-tracks/soundclown?" + options.Encode())
 				if err != nil {
-					writeErrorLog(err)
+					lgr.Error(err)
 					continue
 				}
 				data, err := io.ReadAll(resp.Body)
 				resp.Body.Close()
 				if err != nil {
-					writeErrorLog(err)
+					lgr.Error(err)
 					continue
 				}
 				err = json.Unmarshal(data, &tracks)
 				if err != nil {
-					writeErrorLog(err)
+					lgr.Error(err)
 					continue
 				}
 

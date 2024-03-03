@@ -148,7 +148,7 @@ func cannedFood() {
 		var err error
 		validChannelsStr, err = ldb.Get([]byte("cannedFoodValidChannels"), nil)
 		if err != nil {
-			writeErrorLog(err)
+			lgr.Error(err)
 			return
 		}
 
@@ -157,7 +157,7 @@ func cannedFood() {
 		for i, v := range strs {
 			id, err := strconv.ParseUint(v, 10, 64)
 			if err != nil {
-				writeErrorLog(err)
+				lgr.Error(err)
 				return
 			}
 			validChannels[i] = discord.ChannelID(id)
@@ -205,7 +205,7 @@ func cannedFood() {
 		// check
 		member, err := client.Member(discord.GuildID(opts.BotServer), message.Author.ID)
 		if err != nil {
-			writeErrorLog(err)
+			lgr.Error(err)
 			return
 		}
 
@@ -230,13 +230,13 @@ func cannedFood() {
 		case "add":
 			channelId, err := strconv.ParseUint(items[2][2:len(items[2])-1], 10, 64)
 			if err != nil {
-				id, _ := writeErrorLog(err)
+				id := lgr.Error(err)
 				client.SendMessageReply(message.ChannelID, "error "+id+": "+err.Error(), message.ID)
 				return
 			}
 			channel, err := client.Channel(discord.ChannelID(discord.Snowflake(channelId)))
 			if err != nil {
-				id, _ := writeErrorLog(err)
+				id := lgr.Error(err)
 				client.SendMessageReply(message.ChannelID, "error "+id+": "+err.Error(), message.ID)
 				return
 			}
@@ -258,7 +258,7 @@ func cannedFood() {
 
 			err = ldb.Put([]byte("cannedFoodValidChannels"), validChannelsStrNew, nil)
 			if err != nil {
-				id, _ := writeErrorLog(err)
+				id := lgr.Error(err)
 				client.SendMessageReply(message.ChannelID, "error "+id+": "+err.Error(), message.ID)
 				return
 			}
