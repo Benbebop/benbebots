@@ -164,6 +164,9 @@ func cannedFood() {
 	})
 
 	client.AddHandler(func(message *gateway.MessageCreateEvent) { // reaction
+		if !message.MentionEveryone {
+			return
+		}
 		var valid bool
 		for _, channel := range validChannels {
 			if message.ChannelID == channel {
