@@ -5,10 +5,8 @@ import (
 	"embed"
 	"errors"
 	"io"
-	"io/fs"
 	"log"
 	"math/rand"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -18,6 +16,7 @@ import (
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/session"
 	"github.com/diamondburned/arikawa/v3/utils/sendpart"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 func getWaitTime(now time.Time, gnerbtime time.Duration, dayAdd int) (time.Duration, time.Time) {
@@ -93,7 +92,7 @@ func loginCannedFood() (*session.Session, error) {
 	for i := 1; i < 3; i++ {
 		client, err := session.Login(context.Background(), tokens["cannedFood"].Login, tokens["cannedFood"].Password, "")
 		if err == nil {
-			os.WriteFile(dirs.Data+"cannedFood.token", []byte(client.Token), 0600)
+			ldb.Put([]byte("cannedFoodToken"), []byte(client.Token), nil)
 			return client, nil
 		}
 		log.Println(err)
@@ -113,7 +112,7 @@ func cannedFood() {
 	cfg.Section("servers").MapTo(&opts)
 
 	var client *session.Session
-	if t, err := os.ReadFile(dirs.Data + "cannedFood.token"); err == nil {
+	if t, err := ldb.Get([]byte("cannedFoodToken"), nil); err == nil {
 		token := string(t)
 		tmpClient := api.NewClient(token)
 		_, err := tmpClient.Me()
@@ -127,7 +126,7 @@ func cannedFood() {
 			client = session.New(token)
 		}
 	} else {
-		if !errors.Is(err, fs.ErrNotExist) {
+		if !errors.Is(err, leveldb.ErrNotFound) {
 			log.Println(err)
 		} else {
 			log.Println("CannedFood token missing, logging in")
