@@ -139,7 +139,7 @@ func benbebot() {
 			}
 		}
 
-		crn.AddFunc(opts.Cron, func() {
+		lgr.Assert(crn.AddFunc(opts.Cron, func() {
 			id, err := scrapeSoundcloudClient()
 			if err != nil {
 				lgr.Error(err)
@@ -226,7 +226,7 @@ func benbebot() {
 				recentsIndex = 0
 			}
 			client.SendMessage(opts.Channel, toSend.Permalink)
-		})
+		}))
 	})
 
 	r := cmdroute.NewRouter()

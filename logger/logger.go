@@ -62,3 +62,15 @@ func (l Logger) Error(inErr error) string {
 	http.DefaultClient.Do(req)
 	return id
 }
+
+func (l Logger) Assert(inErr error) (bool, string) {
+	if inErr != nil {
+		return true, l.Error(inErr)
+	}
+	return false, ""
+}
+
+// i dont like this but i cant think of anything better
+func (l Logger) Assert2(_ any, inErr error) (bool, string) {
+	return l.Assert(inErr)
+}
