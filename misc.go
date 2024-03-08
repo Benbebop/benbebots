@@ -81,6 +81,7 @@ func fnafBot() { // gnerb
 	me, err := client.Me()
 	if err == nil {
 		log.Println(me.Tag() + " is ready")
+		botGoroutineGroup.Done()
 		return
 	}
 
