@@ -115,8 +115,8 @@ func benbebot() {
 
 	client.AddHandler(func(*gateway.ReadyEvent) { // soundclown
 		opts := struct {
-			Frequency time.Duration `ini:"motdfreq"`
-			ChannelId uint64        `ini:"motdchannel"`
+			Cron      string `ini:"motdcron"`
+			ChannelId uint64 `ini:"motdchannel"`
 			Channel   discord.ChannelID
 			EndPoint  string `ini:"motdendpoint"`
 		}{}
@@ -139,7 +139,7 @@ func benbebot() {
 			}
 		}
 
-		crn.AddFunc("0 0 12 * * *", func() {
+		crn.AddFunc(opts.Cron, func() {
 			id, err := scrapeSoundcloudClient()
 			if err != nil {
 				lgr.Error(err)
