@@ -139,7 +139,7 @@ func benbebot() {
 			}
 		}
 
-		crn.AddFunc("0 0 0,12 * * *", func() {
+		crn.AddFunc("0 0 12 * * *", func() {
 			id, err := scrapeSoundcloudClient()
 			if err != nil {
 				lgr.Error(err)
