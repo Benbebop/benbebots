@@ -121,7 +121,8 @@ func cannedFood() {
 			log.Println("CannedFood token errored, logging in")
 			client, err = loginCannedFood()
 			if err != nil {
-				log.Fatalln(err)
+				lgr.Error(err)
+				return
 			}
 		} else {
 			client = session.New(token)
