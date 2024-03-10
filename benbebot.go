@@ -9,6 +9,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/diamondburned/arikawa/v3/api"
@@ -125,8 +127,32 @@ func benbebot() {
 		cfgSec.MapTo(&opts)
 		opts.Channel = discord.ChannelID(discord.Snowflake(opts.ChannelId))
 
-		var recents [30]string
-		recentsIndex := 0
+		var recents [30]uint
+		var recentsIndex uint64
+		client.AddHandler(func(*gateway.ReadyEvent) {
+			validChannelsStr, err := ldb.Get([]byte("recentSoundclowns"), nil)
+			if err != nil {
+				lgr.Error(err)
+				return
+			}
+
+			strs := strings.Fields(string(validChannelsStr))
+			recentsIndex, err = strconv.ParseUint(strs[0], 10, 64)
+			if err != nil {
+				lgr.Error(err)
+				return
+			}
+			strs = strs[1:]
+			for i, v := range strs {
+				id, err := strconv.ParseUint(v, 10, 64)
+				if err != nil {
+					lgr.Error(err)
+					return
+				}
+				recents[i] = uint(id)
+			}
+		})
+
 		var clientId string
 
 		sendNewSoundclown := func() {
@@ -190,14 +216,14 @@ func benbebot() {
 					Artwork      string    `json:"artwork_url"`
 					Title        string    `json:"title"`
 					Description  string    `json:"description"`
-					Comments     int       `json:"comment_count"`
-					Likes        int       `json:"likes_count"`
-					Plays        int       `json:"playback_count"`
-					Reposts      int       `json:"reposts_count"`
+					Comments     uint      `json:"comment_count"`
+					Likes        uint      `json:"likes_count"`
+					Plays        uint      `json:"playback_count"`
+					Reposts      uint      `json:"reposts_count"`
 					CreatedAt    time.Time `json:"created_at"`
-					Duration     int       `json:"duration"`
+					Duration     uint      `json:"duration"`
 					EmbeddableBy string    `json:"embeddable_by"`
-					Id           int       `json:"id"`
+					Id           uint      `json:"id"`
 					Kind         string    `json:"kind"`
 					Permalink    string    `json:"permalink_url"`
 					Public       bool      `json:"public"`
@@ -212,11 +238,11 @@ func benbebot() {
 			}
 
 			// filter sent already
-			toSend, toSendValue := tracks.Collection[0], 0
+			toSend, toSendValue := tracks.Collection[0], uint(0)
 			for _, track := range tracks.Collection {
 				sentAlready := false
 				for _, rec := range recents {
-					if track.Permalink == rec {
+					if track.Id == rec {
 						sentAlready = true
 						break
 					}
@@ -224,18 +250,24 @@ func benbebot() {
 				if sentAlready {
 					continue
 				}
-				value := track.Likes + max(int(float32(track.Plays)*0.15), 1)
+				value := track.Likes + max(uint(float32(track.Plays)*0.15), 1)
 				if value > toSendValue {
 					toSend, toSendValue = track, value
 				}
 			}
 
 			// add to recents
-			recents[recentsIndex] = toSend.Permalink
+			recents[recentsIndex] = toSend.Id
 			recentsIndex += 1
-			if recentsIndex >= len(recents) {
+			if recentsIndex >= 30 {
 				recentsIndex = 0
 			}
+			var str []byte
+			str = append(strconv.AppendUint(str, recentsIndex, 10), ' ')
+			for i := 0; i < 30; i++ {
+				str = append(strconv.AppendUint(str, uint64(recents[i]), 10), ' ')
+			}
+			ldb.Put([]byte("recentSoundclowns"), str, nil)
 
 			// send
 			log.Println("sending soundclown")
@@ -243,21 +275,6 @@ func benbebot() {
 		}
 
 		client.AddHandler(func(*gateway.ReadyEvent) {
-			// get previously sent in channel
-			msgs, err := client.Messages(opts.Channel, 30)
-			if err != nil {
-				lgr.Error(err)
-				return
-			}
-			url := "https://soundcloud.com/"
-			urlLen := len(url)
-			for _, message := range msgs {
-				if len(message.Content) >= urlLen && message.Content[:urlLen] == url {
-					recents[recentsIndex] = message.Content
-					recentsIndex += 1
-				}
-			}
-
 			// get soundcloud token
 			cltId, err := ldb.Get([]byte("soundcloudClientId"), nil)
 			if err != nil {
