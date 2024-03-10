@@ -115,7 +115,7 @@ func benbebot() {
 		log.Println("Connected to discord as", me.Tag())
 	})
 
-	client.AddHandler(func(*gateway.ReadyEvent) { // soundclown
+	{ // soundclown
 		opts := struct {
 			Cron      string `ini:"motdcron"`
 			ChannelId uint64 `ini:"motdchannel"`
@@ -125,37 +125,11 @@ func benbebot() {
 		cfgSec.MapTo(&opts)
 		opts.Channel = discord.ChannelID(discord.Snowflake(opts.ChannelId))
 
-		// get previously sent in channel
 		var recents [30]string
 		recentsIndex := 0
-		msgs, err := client.Messages(opts.Channel, 30)
-		if err != nil {
-			lgr.Error(err)
-			return
-		}
-		url := "https://soundcloud.com/"
-		urlLen := len(url)
-		for _, message := range msgs {
-			if len(message.Content) >= urlLen && message.Content[:urlLen] == url {
-				recents[recentsIndex] = message.Content
-				recentsIndex += 1
-			}
-		}
-
-		// get soundcloud token
 		var clientId string
-		cltId, err := ldb.Get([]byte("soundcloudClientId"), nil)
-		if err != nil {
-			lgr.Error(err)
-			clientId, err = scrapeSoundcloudClient()
-			if err != nil {
-				lgr.Error(err)
-			}
-		} else {
-			clientId = string(cltId)
-		}
 
-		lgr.Assert(crn.AddFunc(opts.Cron, func() {
+		sendNewSoundclown := func() {
 			// request soundcloud
 			options := struct {
 				ClientId   string `url:"client_id"`
@@ -266,8 +240,47 @@ func benbebot() {
 			// send
 			log.Println("sending soundclown")
 			lgr.Assert2(client.SendMessage(opts.Channel, toSend.Permalink))
-		}))
-	})
+		}
+
+		client.AddHandler(func(*gateway.ReadyEvent) {
+			// get previously sent in channel
+			msgs, err := client.Messages(opts.Channel, 30)
+			if err != nil {
+				lgr.Error(err)
+				return
+			}
+			url := "https://soundcloud.com/"
+			urlLen := len(url)
+			for _, message := range msgs {
+				if len(message.Content) >= urlLen && message.Content[:urlLen] == url {
+					recents[recentsIndex] = message.Content
+					recentsIndex += 1
+				}
+			}
+
+			// get soundcloud token
+			cltId, err := ldb.Get([]byte("soundcloudClientId"), nil)
+			if err != nil {
+				lgr.Error(err)
+				clientId, err = scrapeSoundcloudClient()
+				if err != nil {
+					lgr.Error(err)
+				}
+			} else {
+				clientId = string(cltId)
+			}
+
+			lgr.Assert(crn.AddFunc(opts.Cron, sendNewSoundclown))
+		})
+
+		client.AddHandler(func(message *gateway.MessageDeleteEvent) {
+			if message.ChannelID != opts.Channel {
+				return
+			}
+
+			sendNewSoundclown()
+		})
+	}
 
 	r := cmdroute.NewRouter()
 	r.AddFunc("getlog", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
