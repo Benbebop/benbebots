@@ -98,6 +98,8 @@ func scrapeSoundcloudClient() (string, error) {
 		}
 	}
 
+	ldb.Put([]byte("soundcloudClientId"), []byte(clientId), nil)
+
 	return clientId, nil
 }
 
@@ -122,9 +124,10 @@ func benbebot() {
 		}{}
 		cfgSec.MapTo(&opts)
 		opts.Channel = discord.ChannelID(discord.Snowflake(opts.ChannelId))
+
+		// get previously sent in channel
 		var recents [30]string
 		recentsIndex := 0
-
 		msgs, err := client.Messages(opts.Channel, 30)
 		if err != nil {
 			lgr.Error(err)
@@ -139,14 +142,22 @@ func benbebot() {
 			}
 		}
 
-		lgr.Assert(crn.AddFunc(opts.Cron, func() {
-			id, err := scrapeSoundcloudClient()
+		// get soundcloud token
+		var clientId string
+		cltId, err := ldb.Get([]byte("soundcloudClientId"), nil)
+		if err != nil {
+			lgr.Error(err)
+			clientId, err = scrapeSoundcloudClient()
 			if err != nil {
 				lgr.Error(err)
-				return
 			}
+		} else {
+			clientId = string(cltId)
+		}
 
-			options, err := query.Values(struct {
+		lgr.Assert(crn.AddFunc(opts.Cron, func() {
+			// request soundcloud
+			options := struct {
 				ClientId   string `url:"client_id"`
 				Limit      int    `url:"limit"`
 				Offset     int    `url:"offset"`
@@ -154,17 +165,52 @@ func benbebot() {
 				Version    uint64 `url:"app_version"`
 				Locale     string `url:"app_locale"`
 			}{
-				ClientId:   id,
+				ClientId:   clientId,
 				Limit:      20,
 				LinkedPart: 1,
 				Version:    1708424140,
 				Locale:     "en",
-			})
+			}
+			var resp *http.Response
+		reqLoop:
+			for i := 0; i < 4; i++ {
+				qry, err := query.Values(options)
+				if err != nil {
+					lgr.Error(err)
+					return
+				}
+				resp, err = http.Get("https://api-v2.soundcloud.com/recent-tracks/soundclown?" + qry.Encode())
+				if err != nil {
+					lgr.Error(err)
+					return
+				}
+				switch resp.StatusCode {
+				case 401:
+					clientId, err = scrapeSoundcloudClient()
+					if err != nil {
+						lgr.Error(err)
+						return
+					}
+					options.ClientId = clientId
+				case 200:
+					break reqLoop
+				default:
+					lgr.Error(fmt.Errorf("couldnt get soundclouds: %s", resp.Status))
+					break reqLoop
+				}
+			}
+			if resp.StatusCode != 200 {
+				lgr.Error(fmt.Errorf("couldnt get soundclouds: %s", resp.Status))
+				return
+			}
+
+			// get recent tracks
+			data, err := io.ReadAll(resp.Body)
+			resp.Body.Close()
 			if err != nil {
 				lgr.Error(err)
 				return
 			}
-
 			tracks := struct {
 				Collection []struct {
 					Artwork      string    `json:"artwork_url"`
@@ -185,23 +231,13 @@ func benbebot() {
 				} `json:"collection"`
 				Next string `json:"next_href"`
 			}{}
-			resp, err := http.Get("https://api-v2.soundcloud.com/recent-tracks/soundclown?" + options.Encode())
-			if err != nil {
-				lgr.Error(err)
-				return
-			}
-			data, err := io.ReadAll(resp.Body)
-			resp.Body.Close()
-			if err != nil {
-				lgr.Error(err)
-				return
-			}
 			err = json.Unmarshal(data, &tracks)
 			if err != nil {
 				lgr.Error(err)
 				return
 			}
 
+			// filter sent already
 			toSend, toSendValue := tracks.Collection[0], 0
 			for _, track := range tracks.Collection {
 				sentAlready := false
@@ -220,12 +256,16 @@ func benbebot() {
 				}
 			}
 
+			// add to recents
 			recents[recentsIndex] = toSend.Permalink
 			recentsIndex += 1
 			if recentsIndex >= len(recents) {
 				recentsIndex = 0
 			}
-			client.SendMessage(opts.Channel, toSend.Permalink)
+
+			// send
+			log.Println("sending soundclown")
+			lgr.Assert2(client.SendMessage(opts.Channel, toSend.Permalink))
 		}))
 	})
 
