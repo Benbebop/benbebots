@@ -287,7 +287,24 @@ func benbebot() {
 				clientId = string(cltId)
 			}
 
-			lgr.Assert(crn.AddFunc(opts.Cron, sendNewSoundclown))
+			url := "https://soundcloud.com/"
+			urlLen := len(url)
+			lgr.Assert(crn.AddFunc(opts.Cron, func() {
+				messages, err := client.Messages(opts.Channel, 1)
+				if err != nil {
+					lgr.Error(err)
+					sendNewSoundclown()
+					return
+				}
+				message := messages[0]
+				if !(len(message.Content) >= urlLen && message.Content[:urlLen] == url) {
+					sendNewSoundclown()
+					return
+				}
+				lgr.Assert2(client.CrosspostMessage(opts.Channel, messages[0].ID))
+
+				sendNewSoundclown()
+			}))
 		})
 
 		client.AddHandler(func(message *gateway.MessageDeleteEvent) {
