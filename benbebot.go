@@ -116,6 +116,7 @@ func benbebot() {
 		me, _ := client.Me()
 		log.Println("Connected to discord as", me.Tag())
 	})
+	router := cmdroute.NewRouter()
 
 	{ // soundclown
 		opts := struct {
@@ -316,31 +317,58 @@ func benbebot() {
 		})
 	}
 
-	r := cmdroute.NewRouter()
-	r.AddFunc("getlog", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
-		var options = struct {
-			Id string `discord:"id"`
-		}{}
-		if err := data.Options.Unmarshal(&options); err != nil {
-			return cmdErrorResp(err)
-		}
+	{ // get logs
+		router.AddFunc("getlog", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+			var options = struct {
+				Id string `discord:"id"`
+			}{}
+			if err := data.Options.Unmarshal(&options); err != nil {
+				return cmdErrorResp(err)
+			}
 
-		buffer, err := os.ReadFile(lgr.Directory + options.Id + ".log")
-		if err != nil {
-			return cmdErrorResp(err)
-		}
+			buffer, err := os.ReadFile(lgr.Directory + options.Id + ".log")
+			if err != nil {
+				return cmdErrorResp(err)
+			}
 
-		if len(buffer) > 2000 {
-			return cmdErrorResp(errors.New("too long woops"))
-		}
+			if len(buffer) > 2000 {
+				return cmdErrorResp(errors.New("too long woops"))
+			}
 
-		return &api.InteractionResponseData{
-			Content: option.NewNullableString(fmt.Sprintf("```\n%s\n```", string(buffer))),
-		}
-	})
+			return &api.InteractionResponseData{
+				Content: option.NewNullableString(fmt.Sprintf("```\n%s\n```", string(buffer))),
+			}
+		})
+	}
 
-	client.AddInteractionHandler(r)
+	{ // sex command
+		router.AddFunc("sex", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+			sndr := data.Event.SenderID()
+			if sndr == 0 {
+				lgr.Error(errors.New("sender is 0"))
+				return &api.InteractionResponseData{
+					Content: option.NewNullableString("how the fuck"),
+					Flags:   discord.EphemeralMessage,
+				}
+			}
+			ok, id, err := lgr.Assert(client.Ban(data.Event.GuildID, sndr, api.BanData{
+				DeleteDays:     option.ZeroUint,
+				AuditLogReason: "sex command",
+			}))
+			if !ok {
+				return &api.InteractionResponseData{
+					Content: option.NewNullableString("error `" + id + "`: " + err.Error()),
+					Flags:   discord.EphemeralMessage,
+				}
+			}
+			return &api.InteractionResponseData{
+				Content: option.NewNullableString("kys"),
+				Flags:   discord.EphemeralMessage,
+			}
+		})
+	}
 
+	client.AddInteractionHandler(router)
 	client.Open(client.Context())
 	botGoroutineGroup.Done()
 }

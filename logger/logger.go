@@ -63,14 +63,14 @@ func (l Logger) Error(inErr error) string {
 	return id
 }
 
-func (l Logger) Assert(inErr error) (bool, string) {
+func (l Logger) Assert(inErr error) (bool, string, error) {
 	if inErr != nil {
-		return true, l.Error(inErr)
+		return true, l.Error(inErr), inErr
 	}
-	return false, ""
+	return false, "", inErr
 }
 
 // i dont like this but i cant think of anything better
-func (l Logger) Assert2(_ any, inErr error) (bool, string) {
+func (l Logger) Assert2(_ any, inErr error) (bool, string, error) {
 	return l.Assert(inErr)
 }
