@@ -166,28 +166,65 @@ func cannedFood() {
 	})
 
 	client.AddHandler(func(message *gateway.MessageCreateEvent) { // reaction
-		if !message.MentionEveryone {
+		if len(message.Mentions) <= 0 && len(message.MentionRoleIDs) <= 0 && !message.MentionEveryone {
 			return
 		}
-		var valid bool
-		for _, channel := range validChannels {
-			if message.ChannelID == channel {
-				valid = true
+		me, err := client.Me()
+		if err != nil {
+			lgr.Error(err)
+			return
+		}
+		// check if pinging canned food
+		var userPinged bool
+		for _, user := range message.Mentions {
+			if user.ID == me.ID {
+				userPinged = true
 				break
 			}
 		}
-		if !valid {
-			return
+
+		if !userPinged {
+			// check if in valid channel
+			var validChannel bool
+			for _, channel := range validChannels {
+				if message.ChannelID == channel {
+					validChannel = true
+					break
+				}
+			}
+			if !validChannel {
+				return
+			}
+
+			// check if pinging everyone
+			if !message.MentionEveryone {
+				// check if pinging any of canned food's roles
+				member, err := client.Member(message.GuildID, me.ID)
+				if err != nil {
+					lgr.Error(err)
+					return
+				}
+				var rolePinged bool
+			roleLoop:
+				for _, mrole := range message.MentionRoleIDs {
+					for _, role := range member.RoleIDs {
+						if mrole == role {
+							rolePinged = true
+							break roleLoop
+						}
+					}
+				}
+
+				if !rolePinged {
+					return
+				}
+			}
 		}
 
 		delay := time.Duration(opts.Delay[0]+rand.Int63n(opts.Delay[1]-opts.Delay[0])) * time.Millisecond
 		time.Sleep(delay)
 
-		err := client.React(message.ChannelID, message.ID, cannedFoodEmoji)
-		if err != nil {
-			log.Println(err)
-			return
-		}
+		lgr.Assert(client.React(message.ChannelID, message.ID, cannedFoodEmoji))
 
 		log.Printf("CannedFood reacted to a message after %dms\n", delay.Milliseconds())
 	})
