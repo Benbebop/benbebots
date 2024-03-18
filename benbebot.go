@@ -2,16 +2,12 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
-	"strconv"
-	"strings"
-	"time"
 
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/api/cmdroute"
@@ -19,7 +15,6 @@ import (
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/session"
 	"github.com/diamondburned/arikawa/v3/utils/json/option"
-	"github.com/google/go-querystring/query"
 	"golang.org/x/net/html"
 )
 
@@ -106,7 +101,7 @@ func scrapeSoundcloudClient() (string, error) {
 }
 
 func benbebot() {
-	cfgSec := cfg.Section("bot.benbebot")
+	//cfgSec := cfg.Section("bot.benbebot")
 
 	client := session.New("Bot " + tokens["benbebot"].Password)
 	client.AddIntents(gateway.IntentGuildPresences | gateway.IntentGuildMembers | gateway.IntentMessageContent) // privileged
@@ -118,7 +113,7 @@ func benbebot() {
 	})
 	router := cmdroute.NewRouter()
 
-	{ // soundclown
+	/*{ // soundclown
 		opts := struct {
 			Cron      string `ini:"motdcron"`
 			ChannelId uint64 `ini:"motdchannel"`
@@ -169,7 +164,7 @@ func benbebot() {
 				ClientId:   clientId,
 				Limit:      20,
 				LinkedPart: 1,
-				Version:    1708424140,
+				Version:    1710774696,
 				Locale:     "en",
 			}
 			var resp *http.Response
@@ -315,7 +310,7 @@ func benbebot() {
 
 			sendNewSoundclown()
 		})
-	}
+	}*/
 
 	{ // get logs
 		router.AddFunc("getlog", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
