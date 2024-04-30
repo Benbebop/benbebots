@@ -246,7 +246,6 @@ func cannedFood() {
 		// check
 		member, err := client.Member(discord.GuildID(opts.BotServer), message.Author.ID)
 		if err != nil {
-			lgr.Error(err)
 			return
 		}
 
