@@ -2,16 +2,15 @@ package logger
 
 import (
 	"bytes"
+	"crypto/sha1"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
+	"regexp"
 	"runtime"
-	"strconv"
-	"strings"
-	"time"
 )
 
 type Logger struct {
@@ -19,31 +18,39 @@ type Logger struct {
 	Webhook   string
 }
 
-var randomMask uint64 = 0xFFFFF00000000000
+var traceSterliser *regexp.Regexp = regexp.MustCompile("0[xX][0-9a-fA-F]+|goroutine [0-9]+")
 
 func (l Logger) Error(inErr error) string {
 	os.Mkdir(l.Directory, 0777)
-	id := strings.ToUpper(strconv.FormatUint((uint64(time.Now().UnixMilli()) & ^randomMask)|(rand.Uint64()&randomMask), 36))
+	var output string
+
+	// add error
+	output += inErr.Error()
+
+	// add traceback
+	trc := make([]byte, 2048)
+	n := runtime.Stack(trc, false)
+	output += "\n\n" + string(trc[:n])
+
+	// generate id
+	hasher := sha1.New()
+	hasher.Write(traceSterliser.ReplaceAll([]byte(output), []byte("")))
+	id := base64.URLEncoding.EncodeToString(hasher.Sum(nil))
+	id = id[:12]
 
 	// create log file
 	file, err := os.OpenFile(fmt.Sprintf("%s%s.log", l.Directory, id), os.O_CREATE|os.O_WRONLY, 0777)
 	if err != nil {
 		return ""
 	}
-	_, err = file.Write([]byte(inErr.Error() + "\n\n"))
-	if err != nil {
-		return ""
-	}
-	b := make([]byte, 2048)
-	n := runtime.Stack(b, false)
-	_, err = file.Write(b[:n])
+	_, err = file.Write([]byte(output))
 	if err != nil {
 		return ""
 	}
 	file.Close()
 
 	// log to stdout
-	log.Println(fmt.Sprintf("%s: %s", id, inErr.Error()))
+	log.Printf("%s: %s", id, inErr.Error())
 
 	// send log to discord server
 	data, err := json.Marshal(struct {
