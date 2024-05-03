@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -247,8 +248,13 @@ func benbebot() {
 				return
 			}
 
+			// sort by most recent
+			sort.Slice(tracks.Collection, func(i, j int) bool {
+				return tracks.Collection[i].CreatedAt.After(tracks.Collection[j].CreatedAt)
+			})
+
 			// filter sent already
-			toSend, toSendValue := tracks.Collection[0], uint(0)
+			toSend := tracks.Collection[0]
 			for _, track := range tracks.Collection {
 				sentAlready := false
 				for _, rec := range recents {
@@ -257,12 +263,10 @@ func benbebot() {
 						break
 					}
 				}
-				if sentAlready {
-					continue
-				}
-				value := track.Likes + max(uint(float32(track.Plays)*0.15), 1)
-				if value > toSendValue {
-					toSend, toSendValue = track, value
+				toSend = track
+				if !sentAlready {
+					toSend = track
+					break
 				}
 			}
 
