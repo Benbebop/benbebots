@@ -19,6 +19,7 @@ import (
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/session"
 	"github.com/diamondburned/arikawa/v3/utils/json/option"
+	"github.com/go-co-op/gocron/v2"
 	"github.com/google/go-querystring/query"
 	"golang.org/x/net/html"
 )
@@ -298,7 +299,7 @@ func benbebot() {
 
 			url := "https://soundcloud.com/"
 			urlLen := len(url)
-			lgr.Assert(crn.AddFunc(opts.Cron, func() {
+			lgr.Assert2(crn.NewJob(gocron.CronJob(opts.Cron, true), gocron.NewTask(func() {
 				messages, err := client.Messages(opts.Channel, 1)
 				if err != nil {
 					lgr.Error(err)
@@ -313,7 +314,7 @@ func benbebot() {
 				lgr.Assert2(client.CrosspostMessage(opts.Channel, messages[0].ID))
 
 				sendNewSoundclown()
-			}))
+			})))
 		})
 
 		client.AddHandler(func(message *gateway.MessageDeleteEvent) {

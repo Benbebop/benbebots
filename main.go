@@ -14,8 +14,8 @@ import (
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
 	netrc "github.com/fhs/go-netrc/netrc"
+	"github.com/go-co-op/gocron/v2"
 	"github.com/go-sql-driver/mysql"
-	"github.com/robfig/cron"
 	"github.com/syndtr/goleveldb/leveldb"
 	"gopkg.in/ini.v1"
 )
@@ -54,7 +54,7 @@ func cmdErrorResp(inErr error) *api.InteractionResponseData {
 
 // startup //
 
-var crn cron.Cron = *cron.New()
+var crn gocron.Scheduler
 var lgr logger.Logger
 var cfg *ini.File
 var db *sql.DB
@@ -124,6 +124,12 @@ func main() {
 		return
 	}
 	lgr.Webhook = k.String()
+
+	// init cron
+	crn, err = gocron.NewScheduler()
+	if err != nil {
+		return
+	}
 
 	// parse tokens
 	mach, _, err := netrc.ParseFile("tokens.netrc")
