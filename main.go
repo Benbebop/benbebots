@@ -10,7 +10,6 @@ import (
 	"runtime"
 	"sync"
 
-	"benbebop.net/benbebots/logger"
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
 	netrc "github.com/fhs/go-netrc/netrc"
@@ -55,7 +54,7 @@ func cmdErrorResp(inErr error) *api.InteractionResponseData {
 // startup //
 
 var crn gocron.Scheduler
-var lgr logger.Logger
+var lgr Logger
 var cfg *ini.File
 var db *sql.DB
 var ldb *leveldb.DB
