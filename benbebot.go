@@ -381,6 +381,70 @@ func benbebot() {
 		})
 	}
 
+	{ // extract ad id
+		opts := struct {
+			ChannelId uint64 `ini:"adextractorchannel"`
+			Channel   discord.ChannelID
+		}{}
+		cfgSec.MapTo(&opts)
+		opts.Channel = discord.ChannelID(discord.Snowflake(opts.ChannelId))
+
+		client.AddHandler(func(message *gateway.MessageCreateEvent) {
+			if message.ChannelID != opts.Channel {
+				return
+			}
+			if message.Author.Bot {
+				return
+			}
+
+			if len(message.Attachments) < 1 {
+				lgr.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
+				return
+			}
+
+			toDownload := message.Attachments[0]
+			for _, attachemnt := range message.Attachments {
+				if attachemnt.Filename == "message.txt" {
+					toDownload = attachemnt
+					break
+				}
+			}
+
+			if toDownload.Size > 25000 {
+				lgr.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
+				return
+			}
+
+			fileBuffer := make([]byte, toDownload.Size)
+			resp, err := http.Get(toDownload.URL)
+			if err != nil {
+				lgr.Error(err)
+				lgr.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
+				return
+			}
+
+			if _, err := io.ReadFull(resp.Body, fileBuffer); err != nil {
+				lgr.Error(err)
+				lgr.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
+				return
+			}
+
+			debugInfo := struct {
+				AdVideoId string `json:"addebug_videoId"`
+			}{}
+			fail, _, _ := lgr.Assert(json.Unmarshal(fileBuffer, &debugInfo))
+			if fail {
+				lgr.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
+				return
+			}
+
+			fail, _, _ = lgr.Assert2(client.SendMessageReply(opts.Channel, "https://www.youtube.com/watch?v="+debugInfo.AdVideoId, message.ID))
+			if fail {
+				lgr.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
+			}
+		})
+	}
+
 	client.AddInteractionHandler(router)
 	client.Open(client.Context())
 	botGoroutineGroup.Done()
