@@ -301,23 +301,32 @@ func benbebot() {
 				clientId = string(cltId)
 			}
 
+			var scLock bool
+
 			url := "https://soundcloud.com/"
 			urlLen := len(url)
 			lgr.Assert2(crn.NewJob(gocron.CronJob(opts.Cron, true), gocron.NewTask(func() {
+				if scLock {
+					return
+				}
+				scLock = true
 				messages, err := client.Messages(opts.Channel, 1)
 				if err != nil {
 					lgr.Error(err)
 					sendNewSoundclown()
+					scLock = false
 					return
 				}
 				message := messages[0]
 				if !(len(message.Content) >= urlLen && message.Content[:urlLen] == url) {
 					sendNewSoundclown()
+					scLock = false
 					return
 				}
 				lgr.Assert2(client.CrosspostMessage(opts.Channel, messages[0].ID))
 
 				sendNewSoundclown()
+				scLock = false
 			})))
 		})
 
