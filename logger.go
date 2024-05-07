@@ -20,7 +20,7 @@ type Logger struct {
 
 var traceSterliser *regexp.Regexp = regexp.MustCompile("0[xX][0-9a-fA-F]+|goroutine [0-9]+")
 
-func (l Logger) Error(inErr error) string {
+func (l *Logger) Error(inErr error) string {
 	os.Mkdir(l.Directory, 0777)
 	var output string
 
@@ -70,7 +70,7 @@ func (l Logger) Error(inErr error) string {
 	return id
 }
 
-func (l Logger) Assert(inErr error) (bool, string, error) {
+func (l *Logger) Assert(inErr error) (bool, string, error) {
 	if inErr != nil {
 		return true, l.Error(inErr), inErr
 	}
@@ -78,6 +78,6 @@ func (l Logger) Assert(inErr error) (bool, string, error) {
 }
 
 // i dont like this but i cant think of anything better
-func (l Logger) Assert2(_ any, inErr error) (bool, string, error) {
+func (l *Logger) Assert2(_ any, inErr error) (bool, string, error) {
 	return l.Assert(inErr)
 }

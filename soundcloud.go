@@ -14,7 +14,7 @@ type SoundcloudClient struct {
 	Cookie   string
 }
 
-func (S SoundcloudClient) GetClientId() error {
+func (S *SoundcloudClient) GetClientId() error {
 	resp, err := http.Get("https://soundcloud.com/")
 	if err != nil {
 		return err
@@ -92,7 +92,7 @@ func (S SoundcloudClient) GetClientId() error {
 	return nil
 }
 
-func (S SoundcloudClient) Request(method string, endpoint string, qry interface{}, body string) (*http.Response, error) {
+func (S *SoundcloudClient) Request(method string, endpoint string, qry interface{}, body string) (*http.Response, error) {
 	values, err := query.Values(qry)
 	if err != nil {
 		return nil, err
