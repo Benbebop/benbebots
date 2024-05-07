@@ -105,7 +105,14 @@ func benbebot() {
 					lgr.Error(err)
 					return
 				}
+				defer resp.Body.Close()
 				switch resp.StatusCode {
+				case 401:
+					err = scClient.GetClientId()
+					if err != nil {
+						lgr.Error(err)
+						return
+					}
 				case 200:
 					break reqLoop
 				default:

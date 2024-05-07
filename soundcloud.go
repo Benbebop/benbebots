@@ -102,11 +102,5 @@ func (S SoundcloudClient) Request(method string, endpoint string, qry interface{
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode == 401 {
-		err = S.GetClientId()
-		if err != nil {
-			return nil, err
-		}
-	}
 	return resp, nil
 }
