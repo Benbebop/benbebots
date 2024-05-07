@@ -21,91 +21,7 @@ import (
 	"github.com/diamondburned/arikawa/v3/session"
 	"github.com/diamondburned/arikawa/v3/utils/json/option"
 	"github.com/go-co-op/gocron/v2"
-	"github.com/google/go-querystring/query"
-	"golang.org/x/net/html"
 )
-
-func scrapeSoundcloudClient() (string, error) {
-	// first scrape for a token
-	var clientId string
-
-	resp, err := http.Get("https://soundcloud.com/")
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	// search page scripts for client id
-	tokenizer := html.NewTokenizer(resp.Body)
-	for {
-		if tokenizer.Next() == html.ErrorToken {
-			break
-		}
-
-		token := tokenizer.Token()
-		if token.Type != html.StartTagToken && token.Data != "script" {
-			continue
-		}
-
-		var url string
-		valid := false
-		for _, v := range token.Attr {
-			if v.Key == "crossorigin" {
-				valid = true
-			} else if v.Key == "src" {
-				url = v.Val
-			}
-		}
-
-		if !valid || url == "" {
-			continue
-		}
-
-		resp, err := http.Get(url)
-		if err != nil {
-			lgr.Error(err)
-			continue
-		}
-		defer resp.Body.Close()
-
-		prog := 0
-		data := make([]byte, 2048)
-		for {
-			n, err := resp.Body.Read(data)
-
-			for _, c := range data[:n] {
-				if prog >= 10 {
-					if c == '"' || c == '\'' {
-						prog = -1
-						break
-					}
-					clientId += string(c)
-					continue
-				}
-
-				if c == ("client_id=")[prog] {
-					prog += 1
-				} else if c != ' ' {
-					prog = 0
-				}
-			}
-			if prog < 0 {
-				break
-			}
-			if err == io.EOF {
-				break
-			}
-		}
-
-		if clientId != "" {
-			break
-		}
-	}
-
-	ldb.Put([]byte("soundcloudClientId"), []byte(clientId), nil)
-
-	return clientId, nil
-}
 
 func benbebot() {
 	cfgSec := cfg.Section("bot.benbebot")
@@ -129,6 +45,8 @@ func benbebot() {
 		}{}
 		cfgSec.MapTo(&opts)
 		opts.Channel = discord.ChannelID(discord.Snowflake(opts.ChannelId))
+
+		scClient := SoundcloudClient{}
 
 		var recents [30]uint
 		var recentsIndex uint64
@@ -156,12 +74,9 @@ func benbebot() {
 			}
 		})
 
-		var clientId string
-
 		sendNewSoundclown := func() {
 			// request soundcloud
 			options := struct {
-				ClientId   string `url:"client_id"`
 				Query      string `url:"q"`                   // query, * for anything
 				GenreTag   string `url:"filter.genre_or_tag"` // tag to search for
 				CreatedAt  string `url:"filter.created_at"`
@@ -172,7 +87,6 @@ func benbebot() {
 				Version    uint64 `url:"app_version"`
 				Locale     string `url:"app_locale"`
 			}{
-				ClientId:   clientId,
 				Query:      "*",
 				GenreTag:   "soundclown",
 				CreatedAt:  "last_month",
@@ -185,24 +99,13 @@ func benbebot() {
 			var resp *http.Response
 		reqLoop:
 			for i := 0; i < 4; i++ {
-				qry, err := query.Values(options)
-				if err != nil {
-					lgr.Error(err)
-					return
-				}
-				resp, err = http.Get("https://api-v2.soundcloud.com/search/tracks?" + qry.Encode())
+				var err error
+				resp, err = scClient.Request("GET", "search/tracks", options, "")
 				if err != nil {
 					lgr.Error(err)
 					return
 				}
 				switch resp.StatusCode {
-				case 401:
-					clientId, err = scrapeSoundcloudClient()
-					if err != nil {
-						lgr.Error(err)
-						return
-					}
-					options.ClientId = clientId
 				case 200:
 					break reqLoop
 				default:
@@ -293,12 +196,12 @@ func benbebot() {
 			cltId, err := ldb.Get([]byte("soundcloudClientId"), nil)
 			if err != nil {
 				lgr.Error(err)
-				clientId, err = scrapeSoundcloudClient()
+				err = scClient.GetClientId()
 				if err != nil {
 					lgr.Error(err)
 				}
 			} else {
-				clientId = string(cltId)
+				scClient.ClientId = string(cltId)
 			}
 
 			var scLock bool
