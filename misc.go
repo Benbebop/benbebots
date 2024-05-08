@@ -108,6 +108,7 @@ func cannedFood() {
 		Delay       []int64 `ini:"delay"`
 		CommandRole uint64  `ini:"commandrole"`
 		BotServer   uint64  `ini:"benbebots"`
+		StatChannel uint64  `ini:"statchannel"`
 	}{}
 	cfg.Section("bot.cannedfood").MapTo(&opts)
 	cfg.Section("servers").MapTo(&opts)
@@ -163,6 +164,7 @@ func cannedFood() {
 			}
 			validChannels[i] = discord.ChannelID(id)
 		}
+
 	})
 
 	client.AddHandler(func(message *gateway.MessageCreateEvent) { // reaction
@@ -227,6 +229,46 @@ func cannedFood() {
 		lgr.Assert(client.React(message.ChannelID, message.ID, cannedFoodEmoji))
 
 		log.Printf("CannedFood reacted to a message after %dms\n", delay.Milliseconds())
+	})
+
+	reactionStat := Stat{
+		Name:      "Canned Foods",
+		Value:     0,
+		Client:    client.Client,
+		ChannelID: discord.ChannelID(opts.StatChannel),
+		Delay:     time.Second * 5,
+	}
+	reactionStat.Initialise()
+
+	checkReaction := func(emoji discord.Emoji, channelID discord.ChannelID) bool {
+		if emoji.APIString() != cannedFoodEmoji {
+			return false
+		}
+
+		var validChannel bool
+		for _, channel := range validChannels {
+			if channelID == channel {
+				validChannel = true
+				break
+			}
+		}
+		return validChannel
+	}
+
+	client.AddHandler(func(reaction *gateway.MessageReactionAddEvent) {
+		if !checkReaction(reaction.Emoji, reaction.ChannelID) {
+			return
+		}
+
+		reactionStat.Increment(1)
+	})
+
+	client.AddHandler(func(reaction *gateway.MessageReactionRemoveEvent) {
+		if !checkReaction(reaction.Emoji, reaction.ChannelID) {
+			return
+		}
+
+		reactionStat.Increment(-1)
 	})
 
 	var commandInitiatorString string

@@ -38,15 +38,24 @@ func benbebot() {
 
 	{ // soundclown
 		opts := struct {
-			Cron      string `ini:"motdcron"`
-			ChannelId uint64 `ini:"motdchannel"`
-			Channel   discord.ChannelID
-			EndPoint  string `ini:"motdendpoint"`
+			Cron        string `ini:"motdcron"`
+			ChannelId   uint64 `ini:"motdchannel"`
+			Channel     discord.ChannelID
+			EndPoint    string `ini:"motdendpoint"`
+			StatChannel uint64 `ini:"motdstatchannel"`
 		}{}
 		cfgSec.MapTo(&opts)
 		opts.Channel = discord.ChannelID(discord.Snowflake(opts.ChannelId))
 
 		scClient := SoundcloudClient{}
+		scStat := Stat{
+			Name:      "Soundclowns",
+			Value:     0,
+			Client:    client.Client,
+			ChannelID: discord.ChannelID(opts.StatChannel),
+			Delay:     time.Second * 5,
+		}
+		scStat.Initialise()
 
 		var recents [30]uint
 		var recentsIndex uint64
@@ -233,7 +242,10 @@ func benbebot() {
 					scLock = false
 					return
 				}
-				lgr.Assert2(client.CrosspostMessage(opts.Channel, messages[0].ID))
+				fail, _, _ := lgr.Assert2(client.CrosspostMessage(opts.Channel, messages[0].ID))
+				if !fail {
+					scStat.Increment(1)
+				}
 
 				sendNewSoundclown()
 				scLock = false
