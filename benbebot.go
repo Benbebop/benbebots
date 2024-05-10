@@ -203,19 +203,12 @@ func benbebot() {
 				scClient.ClientId = string(cltId)
 			}
 
-			var scLock bool
-
 			url := "https://soundcloud.com/"
 			urlLen := len(url)
 			lgr.Assert2(crn.NewJob(gocron.CronJob(opts.Cron, true), gocron.NewTask(func() {
-				if scLock {
-					return
-				}
-				scLock = true
 				messages, err := client.Messages(opts.Channel, 1)
 				if err != nil {
 					lgr.Error(err)
-					scLock = false
 					return
 				}
 				message := messages[0]
@@ -227,7 +220,6 @@ func benbebot() {
 				}
 
 				sendNewSoundclown()
-				scLock = false
 			})))
 		})
 
