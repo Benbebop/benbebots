@@ -47,7 +47,9 @@ func benbebot() {
 		cfgSec.MapTo(&opts)
 		opts.Channel = discord.ChannelID(discord.Snowflake(opts.ChannelId))
 
-		scClient := SoundcloudClient{}
+		scClient := SoundcloudClient{
+			MaxRetries: 1,
+		}
 		scStat := Stat{
 			Name:      "Soundclowns",
 			Value:     0,
@@ -85,7 +87,7 @@ func benbebot() {
 
 		sendNewSoundclown := func() {
 			// request soundcloud
-			options := struct {
+			resp, err := scClient.Request("GET", "search/tracks", struct {
 				Query      string `url:"q"`                   // query, * for anything
 				GenreTag   string `url:"filter.genre_or_tag"` // tag to search for
 				CreatedAt  string `url:"filter.created_at"`
@@ -104,31 +106,12 @@ func benbebot() {
 				LinkedPart: 1,
 				Version:    1714468731,
 				Locale:     "en",
+			}, "")
+			if err != nil {
+				lgr.Error(err)
+				return
 			}
-			var resp *http.Response
-		reqLoop:
-			for i := 0; i < 4; i++ {
-				var err error
-				resp, err = scClient.Request("GET", "search/tracks", options, "")
-				if err != nil {
-					lgr.Error(err)
-					return
-				}
-				defer resp.Body.Close()
-				switch resp.StatusCode {
-				case 401:
-					err = scClient.GetClientId()
-					if err != nil {
-						lgr.Error(err)
-						return
-					}
-				case 200:
-					break reqLoop
-				default:
-					lgr.Error(fmt.Errorf("couldnt get soundclouds: %s", resp.Status))
-					break reqLoop
-				}
-			}
+			defer resp.Body.Close()
 			if resp.StatusCode != 200 {
 				lgr.Error(fmt.Errorf("couldnt get soundclouds: %s", resp.Status))
 				return

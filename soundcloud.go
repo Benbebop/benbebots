@@ -1,17 +1,20 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 
 	"github.com/google/go-querystring/query"
 	"golang.org/x/net/html"
 )
 
 type SoundcloudClient struct {
-	ClientId string
-	Cookie   string
+	ClientId   string
+	Cookie     string
+	MaxRetries uint
 }
 
 func (S *SoundcloudClient) GetClientId() error {
@@ -92,15 +95,31 @@ func (S *SoundcloudClient) GetClientId() error {
 	return nil
 }
 
-func (S *SoundcloudClient) Request(method string, endpoint string, qry interface{}, body string) (*http.Response, error) {
-	values, err := query.Values(qry)
-	if err != nil {
-		return nil, err
-	}
+func (S *SoundcloudClient) req(depth uint, method string, endpoint string, values url.Values, body string) (*http.Response, error) {
 	values.Set("client_id", S.ClientId)
 	resp, err := http.Get(fmt.Sprintf("https://api-v2.soundcloud.com/%s?%s", endpoint, values.Encode()))
 	if err != nil {
 		return nil, err
 	}
+
+	if resp.StatusCode == 401 {
+		resp.Body.Close()
+		if depth++; depth > S.MaxRetries {
+			return nil, errors.New("too many retries")
+		}
+		err = S.GetClientId()
+		if err != nil {
+			return nil, err
+		}
+		return S.req(depth, method, endpoint, values, body)
+	}
 	return resp, nil
+}
+
+func (S *SoundcloudClient) Request(method string, endpoint string, qry interface{}, body string) (*http.Response, error) {
+	values, err := query.Values(qry)
+	if err != nil {
+		return nil, err
+	}
+	return S.req(0, method, endpoint, values, body)
 }
