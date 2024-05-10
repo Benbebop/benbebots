@@ -206,6 +206,7 @@ func benbebot() {
 			url := "https://soundcloud.com/"
 			urlLen := len(url)
 			lgr.Assert2(crn.NewJob(gocron.CronJob(opts.Cron, true), gocron.NewTask(func() {
+				log.Println("Soundcloud CRON job initiated")
 				messages, err := client.Messages(opts.Channel, 1)
 				if err != nil {
 					lgr.Error(err)
