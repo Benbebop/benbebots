@@ -215,19 +215,15 @@ func benbebot() {
 				messages, err := client.Messages(opts.Channel, 1)
 				if err != nil {
 					lgr.Error(err)
-					sendNewSoundclown()
 					scLock = false
 					return
 				}
 				message := messages[0]
-				if !(len(message.Content) >= urlLen && message.Content[:urlLen] == url) {
-					sendNewSoundclown()
-					scLock = false
-					return
-				}
-				fail, _, _ := lgr.Assert2(client.CrosspostMessage(opts.Channel, messages[0].ID))
-				if !fail {
-					scStat.Increment(1)
+				if len(message.Content) >= urlLen && message.Content[:urlLen] == url {
+					fail, _, _ := lgr.Assert2(client.CrosspostMessage(opts.Channel, messages[0].ID))
+					if !fail {
+						scStat.Increment(1)
+					}
 				}
 
 				sendNewSoundclown()
