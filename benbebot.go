@@ -221,7 +221,7 @@ func benbebot() {
 				}
 
 				sendNewSoundclown()
-			})))
+			}), gocron.WithSingletonMode(gocron.LimitModeReschedule)))
 		})
 
 		client.AddHandler(func(message *gateway.MessageDeleteEvent) {
