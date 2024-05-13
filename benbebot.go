@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -87,24 +86,16 @@ func benbebot() {
 
 		sendNewSoundclown := func() {
 			// request soundcloud
-			resp, err := scClient.Request("GET", "search/tracks", struct {
-				Query      string `url:"q"`                   // query, * for anything
-				GenreTag   string `url:"filter.genre_or_tag"` // tag to search for
-				CreatedAt  string `url:"filter.created_at"`
-				Sort       string `url:"sort"` // sort order
+			resp, err := scClient.Request("GET", "recent-tracks/soundclown", struct {
 				Limit      int    `url:"limit"`
 				Offset     int    `url:"offset"`
 				LinkedPart int    `url:"linked_partitioning"`
 				Version    uint64 `url:"app_version"`
 				Locale     string `url:"app_locale"`
 			}{
-				Query:      "*",
-				GenreTag:   "soundclown",
-				CreatedAt:  "last_month",
-				Sort:       "recent",
 				Limit:      20,
 				LinkedPart: 1,
-				Version:    1714468731,
+				Version:    1715268073,
 				Locale:     "en",
 			}, "")
 			if err != nil {
@@ -119,7 +110,6 @@ func benbebot() {
 
 			// get recent tracks
 			data, err := io.ReadAll(resp.Body)
-			resp.Body.Close()
 			if err != nil {
 				lgr.Error(err)
 				return
@@ -150,11 +140,6 @@ func benbebot() {
 				return
 			}
 
-			// sort by most recent
-			sort.Slice(tracks.Collection, func(i, j int) bool {
-				return tracks.Collection[i].CreatedAt.After(tracks.Collection[j].CreatedAt)
-			})
-
 			// filter sent already
 			toSend := tracks.Collection[0]
 			for _, track := range tracks.Collection {
@@ -165,7 +150,6 @@ func benbebot() {
 						break
 					}
 				}
-				toSend = track
 				if !sentAlready {
 					toSend = track
 					break
@@ -206,7 +190,6 @@ func benbebot() {
 			url := "https://soundcloud.com/"
 			urlLen := len(url)
 			lgr.Assert2(crn.NewJob(gocron.CronJob(opts.Cron, true), gocron.NewTask(func() {
-				log.Println("Soundcloud CRON job initiated")
 				messages, err := client.Messages(opts.Channel, 1)
 				if err != nil {
 					lgr.Error(err)
