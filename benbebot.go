@@ -141,7 +141,7 @@ func benbebot() {
 			}
 
 			// filter sent already
-			toSend := tracks.Collection[0]
+			toSend, found := tracks.Collection[0], false
 			for _, track := range tracks.Collection {
 				sentAlready := false
 				for _, rec := range recents {
@@ -152,8 +152,14 @@ func benbebot() {
 				}
 				if !sentAlready {
 					toSend = track
+					found = true
 					break
 				}
+			}
+
+			if !found {
+				lgr.Error(errors.New("could not find a soundcloud within 20 tracks"))
+				return
 			}
 
 			// add to recents
