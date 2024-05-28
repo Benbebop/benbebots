@@ -188,9 +188,9 @@ func main() {
 		case "cannedfood":
 			cannedFood()
 		case "familyguy":
-			familyguy("familyGuy")
+			familyguy()
 		case "sheldon":
-			familyguy("sheldon")
+			familyguy()
 		default:
 			log.Fatalln("unknown")
 		}
@@ -204,10 +204,8 @@ func main() {
 	botGoroutineGroup.Add(1)
 	go fnafBot()
 
-	//disabled until i can fix attachment command options
-	//botGoroutineGroup.Add(2)
-	//go familyguy("familyGuy")
-	//go familyguy("sheldon")
+	botGoroutineGroup.Add(1)
+	go familyguy()
 
 	botGoroutineGroup.Add(1)
 	go benbebot()
