@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/diamondburned/arikawa/v3/api"
@@ -197,7 +198,10 @@ func benbebot() {
 
 			url := "https://soundcloud.com/"
 			urlLen := len(url)
+			var mut sync.Mutex
 			lgr.Assert2(crn.NewJob(gocron.CronJob(opts.Cron, true), gocron.NewTask(func() {
+				mut.Lock()
+				defer mut.Unlock()
 				messages, err := client.Messages(opts.Channel, 1)
 				if err != nil {
 					lgr.Error(err)
