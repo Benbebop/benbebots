@@ -99,8 +99,11 @@ func main() {
 	}
 
 	dirs.Temp = os.TempDir() + "/benbebots/"
-	if _, err := os.Stat(dirs.Data); errors.Is(err, os.ErrNotExist) {
-		os.MkdirAll(dirs.Data, fs.FileMode(0777))
+	if _, err := os.Stat(dirs.Temp); errors.Is(err, os.ErrNotExist) {
+		err := os.MkdirAll(dirs.Temp, 0777)
+		if err != nil {
+			log.Println(err)
+		}
 	} else if err != nil {
 		return
 	}
