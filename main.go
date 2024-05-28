@@ -58,6 +58,7 @@ var lgr Logger
 var cfg *ini.File
 var db *sql.DB
 var ldb *leveldb.DB
+var hrt Heartbeater
 var tokens = map[string]netrc.Machine{}
 var dirs struct {
 	Data string
@@ -119,9 +120,17 @@ func main() {
 		return
 	}
 
+	// init heartbeater
+	hrt.Filepath = dirs.Temp + "heartbeat"
+	k, err := cfg.Section("webhooks").GetKey("status")
+	if err != nil {
+		return
+	}
+	hrt.Webhook = k.String()
+
 	// init logger
 	lgr.Directory = dirs.Data + "logs/"
-	k, err := cfg.Section("bot").GetKey("logurl")
+	k, err = cfg.Section("webhooks").GetKey("log")
 	if err != nil {
 		return
 	}

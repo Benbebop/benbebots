@@ -147,6 +147,8 @@ func cannedFood() {
 		me, _ := client.Me()
 		log.Println("Connected to discord as", me.Tag())
 	})
+	client.AddHandler(hrt.Init)
+	client.AddHandler(hrt.Heartbeat)
 
 	var validChannels []discord.ChannelID
 	var validChannelsStr []byte

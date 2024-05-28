@@ -33,6 +33,8 @@ func benbebot() {
 		me, _ := client.Me()
 		log.Println("Connected to discord as", me.Tag())
 	})
+	client.AddHandler(hrt.Init)
+	client.AddHandler(hrt.Heartbeat)
 	router := cmdroute.NewRouter()
 
 	{ // soundclown
