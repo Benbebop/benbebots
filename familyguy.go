@@ -73,7 +73,11 @@ func familyguy() {
 				if exists {
 					continue
 				}
-				users[index] = discord.ChannelID(member.User.ID)
+				priv, err := client.CreatePrivateChannel(member.User.ID)
+				if err != nil {
+					continue
+				}
+				users[index] = priv.ID
 				index += 1
 			}
 		}
