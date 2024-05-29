@@ -109,13 +109,16 @@ var cannedFoodEmoji = discord.NewAPIEmoji(discord.NullEmojiID, `🥫`)
 
 func cannedFood() {
 	opts := struct {
-		Delay       []int64 `ini:"delay"`
-		CommandRole uint64  `ini:"commandrole"`
-		BotServer   uint64  `ini:"benbebots"`
-		StatChannel uint64  `ini:"statchannel"`
+		Delay         []int64 `ini:"delay"`
+		CommandRole   uint64  `ini:"commandrole"`
+		BotServer     uint64  `ini:"benbebots"`
+		StatChannel   uint64  `ini:"statchannel"`
+		PingChannelId uint64  `ini:"pingchannel"`
+		PingChannel   discord.ChannelID
 	}{}
 	cfg.Section("bot.cannedfood").MapTo(&opts)
 	cfg.Section("servers").MapTo(&opts)
+	opts.PingChannel = discord.ChannelID(opts.PingChannelId)
 
 	var client *session.Session
 	if t, err := ldb.Get([]byte("cannedFoodToken"), nil); err == nil {
@@ -227,6 +230,8 @@ func cannedFood() {
 					return
 				}
 			}
+		} else {
+			lgr.Assert2(client.SendMessage(opts.PingChannel, message.URL()))
 		}
 
 		delay := time.Duration(opts.Delay[0]+rand.Int63n(opts.Delay[1]-opts.Delay[0])) * time.Millisecond
