@@ -11,57 +11,6 @@
 				"dm_permission": false,
 				"default_permission": false
 			}
-		],
-		"1068640496139915345": [
-			{
-				"id": "1125992663582257242",
-				"type": 1,
-				"application_id": "1021287182641668096",
-				"guild_id": "1068640496139915345",
-				"name": "clip",
-				"description": "manage family guy clips",
-				"options": [
-					{
-						"type": 1,
-						"name": "add",
-						"description": "add a clip",
-						"required": false,
-						"options": [
-							{
-								"type": 11,
-								"name": "file",
-								"description": "file to add",
-								"required": true
-							}
-						]
-					},
-					{
-						"type": 1,
-						"name": "remove",
-						"description": "remove a clip",
-						"required": false,
-						"options": [
-							{
-								"type": 3,
-								"name": "id",
-								"description": "id of clip to remove",
-								"required": true,
-								"autocomplete": false
-							}
-						]
-					},
-					{
-						"type": 1,
-						"name": "force",
-						"description": "force a clip to send",
-						"required": false,
-						"options": []
-					}
-				],
-				"version": "1196004934592765983",
-				"dm_permission": false,
-				"default_permission": false
-			}
 		]
 	},
 	"fnaf": {
