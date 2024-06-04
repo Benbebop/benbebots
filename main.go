@@ -188,8 +188,20 @@ func main() {
 	// read args
 	argLen := len(os.Args)
 	if argLen > 1 {
-		if os.Args[1] == "update-commands" {
+		switch os.Args[1] {
+		case "update-commands":
 			benbebots.UpdateCommands(argLen > 2 && os.Args[2] == "reset")
+			return
+		case "dump-leveldb":
+			iter := benbebots.LevelDB.NewIterator(nil, nil)
+			for iter.Next() {
+				k, v := iter.Key(), iter.Value()
+				os.Stdout.Write(k)
+				os.Stdout.WriteString(": ")
+				os.Stdout.Write(v)
+				os.Stdout.WriteString("\n")
+			}
+			iter.Release()
 			return
 		}
 	}
