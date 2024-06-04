@@ -34,21 +34,22 @@ var gnerbFS embed.FS
 var gnerbReader io.Reader
 var gnerbTimer *time.Timer
 
-func fnafBot() { // gnerb
+func (bbb *Benbebots) RunFnafBot() { // gnerb
 	opts := struct {
 		Time        time.Duration `ini:"poutime"`
 		Destination uint64        `ini:"destination"`
 		StatChannel uint64        `ini:"statchannel"`
 	}{}
-	cfg.Section("bot.fnaf").MapTo(&opts)
+	bbb.Config.Section("bot.fnaf").MapTo(&opts)
 
-	client := api.NewClient("Bot " + tokens["fnaf"].Password)
+	client := api.NewClient("Bot " + bbb.Tokens["fnaf"].Password)
 
 	fnafStat := Stat{
 		Name:      "Gnerbs",
 		Value:     0,
 		Client:    client,
 		ChannelID: discord.ChannelID(opts.StatChannel),
+		LevelDB:   bbb.LevelDB,
 		Delay:     time.Second * 5,
 	}
 
@@ -85,19 +86,19 @@ func fnafBot() { // gnerb
 	me, err := client.Me()
 	if err == nil {
 		log.Println(me.Tag() + " is ready")
-		botGoroutineGroup.Done()
+		bbb.CoroutineGroup.Done()
 		return
 	}
 
-	botGoroutineGroup.Done()
+	bbb.CoroutineGroup.Done()
 }
 
-func loginCannedFood() (*session.Session, error) {
+func (b *Benbebots) LoginCannedFood() (*session.Session, error) {
 	var err error
 	for i := 1; i < 3; i++ {
-		client, err := session.Login(context.Background(), tokens["cannedFood"].Login, tokens["cannedFood"].Password, "")
+		client, err := session.Login(context.Background(), b.Tokens["cannedFood"].Login, b.Tokens["cannedFood"].Password, "")
 		if err == nil {
-			ldb.Put([]byte("cannedFoodToken"), []byte(client.Token), nil)
+			b.LevelDB.Put([]byte("cannedFoodToken"), []byte(client.Token), nil)
 			return client, nil
 		}
 		log.Println(err)
@@ -107,7 +108,7 @@ func loginCannedFood() (*session.Session, error) {
 
 var cannedFoodEmoji = discord.NewAPIEmoji(discord.NullEmojiID, `🥫`)
 
-func cannedFood() {
+func (bbb *Benbebots) RunCannedFood() {
 	opts := struct {
 		Delay         []int64 `ini:"delay"`
 		CommandRole   uint64  `ini:"commandrole"`
@@ -116,20 +117,20 @@ func cannedFood() {
 		PingChannelId uint64  `ini:"pingchannel"`
 		PingChannel   discord.ChannelID
 	}{}
-	cfg.Section("bot.cannedfood").MapTo(&opts)
-	cfg.Section("servers").MapTo(&opts)
+	bbb.Config.Section("bot.cannedfood").MapTo(&opts)
+	bbb.Config.Section("servers").MapTo(&opts)
 	opts.PingChannel = discord.ChannelID(opts.PingChannelId)
 
 	var client *session.Session
-	if t, err := ldb.Get([]byte("cannedFoodToken"), nil); err == nil {
+	if t, err := bbb.LevelDB.Get([]byte("cannedFoodToken"), nil); err == nil {
 		token := string(t)
 		tmpClient := api.NewClient(token)
 		_, err := tmpClient.Me()
 		if err != nil {
 			log.Println("CannedFood token errored, logging in")
-			client, err = loginCannedFood()
+			client, err = bbb.LoginCannedFood()
 			if err != nil {
-				lgr.Error(err)
+				bbb.Logger.Error(err)
 				return
 			}
 		} else {
@@ -141,7 +142,7 @@ func cannedFood() {
 		} else {
 			log.Println("CannedFood token missing, logging in")
 		}
-		client, err = loginCannedFood()
+		client, err = bbb.LoginCannedFood()
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -150,16 +151,16 @@ func cannedFood() {
 		me, _ := client.Me()
 		log.Println("Connected to discord as", me.Tag())
 	})
-	client.AddHandler(hrt.Init)
-	client.AddHandler(hrt.Heartbeat)
+	client.AddHandler(bbb.Heartbeater.Init)
+	client.AddHandler(bbb.Heartbeater.Heartbeat)
 
 	var validChannels []discord.ChannelID
 	var validChannelsStr []byte
 	client.AddHandler(func(*gateway.ReadyEvent) {
 		var err error
-		validChannelsStr, err = ldb.Get([]byte("cannedFoodValidChannels"), nil)
+		validChannelsStr, err = bbb.LevelDB.Get([]byte("cannedFoodValidChannels"), nil)
 		if err != nil {
-			lgr.Error(err)
+			bbb.Logger.Error(err)
 			return
 		}
 
@@ -168,7 +169,7 @@ func cannedFood() {
 		for i, v := range strs {
 			id, err := strconv.ParseUint(v, 10, 64)
 			if err != nil {
-				lgr.Error(err)
+				bbb.Logger.Error(err)
 				return
 			}
 			validChannels[i] = discord.ChannelID(id)
@@ -182,7 +183,7 @@ func cannedFood() {
 		}
 		me, err := client.Me()
 		if err != nil {
-			lgr.Error(err)
+			bbb.Logger.Error(err)
 			return
 		}
 		// check if pinging canned food
@@ -212,7 +213,7 @@ func cannedFood() {
 				// check if pinging any of canned food's roles
 				member, err := client.Member(message.GuildID, me.ID)
 				if err != nil {
-					lgr.Error(err)
+					bbb.Logger.Error(err)
 					return
 				}
 				var rolePinged bool
@@ -231,13 +232,13 @@ func cannedFood() {
 				}
 			}
 		} else {
-			lgr.Assert2(client.SendMessage(opts.PingChannel, message.URL()))
+			bbb.Logger.Assert2(client.SendMessage(opts.PingChannel, message.URL()))
 		}
 
 		delay := time.Duration(opts.Delay[0]+rand.Int63n(opts.Delay[1]-opts.Delay[0])) * time.Millisecond
 		time.Sleep(delay)
 
-		lgr.Assert(client.React(message.ChannelID, message.ID, cannedFoodEmoji))
+		bbb.Logger.Assert(client.React(message.ChannelID, message.ID, cannedFoodEmoji))
 
 		log.Printf("CannedFood reacted to a message after %dms\n", delay.Milliseconds())
 	})
@@ -247,6 +248,7 @@ func cannedFood() {
 		Value:     0,
 		Client:    client.Client,
 		ChannelID: discord.ChannelID(opts.StatChannel),
+		LevelDB:   bbb.LevelDB,
 		Delay:     time.Second * 5,
 	}
 	reactionStat.Initialise()
@@ -323,13 +325,13 @@ func cannedFood() {
 		case "add":
 			channelId, err := strconv.ParseUint(items[2][2:len(items[2])-1], 10, 64)
 			if err != nil {
-				id := lgr.Error(err)
+				id := bbb.Logger.Error(err)
 				client.SendMessageReply(message.ChannelID, "error "+id+": "+err.Error(), message.ID)
 				return
 			}
 			channel, err := client.Channel(discord.ChannelID(discord.Snowflake(channelId)))
 			if err != nil {
-				id := lgr.Error(err)
+				id := bbb.Logger.Error(err)
 				client.SendMessageReply(message.ChannelID, "error "+id+": "+err.Error(), message.ID)
 				return
 			}
@@ -349,9 +351,9 @@ func cannedFood() {
 			validChannelsNew := append(validChannels, channel.ID)
 			validChannelsStrNew := strconv.AppendUint(append(validChannelsStr, ' '), uint64(channel.ID), 10)
 
-			err = ldb.Put([]byte("cannedFoodValidChannels"), validChannelsStrNew, nil)
+			err = bbb.LevelDB.Put([]byte("cannedFoodValidChannels"), validChannelsStrNew, nil)
 			if err != nil {
-				id := lgr.Error(err)
+				id := bbb.Logger.Error(err)
 				client.SendMessageReply(message.ChannelID, "error "+id+": "+err.Error(), message.ID)
 				return
 			}
@@ -366,5 +368,6 @@ func cannedFood() {
 	})
 
 	client.Open(client.Context())
-	botGoroutineGroup.Done()
+	bbb.AddClient(client)
+	bbb.CoroutineGroup.Done()
 }

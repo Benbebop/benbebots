@@ -23,10 +23,10 @@ import (
 	"github.com/go-co-op/gocron/v2"
 )
 
-func benbebot() {
-	cfgSec := cfg.Section("bot.benbebot")
+func (bbb *Benbebots) RunBenbebot() {
+	cfgSec := bbb.Config.Section("bot.benbebot")
 
-	client := session.New("Bot " + tokens["benbebot"].Password)
+	client := session.New("Bot " + bbb.Tokens["benbebot"].Password)
 	client.AddIntents(gateway.IntentGuildPresences | gateway.IntentGuildMembers | gateway.IntentMessageContent) // privileged
 	client.AddIntents(gateway.IntentGuildMessages | gateway.IntentDirectMessages)
 	client.AddIntents(gateway.IntentGuilds)
@@ -34,8 +34,8 @@ func benbebot() {
 		me, _ := client.Me()
 		log.Println("Connected to discord as", me.Tag())
 	})
-	client.AddHandler(hrt.Init)
-	client.AddHandler(hrt.Heartbeat)
+	client.AddHandler(bbb.Heartbeater.Init)
+	client.AddHandler(bbb.Heartbeater.Heartbeat)
 	router := cmdroute.NewRouter()
 
 	{ // soundclown
@@ -51,11 +51,13 @@ func benbebot() {
 
 		scClient := SoundcloudClient{
 			MaxRetries: 1,
+			LevelDB:    bbb.LevelDB,
 		}
 		scStat := Stat{
 			Name:      "Soundclowns",
 			Value:     0,
 			Client:    client.Client,
+			LevelDB:   bbb.LevelDB,
 			ChannelID: discord.ChannelID(opts.StatChannel),
 			Delay:     time.Second * 5,
 		}
@@ -64,23 +66,23 @@ func benbebot() {
 		var recents [30]uint
 		var recentsIndex uint64
 		client.AddHandler(func(*gateway.ReadyEvent) {
-			validChannelsStr, err := ldb.Get([]byte("recentSoundclowns"), nil)
+			validChannelsStr, err := bbb.LevelDB.Get([]byte("recentSoundclowns"), nil)
 			if err != nil {
-				lgr.Error(err)
+				bbb.Logger.Error(err)
 				return
 			}
 
 			strs := strings.Fields(string(validChannelsStr))
 			recentsIndex, err = strconv.ParseUint(strs[0], 10, 64)
 			if err != nil {
-				lgr.Error(err)
+				bbb.Logger.Error(err)
 				return
 			}
 			strs = strs[1:]
 			for i, v := range strs {
 				id, err := strconv.ParseUint(v, 10, 64)
 				if err != nil {
-					lgr.Error(err)
+					bbb.Logger.Error(err)
 					return
 				}
 				recents[i] = uint(id)
@@ -102,19 +104,19 @@ func benbebot() {
 				Locale:     "en",
 			}, "")
 			if err != nil {
-				lgr.Error(err)
+				bbb.Logger.Error(err)
 				return
 			}
 			defer resp.Body.Close()
 			if resp.StatusCode != 200 {
-				lgr.Error(fmt.Errorf("couldnt get soundclouds: %s", resp.Status))
+				bbb.Logger.Error(fmt.Errorf("couldnt get soundclouds: %s", resp.Status))
 				return
 			}
 
 			// get recent tracks
 			data, err := io.ReadAll(resp.Body)
 			if err != nil {
-				lgr.Error(err)
+				bbb.Logger.Error(err)
 				return
 			}
 			tracks := struct {
@@ -139,7 +141,7 @@ func benbebot() {
 			}{}
 			err = json.Unmarshal(data, &tracks)
 			if err != nil {
-				lgr.Error(err)
+				bbb.Logger.Error(err)
 				return
 			}
 
@@ -161,7 +163,7 @@ func benbebot() {
 			}
 
 			if !found {
-				lgr.Error(errors.New("could not find a soundcloud within 20 tracks"))
+				bbb.Logger.Error(errors.New("could not find a soundcloud within 20 tracks"))
 				return
 			}
 
@@ -176,21 +178,21 @@ func benbebot() {
 			for i := 0; i < 30; i++ {
 				str = append(strconv.AppendUint(str, uint64(recents[i]), 10), ' ')
 			}
-			ldb.Put([]byte("recentSoundclowns"), str, nil)
+			bbb.LevelDB.Put([]byte("recentSoundclowns"), str, nil)
 
 			// send
 			log.Println("sending soundclown")
-			lgr.Assert2(client.SendMessage(opts.Channel, toSend.Permalink))
+			bbb.Logger.Assert2(client.SendMessage(opts.Channel, toSend.Permalink))
 		}
 
 		client.AddHandler(func(*gateway.ReadyEvent) {
 			// get soundcloud token
-			cltId, err := ldb.Get([]byte("soundcloudClientId"), nil)
+			cltId, err := bbb.LevelDB.Get([]byte("soundcloudClientId"), nil)
 			if err != nil {
-				lgr.Error(err)
+				bbb.Logger.Error(err)
 				err = scClient.GetClientId()
 				if err != nil {
-					lgr.Error(err)
+					bbb.Logger.Error(err)
 				}
 			} else {
 				scClient.ClientId = string(cltId)
@@ -199,17 +201,17 @@ func benbebot() {
 			url := "https://soundcloud.com/"
 			urlLen := len(url)
 			var mut sync.Mutex
-			lgr.Assert2(crn.NewJob(gocron.CronJob(opts.Cron, true), gocron.NewTask(func() {
+			bbb.Logger.Assert2(bbb.Cron.NewJob(gocron.CronJob(opts.Cron, true), gocron.NewTask(func() {
 				mut.Lock()
 				defer mut.Unlock()
 				messages, err := client.Messages(opts.Channel, 1)
 				if err != nil {
-					lgr.Error(err)
+					bbb.Logger.Error(err)
 					return
 				}
 				message := messages[0]
 				if len(message.Content) >= urlLen && message.Content[:urlLen] == url {
-					fail, _, _ := lgr.Assert2(client.CrosspostMessage(opts.Channel, messages[0].ID))
+					fail, _, _ := bbb.Logger.Assert2(client.CrosspostMessage(opts.Channel, messages[0].ID))
 					if !fail {
 						scStat.Increment(1)
 					}
@@ -234,16 +236,16 @@ func benbebot() {
 				Id string `discord:"id"`
 			}{}
 			if err := data.Options.Unmarshal(&options); err != nil {
-				return cmdErrorResp(err)
+				return bbb.CommandError(err)
 			}
 
-			buffer, err := os.ReadFile(lgr.Directory + options.Id + ".log")
+			buffer, err := os.ReadFile(bbb.Logger.Directory + options.Id + ".log")
 			if err != nil {
-				return cmdErrorResp(err)
+				return bbb.CommandError(err)
 			}
 
 			if len(buffer) > 2000 {
-				return cmdErrorResp(errors.New("too long woops"))
+				return bbb.CommandError(errors.New("too long woops"))
 			}
 
 			return &api.InteractionResponseData{
@@ -256,13 +258,13 @@ func benbebot() {
 		router.AddFunc("sex", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
 			sndr := data.Event.SenderID()
 			if sndr == 0 {
-				lgr.Error(errors.New("sender is 0"))
+				bbb.Logger.Error(errors.New("sender is 0"))
 				return &api.InteractionResponseData{
 					Content: option.NewNullableString("how the fuck"),
 					Flags:   discord.EphemeralMessage,
 				}
 			}
-			ok, id, err := lgr.Assert(client.Ban(data.Event.GuildID, sndr, api.BanData{
+			ok, id, err := bbb.Logger.Assert(client.Ban(data.Event.GuildID, sndr, api.BanData{
 				DeleteDays:     option.ZeroUint,
 				AuditLogReason: "sex command",
 			}))
@@ -296,7 +298,7 @@ func benbebot() {
 			}
 
 			if len(message.Attachments) < 1 {
-				lgr.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
+				bbb.Logger.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
 				return
 			}
 
@@ -309,41 +311,42 @@ func benbebot() {
 			}
 
 			if toDownload.Size > 25000 {
-				lgr.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
+				bbb.Logger.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
 				return
 			}
 
 			fileBuffer := make([]byte, toDownload.Size)
 			resp, err := http.Get(toDownload.URL)
 			if err != nil {
-				lgr.Error(err)
-				lgr.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
+				bbb.Logger.Error(err)
+				bbb.Logger.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
 				return
 			}
 
 			if _, err := io.ReadFull(resp.Body, fileBuffer); err != nil {
-				lgr.Error(err)
-				lgr.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
+				bbb.Logger.Error(err)
+				bbb.Logger.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
 				return
 			}
 
 			debugInfo := struct {
 				AdVideoId string `json:"addebug_videoId"`
 			}{}
-			fail, _, _ := lgr.Assert(json.Unmarshal(fileBuffer, &debugInfo))
+			fail, _, _ := bbb.Logger.Assert(json.Unmarshal(fileBuffer, &debugInfo))
 			if fail {
-				lgr.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
+				bbb.Logger.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
 				return
 			}
 
-			fail, _, _ = lgr.Assert2(client.SendMessageReply(opts.Channel, "https://www.youtube.com/watch?v="+debugInfo.AdVideoId, message.ID))
+			fail, _, _ = bbb.Logger.Assert2(client.SendMessageReply(opts.Channel, "https://www.youtube.com/watch?v="+debugInfo.AdVideoId, message.ID))
 			if fail {
-				lgr.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
+				bbb.Logger.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
 			}
 		})
 	}
 
 	client.AddInteractionHandler(router)
 	client.Open(client.Context())
-	botGoroutineGroup.Done()
+	bbb.AddClient(client)
+	bbb.CoroutineGroup.Done()
 }

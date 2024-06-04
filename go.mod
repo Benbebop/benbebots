@@ -6,7 +6,6 @@ require (
 	github.com/diamondburned/arikawa/v3 v3.3.5
 	github.com/fhs/go-netrc v1.0.0
 	github.com/go-co-op/gocron/v2 v2.4.0
-	github.com/go-sql-driver/mysql v1.7.1
 	github.com/google/go-querystring v1.1.0
 	github.com/syndtr/goleveldb v1.0.0
 	golang.org/x/net v0.21.0

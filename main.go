@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -12,15 +11,33 @@ import (
 
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
+	"github.com/diamondburned/arikawa/v3/session"
 	netrc "github.com/fhs/go-netrc/netrc"
 	"github.com/go-co-op/gocron/v2"
-	"github.com/go-sql-driver/mysql"
 	"github.com/syndtr/goleveldb/leveldb"
 	"gopkg.in/ini.v1"
 )
 
-func cmdErrorResp(inErr error) *api.InteractionResponseData {
-	id := lgr.Error(inErr)
+// startup //
+
+type Benbebots struct {
+	Cron        gocron.Scheduler
+	Logger      Logger
+	Config      *ini.File
+	LevelDB     *leveldb.DB
+	Heartbeater Heartbeater
+	Tokens      map[string]netrc.Machine
+	Dirs        struct {
+		Data string
+		Temp string
+	}
+	clients        []*session.Session
+	clientsMutex   sync.Mutex
+	CoroutineGroup sync.WaitGroup
+}
+
+func (b *Benbebots) CommandError(inErr error) *api.InteractionResponseData {
+	id := b.Logger.Error(inErr)
 
 	var stk string
 	for i := 1; i < 6; i++ {
@@ -51,182 +68,168 @@ func cmdErrorResp(inErr error) *api.InteractionResponseData {
 	}
 }
 
-// startup //
-
-var crn gocron.Scheduler
-var lgr Logger
-var cfg *ini.File
-var db *sql.DB
-var ldb *leveldb.DB
-var hrt Heartbeater
-var tokens = map[string]netrc.Machine{}
-var dirs struct {
-	Data string
-	Temp string
-}
-
-func connectDatabase(user string, passwd string) error {
-	sqlCfg := mysql.Config{
-		User:                 user,
-		Passwd:               passwd,
-		AllowNativePasswords: true,
-	}
-	database, err := sql.Open("mysql", sqlCfg.FormatDSN())
-	if err != nil {
-		return err
-	}
-	err = database.Ping()
-	if err != nil {
-		return err
-	}
-
-	db = database
-	return nil
-}
-
-var botGoroutineGroup sync.WaitGroup
-
-func main() {
-	// initialise data directories
+func (b *Benbebots) GetDirs() error {
 	dir, err := os.UserCacheDir()
 	if err != nil {
-		return
+		return err
 	}
-	dirs.Data = dir + "/benbebots/"
-	if _, err := os.Stat(dirs.Data); errors.Is(err, os.ErrNotExist) {
-		os.Mkdir(dirs.Data, fs.FileMode(0777))
+	b.Dirs.Data = dir + "/benbebots/"
+	if _, err := os.Stat(b.Dirs.Data); errors.Is(err, os.ErrNotExist) {
+		os.Mkdir(b.Dirs.Data, fs.FileMode(0777))
 	} else if err != nil {
-		return
+		return err
 	}
 
-	dirs.Temp = os.TempDir() + "/benbebots/"
-	if _, err := os.Stat(dirs.Temp); errors.Is(err, os.ErrNotExist) {
-		err := os.MkdirAll(dirs.Temp, 0777)
+	b.Dirs.Temp = os.TempDir() + "/benbebots/"
+	if _, err := os.Stat(b.Dirs.Temp); errors.Is(err, os.ErrNotExist) {
+		err := os.MkdirAll(b.Dirs.Temp, 0777)
 		if err != nil {
 			log.Println(err)
 		}
 	} else if err != nil {
-		return
+		return err
 	}
+	return nil
+}
 
-	// parse config
-	cfg, err = ini.LoadSources(ini.LoadOptions{
+func (b *Benbebots) ParseConfig() error {
+	var err error
+	b.Config, err = ini.LoadSources(ini.LoadOptions{
 		Loose:                     true,
 		Insensitive:               true,
 		UnescapeValueDoubleQuotes: true,
 		AllowShadows:              true,
 	}, "config.ini")
 	if err != nil {
-		return
+		return err
 	}
+	return nil
+}
 
-	// init heartbeater
-	hrt.Filepath = dirs.Temp + "heartbeat"
-	k, err := cfg.Section("webhooks").GetKey("status")
+func (b *Benbebots) InitHeartbeater() error {
+	b.Heartbeater.Filepath = b.Dirs.Temp + "heartbeat"
+	k, err := b.Config.Section("webhooks").GetKey("status")
 	if err != nil {
-		return
+		return err
 	}
-	hrt.Webhook = k.String()
+	b.Heartbeater.Webhook = k.String()
+	return nil
+}
 
-	// init logger
-	lgr.Directory = dirs.Data + "logs/"
-	k, err = cfg.Section("webhooks").GetKey("log")
+func (b *Benbebots) InitLogger() error {
+	b.Logger.Directory = b.Dirs.Data + "logs/"
+	k, err := b.Config.Section("webhooks").GetKey("log")
 	if err != nil {
-		return
+		return err
 	}
-	lgr.Webhook = k.String()
+	b.Logger.Webhook = k.String()
+	return nil
+}
 
-	// init cron
-	crn, err = gocron.NewScheduler()
+func (b *Benbebots) InitCron() error {
+	var err error
+	b.Cron, err = gocron.NewScheduler()
 	if err != nil {
-		return
+		return err
 	}
+	return nil
+}
 
-	// parse tokens
+func (b *Benbebots) ParseTokens() error {
+	b.Tokens = map[string]netrc.Machine{}
 	mach, _, err := netrc.ParseFile("tokens.netrc")
 	if err != nil {
-		return
+		return err
 	}
 
 	for _, e := range mach {
-		tokens[e.Name] = *e
+		b.Tokens[e.Name] = *e
 	}
+	return nil
+}
 
-	// initialize leveldb
-	ldb, err = leveldb.OpenFile(dirs.Data+"leveldb", nil)
+func (b *Benbebots) OpenLevelDB() error {
+	var err error
+	b.LevelDB, err = leveldb.OpenFile(b.Dirs.Data+"leveldb", nil)
 	if err != nil {
-		return
+		return err
 	}
-	defer ldb.Close()
+	return nil
+}
+
+func (b *Benbebots) AddClient(client *session.Session) {
+	b.clientsMutex.Lock()
+	b.clients = append(b.clients, client)
+	b.clientsMutex.Unlock()
+}
+
+func (b *Benbebots) CloseClients() {
+	for _, client := range b.clients {
+		client.Close()
+	}
+}
+
+func main() {
+	var benbebots = Benbebots{}
+
+	// initialise benbebots
+	benbebots.GetDirs()
+	benbebots.ParseConfig()
+	benbebots.InitHeartbeater()
+	benbebots.InitLogger()
+	benbebots.InitCron()
+	benbebots.ParseTokens()
+	benbebots.OpenLevelDB()
+	defer benbebots.LevelDB.Close()
 
 	// read args
 	argLen := len(os.Args)
 	if argLen > 1 {
 		if os.Args[1] == "update-commands" {
-			if argLen > 2 && os.Args[2] == "reset" {
-				commandUpdate(true)
-			} else {
-				commandUpdate(false)
-			}
-			return
-		} else if os.Args[1] == "update-sql" {
-			if argLen > 2 {
-				err = connectDatabase("root", os.Args[2])
-			} else {
-				err = connectDatabase("benbebot", tokens["sql"].Password)
-			}
-			if err != nil {
-				log.Fatalln(err)
-			}
-
-			sqlUpdate()
+			benbebots.UpdateCommands(os.Args[2] == "reset")
 			return
 		}
 	}
-	err = connectDatabase("benbebot", tokens["sql"].Password)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	log.Println("Connected to sql database as", sqlGetUsername())
-	defer db.Close()
+
+	defer benbebots.CloseClients()
 
 	if argLen > 2 && os.Args[1] == "test" {
-		botGoroutineGroup.Add(1)
+		benbebots.CoroutineGroup.Add(1)
 		switch os.Args[2] {
 		case "benbebot":
-			benbebot()
+			benbebots.RunBenbebot()
 		case "fnaf":
-			fnafBot()
+			benbebots.RunFnafBot()
 		case "cannedfood":
-			cannedFood()
+			benbebots.RunCannedFood()
 		case "familyguy":
-			familyguy()
+			benbebots.RunFamilyGuy()
 		case "sheldon":
-			familyguy()
+			log.Fatalln("unimplemented")
 		default:
 			log.Fatalln("unknown")
 		}
-		crn.Start()
+		benbebots.Cron.Start()
 		select {}
 	}
 
-	botGoroutineGroup.Add(1)
-	go cannedFood()
+	benbebots.CoroutineGroup.Add(1)
+	go benbebots.RunCannedFood()
 
-	botGoroutineGroup.Add(1)
-	go fnafBot()
+	benbebots.CoroutineGroup.Add(1)
+	go benbebots.RunFnafBot()
 
-	botGoroutineGroup.Add(1)
-	go familyguy()
+	benbebots.CoroutineGroup.Add(1)
+	go benbebots.RunFamilyGuy()
 
-	botGoroutineGroup.Add(1)
-	go benbebot()
+	benbebots.CoroutineGroup.Add(1)
+	go benbebots.RunBenbebot()
 
-	botGoroutineGroup.Wait()
+	benbebots.CoroutineGroup.Wait()
 
 	log.Println("Launched all discord bots")
 
-	crn.Start()
+	benbebots.Cron.Start()
 
 	select {}
 }

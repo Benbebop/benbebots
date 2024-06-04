@@ -8,11 +8,13 @@ import (
 	"net/url"
 
 	"github.com/google/go-querystring/query"
+	"github.com/syndtr/goleveldb/leveldb"
 	"golang.org/x/net/html"
 )
 
 type SoundcloudClient struct {
 	ClientId   string
+	LevelDB    *leveldb.DB
 	Cookie     string
 	MaxRetries uint
 }
@@ -51,7 +53,6 @@ func (S *SoundcloudClient) GetClientId() error {
 
 		resp, err := http.Get(url)
 		if err != nil {
-			lgr.Error(err)
 			continue
 		}
 		defer resp.Body.Close()
@@ -90,7 +91,7 @@ func (S *SoundcloudClient) GetClientId() error {
 		}
 	}
 
-	ldb.Put([]byte("soundcloudClientId"), []byte(S.ClientId), nil)
+	S.LevelDB.Put([]byte("soundcloudClientId"), []byte(S.ClientId), nil)
 
 	return nil
 }

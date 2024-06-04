@@ -6,6 +6,7 @@ import (
 
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 type Stat struct {
@@ -14,11 +15,12 @@ type Stat struct {
 	Client    *api.Client
 	ChannelID discord.ChannelID
 	Delay     time.Duration
+	LevelDB   *leveldb.DB
 	locked    bool
 }
 
 func (S *Stat) Initialise() error {
-	val, err := ldb.Get([]byte("STAT_"+S.Name), nil)
+	val, err := S.LevelDB.Get([]byte("STAT_"+S.Name), nil)
 	if err != nil {
 		return err
 	}
@@ -32,7 +34,7 @@ func (S *Stat) Initialise() error {
 
 func (S *Stat) sync(value int64) error {
 	strVal := strconv.FormatInt(value, 10)
-	err := ldb.Put([]byte("STAT_"+S.Name), []byte(strVal), nil)
+	err := S.LevelDB.Put([]byte("STAT_"+S.Name), []byte(strVal), nil)
 	if err != nil {
 		return err
 	}
@@ -53,14 +55,20 @@ func (S *Stat) Update() {
 	S.locked = true
 	go func() {
 		before := S.Value
-		lgr.Assert(S.sync(before))
+		err := S.sync(before)
+		if err != nil {
+			return
+		}
 		time.Sleep(S.Delay)
 		after := S.Value
 		if before == after {
 			S.locked = false
 			return
 		}
-		lgr.Assert(S.sync(S.Value))
+		err = S.sync(S.Value)
+		if err != nil {
+			return
+		}
 		S.locked = false
 	}()
 }

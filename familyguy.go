@@ -10,7 +10,7 @@ import (
 	"github.com/diamondburned/arikawa/v3/state"
 )
 
-func familyguy() {
+func (bbb *Benbebots) RunFamilyGuy() {
 	opts := struct {
 		CacheChannelId uint64 `ini:"cachechannel"`
 		cacheChannel   discord.ChannelID
@@ -20,26 +20,27 @@ func familyguy() {
 		TestId         uint64        `ini:"test"`
 		Test           discord.ChannelID
 	}{}
-	lgr.Assert(cfg.Section("bot.familyguy").StrictMapTo(&opts))
+	bbb.Logger.Assert(bbb.Config.Section("bot.familyguy").StrictMapTo(&opts))
 	opts.cacheChannel = discord.ChannelID(opts.CacheChannelId)
 	if opts.TestId != 0 {
 		opts.Test = discord.ChannelID(opts.TestId)
 	}
 
-	client := state.New("Bot " + tokens["familyGuy"].Password)
+	client := state.New("Bot " + bbb.Tokens["familyGuy"].Password)
 	client.AddIntents(gateway.IntentGuildMembers) // privileged
 	client.AddHandler(func(*gateway.ReadyEvent) {
 		me, _ := client.Me()
 		log.Println("Connected to discord as", me.Tag())
 	})
-	client.AddHandler(hrt.Init)
-	client.AddHandler(hrt.Heartbeat)
+	client.AddHandler(bbb.Heartbeater.Init)
+	client.AddHandler(bbb.Heartbeater.Heartbeat)
 
 	fgStat := Stat{
 		Name:      "Family Guys",
 		Value:     0,
 		Client:    client.Client,
 		ChannelID: discord.ChannelID(opts.StatChannel),
+		LevelDB:   bbb.LevelDB,
 		Delay:     time.Second * 5,
 	}
 
@@ -51,7 +52,7 @@ func familyguy() {
 		// get users
 		guilds, err := client.Guilds()
 		if err != nil {
-			lgr.Error(err)
+			bbb.Logger.Error(err)
 			return
 		}
 
@@ -60,7 +61,7 @@ func familyguy() {
 		for _, guild := range guilds {
 			members, err := client.Members(guild.ID)
 			if err != nil {
-				lgr.Error(err)
+				bbb.Logger.Error(err)
 				continue
 			}
 			users = append(users, make([]discord.ChannelID, len(members))...)
@@ -88,7 +89,7 @@ func familyguy() {
 		// get clips
 		messages, err := client.Messages(opts.cacheChannel, 1000)
 		if err != nil {
-			lgr.Error(err)
+			bbb.Logger.Error(err)
 			return
 		}
 
@@ -118,7 +119,7 @@ func familyguy() {
 			}
 			_, err = client.SendMessage(channel, clips[rand.Intn(len(clips))])
 			if err != nil {
-				lgr.Error(err)
+				bbb.Logger.Error(err)
 				continue
 			}
 			fgStat.Increment(1)
@@ -126,5 +127,6 @@ func familyguy() {
 	})
 
 	client.Open(client.Context())
-	botGoroutineGroup.Done()
+	bbb.AddClient(client.Session)
+	bbb.CoroutineGroup.Done()
 }
