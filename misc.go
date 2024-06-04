@@ -155,27 +155,22 @@ func (bbb *Benbebots) RunCannedFood() {
 	client.AddHandler(bbb.Heartbeater.Heartbeat)
 
 	var validChannels []discord.ChannelID
-	var validChannelsStr []byte
-	client.AddHandler(func(*gateway.ReadyEvent) {
-		var err error
-		validChannelsStr, err = bbb.LevelDB.Get([]byte("cannedFoodValidChannels"), nil)
+	validChannelsStr, err := bbb.LevelDB.Get([]byte("cannedFoodValidChannels"), nil)
+	if err != nil {
+		bbb.Logger.Error(err.Error())
+		return
+	}
+
+	strs := strings.Fields(string(validChannelsStr))
+	validChannels = make([]discord.ChannelID, len(strs))
+	for i, v := range strs {
+		id, err := strconv.ParseUint(v, 10, 64)
 		if err != nil {
 			bbb.Logger.Error(err.Error())
 			return
 		}
-
-		strs := strings.Fields(string(validChannelsStr))
-		validChannels = make([]discord.ChannelID, len(strs))
-		for i, v := range strs {
-			id, err := strconv.ParseUint(v, 10, 64)
-			if err != nil {
-				bbb.Logger.Error(err.Error())
-				return
-			}
-			validChannels[i] = discord.ChannelID(id)
-		}
-
-	})
+		validChannels[i] = discord.ChannelID(id)
+	}
 
 	client.AddHandler(func(message *gateway.MessageCreateEvent) { // reaction
 		if len(message.Mentions) <= 0 && len(message.MentionRoleIDs) <= 0 && !message.MentionEveryone {
@@ -286,13 +281,19 @@ func (bbb *Benbebots) RunCannedFood() {
 
 	var commandInitiatorString string
 	var commandInitiatorLen int
+	var isReady bool
 	client.AddHandler(func(*gateway.ReadyEvent) {
 		me, _ := client.Me()
 		commandInitiatorString = "<@" + me.ID.String()
 		commandInitiatorLen = len(commandInitiatorString)
+		isReady = true
 	})
 
 	client.AddHandler(func(message *gateway.MessageCreateEvent) { // commands
+		if !isReady {
+			return
+		}
+
 		// check command initiator
 		if len(message.Content) < commandInitiatorLen || message.Content[:commandInitiatorLen] != commandInitiatorString {
 			return
@@ -367,7 +368,7 @@ func (bbb *Benbebots) RunCannedFood() {
 		}
 	})
 
-	client.Open(client.Context())
+	bbb.Logger.Assert(client.Open(client.Context()))
 	bbb.AddClient(client)
 	bbb.CoroutineGroup.Done()
 }
