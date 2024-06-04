@@ -68,21 +68,21 @@ func (bbb *Benbebots) RunBenbebot() {
 		client.AddHandler(func(*gateway.ReadyEvent) {
 			validChannelsStr, err := bbb.LevelDB.Get([]byte("recentSoundclowns"), nil)
 			if err != nil {
-				bbb.Logger.Error(err)
+				bbb.Logger.Error(err.Error())
 				return
 			}
 
 			strs := strings.Fields(string(validChannelsStr))
 			recentsIndex, err = strconv.ParseUint(strs[0], 10, 64)
 			if err != nil {
-				bbb.Logger.Error(err)
+				bbb.Logger.Error(err.Error())
 				return
 			}
 			strs = strs[1:]
 			for i, v := range strs {
 				id, err := strconv.ParseUint(v, 10, 64)
 				if err != nil {
-					bbb.Logger.Error(err)
+					bbb.Logger.Error(err.Error())
 					return
 				}
 				recents[i] = uint(id)
@@ -104,19 +104,19 @@ func (bbb *Benbebots) RunBenbebot() {
 				Locale:     "en",
 			}, "")
 			if err != nil {
-				bbb.Logger.Error(err)
+				bbb.Logger.Error(err.Error())
 				return
 			}
 			defer resp.Body.Close()
 			if resp.StatusCode != 200 {
-				bbb.Logger.Error(fmt.Errorf("couldnt get soundclouds: %s", resp.Status))
+				bbb.Logger.Error(fmt.Errorf("couldnt get soundclouds: %s", resp.Status).Error())
 				return
 			}
 
 			// get recent tracks
 			data, err := io.ReadAll(resp.Body)
 			if err != nil {
-				bbb.Logger.Error(err)
+				bbb.Logger.Error(err.Error())
 				return
 			}
 			tracks := struct {
@@ -141,7 +141,7 @@ func (bbb *Benbebots) RunBenbebot() {
 			}{}
 			err = json.Unmarshal(data, &tracks)
 			if err != nil {
-				bbb.Logger.Error(err)
+				bbb.Logger.Error(err.Error())
 				return
 			}
 
@@ -163,7 +163,7 @@ func (bbb *Benbebots) RunBenbebot() {
 			}
 
 			if !found {
-				bbb.Logger.Error(errors.New("could not find a soundcloud within 20 tracks"))
+				bbb.Logger.Error("could not find a soundcloud within 20 tracks")
 				return
 			}
 
@@ -189,10 +189,10 @@ func (bbb *Benbebots) RunBenbebot() {
 			// get soundcloud token
 			cltId, err := bbb.LevelDB.Get([]byte("soundcloudClientId"), nil)
 			if err != nil {
-				bbb.Logger.Error(err)
+				bbb.Logger.Error(err.Error())
 				err = scClient.GetClientId()
 				if err != nil {
-					bbb.Logger.Error(err)
+					bbb.Logger.Error(err.Error())
 				}
 			} else {
 				scClient.ClientId = string(cltId)
@@ -206,12 +206,12 @@ func (bbb *Benbebots) RunBenbebot() {
 				defer mut.Unlock()
 				messages, err := client.Messages(opts.Channel, 1)
 				if err != nil {
-					bbb.Logger.Error(err)
+					bbb.Logger.Error(err.Error())
 					return
 				}
 				message := messages[0]
 				if len(message.Content) >= urlLen && message.Content[:urlLen] == url {
-					fail, _, _ := bbb.Logger.Assert2(client.CrosspostMessage(opts.Channel, messages[0].ID))
+					fail, _ := bbb.Logger.Assert2(client.CrosspostMessage(opts.Channel, messages[0].ID))
 					if !fail {
 						scStat.Increment(1)
 					}
@@ -258,24 +258,24 @@ func (bbb *Benbebots) RunBenbebot() {
 		router.AddFunc("sex", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
 			sndr := data.Event.SenderID()
 			if sndr == 0 {
-				bbb.Logger.Error(errors.New("sender is 0"))
+				bbb.Logger.Error("sender is 0")
 				return &api.InteractionResponseData{
 					Content: option.NewNullableString("how the fuck"),
 					Flags:   discord.EphemeralMessage,
 				}
 			}
-			ok, id, err := bbb.Logger.Assert(client.Ban(data.Event.GuildID, sndr, api.BanData{
+			ok, err := bbb.Logger.Assert(client.Ban(data.Event.GuildID, sndr, api.BanData{
 				DeleteDays:     option.ZeroUint,
 				AuditLogReason: "sex command",
 			}))
 			if !ok {
 				return &api.InteractionResponseData{
-					Content: option.NewNullableString("error `" + id + "`: " + err.Error()),
+					Content: option.NewNullableString("error: " + err.Error()),
 					Flags:   discord.EphemeralMessage,
 				}
 			}
 			return &api.InteractionResponseData{
-				Content: option.NewNullableString("kys"),
+				Content: option.NewNullableString("idk"),
 				Flags:   discord.EphemeralMessage,
 			}
 		})
@@ -318,13 +318,13 @@ func (bbb *Benbebots) RunBenbebot() {
 			fileBuffer := make([]byte, toDownload.Size)
 			resp, err := http.Get(toDownload.URL)
 			if err != nil {
-				bbb.Logger.Error(err)
+				bbb.Logger.Error(err.Error())
 				bbb.Logger.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
 				return
 			}
 
 			if _, err := io.ReadFull(resp.Body, fileBuffer); err != nil {
-				bbb.Logger.Error(err)
+				bbb.Logger.Error(err.Error())
 				bbb.Logger.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
 				return
 			}
@@ -332,13 +332,13 @@ func (bbb *Benbebots) RunBenbebot() {
 			debugInfo := struct {
 				AdVideoId string `json:"addebug_videoId"`
 			}{}
-			fail, _, _ := bbb.Logger.Assert(json.Unmarshal(fileBuffer, &debugInfo))
+			fail, _ := bbb.Logger.Assert(json.Unmarshal(fileBuffer, &debugInfo))
 			if fail {
 				bbb.Logger.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
 				return
 			}
 
-			fail, _, _ = bbb.Logger.Assert2(client.SendMessageReply(opts.Channel, "https://www.youtube.com/watch?v="+debugInfo.AdVideoId, message.ID))
+			fail, _ = bbb.Logger.Assert2(client.SendMessageReply(opts.Channel, "https://www.youtube.com/watch?v="+debugInfo.AdVideoId, message.ID))
 			if fail {
 				bbb.Logger.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
 			}

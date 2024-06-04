@@ -130,7 +130,7 @@ func (bbb *Benbebots) RunCannedFood() {
 			log.Println("CannedFood token errored, logging in")
 			client, err = bbb.LoginCannedFood()
 			if err != nil {
-				bbb.Logger.Error(err)
+				bbb.Logger.Error(err.Error())
 				return
 			}
 		} else {
@@ -160,7 +160,7 @@ func (bbb *Benbebots) RunCannedFood() {
 		var err error
 		validChannelsStr, err = bbb.LevelDB.Get([]byte("cannedFoodValidChannels"), nil)
 		if err != nil {
-			bbb.Logger.Error(err)
+			bbb.Logger.Error(err.Error())
 			return
 		}
 
@@ -169,7 +169,7 @@ func (bbb *Benbebots) RunCannedFood() {
 		for i, v := range strs {
 			id, err := strconv.ParseUint(v, 10, 64)
 			if err != nil {
-				bbb.Logger.Error(err)
+				bbb.Logger.Error(err.Error())
 				return
 			}
 			validChannels[i] = discord.ChannelID(id)
@@ -183,7 +183,7 @@ func (bbb *Benbebots) RunCannedFood() {
 		}
 		me, err := client.Me()
 		if err != nil {
-			bbb.Logger.Error(err)
+			bbb.Logger.Error(err.Error())
 			return
 		}
 		// check if pinging canned food
@@ -213,7 +213,7 @@ func (bbb *Benbebots) RunCannedFood() {
 				// check if pinging any of canned food's roles
 				member, err := client.Member(message.GuildID, me.ID)
 				if err != nil {
-					bbb.Logger.Error(err)
+					bbb.Logger.Error(err.Error())
 					return
 				}
 				var rolePinged bool
@@ -325,14 +325,14 @@ func (bbb *Benbebots) RunCannedFood() {
 		case "add":
 			channelId, err := strconv.ParseUint(items[2][2:len(items[2])-1], 10, 64)
 			if err != nil {
-				id := bbb.Logger.Error(err)
-				client.SendMessageReply(message.ChannelID, "error "+id+": "+err.Error(), message.ID)
+				bbb.Logger.Error(err.Error())
+				client.SendMessageReply(message.ChannelID, "error: "+err.Error(), message.ID)
 				return
 			}
 			channel, err := client.Channel(discord.ChannelID(discord.Snowflake(channelId)))
 			if err != nil {
-				id := bbb.Logger.Error(err)
-				client.SendMessageReply(message.ChannelID, "error "+id+": "+err.Error(), message.ID)
+				bbb.Logger.Error(err.Error())
+				client.SendMessageReply(message.ChannelID, "error: "+err.Error(), message.ID)
 				return
 			}
 
@@ -353,8 +353,8 @@ func (bbb *Benbebots) RunCannedFood() {
 
 			err = bbb.LevelDB.Put([]byte("cannedFoodValidChannels"), validChannelsStrNew, nil)
 			if err != nil {
-				id := bbb.Logger.Error(err)
-				client.SendMessageReply(message.ChannelID, "error "+id+": "+err.Error(), message.ID)
+				bbb.Logger.Error(err.Error())
+				client.SendMessageReply(message.ChannelID, "error: "+err.Error(), message.ID)
 				return
 			}
 

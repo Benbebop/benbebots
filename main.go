@@ -37,7 +37,7 @@ type Benbebots struct {
 }
 
 func (b *Benbebots) CommandError(inErr error) *api.InteractionResponseData {
-	id := b.Logger.Error(inErr)
+	b.Logger.Error(inErr.Error())
 
 	var stk string
 	for i := 1; i < 6; i++ {
@@ -57,8 +57,8 @@ func (b *Benbebots) CommandError(inErr error) *api.InteractionResponseData {
 				Author: &discord.EmbedAuthor{
 					Name: "There was an error!",
 				},
-				URL:         "https://github.com/Benbebop/benbebots/issues/new?body=my%20error%20id%3A%20" + id,
-				Title:       id,
+				URL:         "https://github.com/Benbebop/benbebots/issues/new?body=my%20error%20id%3A%20",
+				Title:       "idk",
 				Description: inErr.Error(),
 				Footer: &discord.EmbedFooter{
 					Text: stk,
@@ -126,9 +126,12 @@ func (b *Benbebots) InitLogger() error {
 	return nil
 }
 
+type LoggerCron interface {
+}
+
 func (b *Benbebots) InitCron() error {
 	var err error
-	b.Cron, err = gocron.NewScheduler()
+	b.Cron, err = gocron.NewScheduler(gocron.WithLogger(&b.Logger))
 	if err != nil {
 		return err
 	}

@@ -52,7 +52,7 @@ func (bbb *Benbebots) RunFamilyGuy() {
 		// get users
 		guilds, err := client.Guilds()
 		if err != nil {
-			bbb.Logger.Error(err)
+			bbb.Logger.Error(err.Error())
 			return
 		}
 
@@ -61,7 +61,7 @@ func (bbb *Benbebots) RunFamilyGuy() {
 		for _, guild := range guilds {
 			members, err := client.Members(guild.ID)
 			if err != nil {
-				bbb.Logger.Error(err)
+				bbb.Logger.Error(err.Error())
 				continue
 			}
 			users = append(users, make([]discord.ChannelID, len(members))...)
@@ -89,7 +89,7 @@ func (bbb *Benbebots) RunFamilyGuy() {
 		// get clips
 		messages, err := client.Messages(opts.cacheChannel, 1000)
 		if err != nil {
-			bbb.Logger.Error(err)
+			bbb.Logger.Error(err.Error())
 			return
 		}
 
@@ -119,7 +119,7 @@ func (bbb *Benbebots) RunFamilyGuy() {
 			}
 			_, err = client.SendMessage(channel, clips[rand.Intn(len(clips))])
 			if err != nil {
-				bbb.Logger.Error(err)
+				bbb.Logger.Error(err.Error())
 				continue
 			}
 			fgStat.Increment(1)

@@ -20,12 +20,15 @@ type Logger struct {
 
 var traceSterliser *regexp.Regexp = regexp.MustCompile("0[xX][0-9a-fA-F]+|goroutine [0-9]+")
 
-func (l *Logger) Error(inErr error) string {
+func (l *Logger) Debug(msg string, args ...any) {}
+
+func (l *Logger) Error(msg string, args ...any) {
+	msg = fmt.Sprintf(msg, args...)
 	os.Mkdir(l.Directory, 0777)
 	var output string
 
 	// add error
-	output += inErr.Error()
+	output += msg
 
 	// add traceback
 	trc := make([]byte, 2048)
@@ -41,43 +44,47 @@ func (l *Logger) Error(inErr error) string {
 	// create log file
 	file, err := os.OpenFile(fmt.Sprintf("%s%s.log", l.Directory, id), os.O_CREATE|os.O_WRONLY, 0777)
 	if err != nil {
-		return ""
+		return
 	}
 	_, err = file.Write([]byte(output))
 	if err != nil {
-		return ""
+		return
 	}
 	file.Close()
 
 	// log to stdout
-	log.Printf("%s: %s", id, inErr.Error())
+	log.Printf("%s: %s", id, msg)
 
 	// send log to discord server
 	data, err := json.Marshal(struct {
 		Content string `json:"content"`
 	}{
-		Content: fmt.Sprintf("error `%s`: %s", id, inErr.Error()),
+		Content: fmt.Sprintf("error `%s`: %s", id, msg),
 	})
 	if err != nil {
-		return id
+		return
 	}
 	req, err := http.NewRequest(http.MethodPost, l.Webhook, bytes.NewReader(data))
 	if err != nil {
-		return id
+		return
 	}
 	req.Header.Add("Content-Type", "application/json")
 	http.DefaultClient.Do(req)
-	return id
 }
 
-func (l *Logger) Assert(inErr error) (bool, string, error) {
+func (l *Logger) Info(msg string, args ...any) {}
+
+func (l *Logger) Warn(msg string, args ...any) {}
+
+func (l *Logger) Assert(inErr error, _ ...any) (bool, error) {
 	if inErr != nil {
-		return true, l.Error(inErr), inErr
+		l.Error(inErr.Error())
+		return true, inErr
 	}
-	return false, "", inErr
+	return false, inErr
 }
 
 // i dont like this but i cant think of anything better
-func (l *Logger) Assert2(_ any, inErr error) (bool, string, error) {
+func (l *Logger) Assert2(_ any, inErr error, _ ...any) (bool, error) {
 	return l.Assert(inErr)
 }
