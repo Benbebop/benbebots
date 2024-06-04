@@ -20,15 +20,12 @@ type Logger struct {
 
 var traceSterliser *regexp.Regexp = regexp.MustCompile("0[xX][0-9a-fA-F]+|goroutine [0-9]+")
 
-func (l *Logger) Debug(msg string, args ...any) {}
-
-func (l *Logger) Error(msg string, args ...any) {
-	msg = fmt.Sprintf(msg, args...)
+func (l *Logger) output(mode string, str string) {
 	os.Mkdir(l.Directory, 0777)
 	var output string
 
 	// add error
-	output += msg
+	output += str
 
 	// add traceback
 	trc := make([]byte, 2048)
@@ -53,13 +50,13 @@ func (l *Logger) Error(msg string, args ...any) {
 	file.Close()
 
 	// log to stdout
-	log.Printf("%s: %s", id, msg)
+	log.Printf("%s: %s", id, str)
 
 	// send log to discord server
 	data, err := json.Marshal(struct {
 		Content string `json:"content"`
 	}{
-		Content: fmt.Sprintf("error `%s`: %s", id, msg),
+		Content: fmt.Sprintf("%s `%s`: %s", mode, id, str),
 	})
 	if err != nil {
 		return
@@ -72,9 +69,21 @@ func (l *Logger) Error(msg string, args ...any) {
 	http.DefaultClient.Do(req)
 }
 
-func (l *Logger) Info(msg string, args ...any) {}
+func (l *Logger) Debug(msg string, args ...any) {
+	log.Printf(msg, args...)
+}
 
-func (l *Logger) Warn(msg string, args ...any) {}
+func (l *Logger) Error(msg string, args ...any) {
+	l.output("error", fmt.Sprintf(msg, args...))
+}
+
+func (l *Logger) Info(msg string, args ...any) {
+	log.Printf(msg, args...)
+}
+
+func (l *Logger) Warn(msg string, args ...any) {
+	l.output("warning", fmt.Sprintf(msg, args...))
+}
 
 func (l *Logger) Assert(inErr error, _ ...any) (bool, error) {
 	if inErr != nil {
