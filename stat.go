@@ -1,7 +1,9 @@
 package main
 
 import (
+	"log"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/diamondburned/arikawa/v3/api"
@@ -16,7 +18,7 @@ type Stat struct {
 	ChannelID discord.ChannelID
 	Delay     time.Duration
 	LevelDB   *leveldb.DB
-	locked    bool
+	mutex     sync.Mutex
 }
 
 func (S *Stat) Initialise() error {
@@ -49,27 +51,25 @@ func (S *Stat) sync(value int64) error {
 }
 
 func (S *Stat) Update() {
-	if S.locked {
+	if !S.mutex.TryLock() {
 		return
 	}
-	S.locked = true
 	go func() {
-		before := S.Value
-		err := S.sync(before)
-		if err != nil {
-			return
-		}
-		time.Sleep(S.Delay)
+		defer S.mutex.Unlock()
 		after := S.Value
-		if before == after {
-			S.locked = false
-			return
+		for {
+			before := after
+			err := S.sync(before)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			time.Sleep(S.Delay)
+			after = S.Value
+			if before == after {
+				break
+			}
 		}
-		err = S.sync(S.Value)
-		if err != nil {
-			return
-		}
-		S.locked = false
 	}()
 }
 
