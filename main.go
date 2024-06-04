@@ -189,7 +189,7 @@ func main() {
 	argLen := len(os.Args)
 	if argLen > 1 {
 		if os.Args[1] == "update-commands" {
-			benbebots.UpdateCommands(os.Args[2] == "reset")
+			benbebots.UpdateCommands(argLen > 2 && os.Args[2] == "reset")
 			return
 		}
 	}
