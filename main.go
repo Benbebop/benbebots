@@ -176,13 +176,22 @@ func main() {
 	var benbebots = Benbebots{}
 
 	// initialise benbebots
-	benbebots.GetDirs()
-	benbebots.ParseConfig()
-	benbebots.InitHeartbeater()
-	benbebots.InitLogger()
-	benbebots.InitCron()
-	benbebots.ParseTokens()
-	benbebots.OpenLevelDB()
+	err := benbebots.GetDirs()
+	if err != nil {
+		log.Println(err)
+	}
+	err = benbebots.ParseConfig()
+	if err != nil {
+		log.Println(err)
+	}
+	err = benbebots.InitLogger()
+	if err != nil {
+		log.Println(err)
+	}
+	benbebots.Logger.Assert(benbebots.InitHeartbeater())
+	benbebots.Logger.Assert(benbebots.InitCron())
+	benbebots.Logger.Assert(benbebots.ParseTokens())
+	benbebots.Logger.Assert(benbebots.OpenLevelDB())
 	defer benbebots.LevelDB.Close()
 
 	// read args
