@@ -417,7 +417,7 @@ func (bbb *Benbebots) RunBenbebot() {
 					if abs < val {
 						toPing[userId] = val - abs
 					} else {
-						toPing[userId] = 0
+						delete(toPing, userId)
 					}
 				} else {
 					toPing[userId] += uint64(math.Abs(options.Times))
@@ -428,13 +428,19 @@ func (bbb *Benbebots) RunBenbebot() {
 
 			wakePinger()
 
-			var timeToTake time.Duration
+			if _, ok := toPing[userId]; !ok {
+				return &api.InteractionResponseData{
+					Content: option.NewNullableString("set to no longer ping you"),
+				}
+			}
+
+			timeToTake := time.Now()
 			for _, v := range toPing {
-				timeToTake += opts.Freq * time.Duration(v)
+				timeToTake = timeToTake.Add(opts.Freq * time.Duration(v))
 			}
 
 			return &api.InteractionResponseData{
-				Content: option.NewNullableString(fmt.Sprintf("set to ping you %d times\nthis will take aproximately %s", toPing[userId], timeToTake.String())),
+				Content: option.NewNullableString(fmt.Sprintf("set to ping you %d times\nthis will be finished <t:%d:R> aproximately", toPing[userId], timeToTake.Unix())),
 			}
 		})
 	}
