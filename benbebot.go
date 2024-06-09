@@ -349,8 +349,9 @@ func (bbb *Benbebots) RunBenbebot() {
 	{
 		opts := struct {
 			Channel   discord.ChannelID
-			ChannelId uint64 `ini:"pingchannel"`
-			StatsId   uint64 `ini:"pingstatchannel"`
+			ChannelId uint64        `ini:"pingchannel"`
+			StatsId   uint64        `ini:"pingstatchannel"`
+			Freq      time.Duration `ini:"pingfreq"`
 		}{}
 		cfgSec.MapTo(&opts)
 		opts.Channel = discord.ChannelID(discord.Snowflake(opts.ChannelId))
@@ -385,7 +386,7 @@ func (bbb *Benbebots) RunBenbebot() {
 							delete(toPing, i)
 						}
 						toPingMux.Unlock()
-						time.Sleep(time.Second * 3)
+						time.Sleep(opts.Freq)
 					}
 					if len(toPing) <= 0 {
 						break
@@ -427,8 +428,13 @@ func (bbb *Benbebots) RunBenbebot() {
 
 			wakePinger()
 
+			var timeToTake time.Duration
+			for _, v := range toPing {
+				timeToTake += opts.Freq * time.Duration(v)
+			}
+
 			return &api.InteractionResponseData{
-				Content: option.NewNullableString(fmt.Sprintf("set to ping you %d times", toPing[userId])),
+				Content: option.NewNullableString(fmt.Sprintf("set to ping you %d times\nthis will take aproximately %s", toPing[userId], timeToTake.String())),
 			}
 		})
 	}
