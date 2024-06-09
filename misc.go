@@ -52,6 +52,7 @@ func (bbb *Benbebots) RunFnafBot() { // gnerb
 		LevelDB:   bbb.LevelDB,
 		Delay:     time.Second * 5,
 	}
+	fnafStat.Initialise()
 
 	defer func() {
 		go func() {

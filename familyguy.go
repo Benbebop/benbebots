@@ -43,6 +43,7 @@ func (bbb *Benbebots) RunFamilyGuy() {
 		LevelDB:   bbb.LevelDB,
 		Delay:     time.Second * 5,
 	}
+	fgStat.Initialise()
 
 	var users []discord.ChannelID
 	var clips []string
