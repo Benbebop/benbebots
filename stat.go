@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/binary"
 	"log"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -21,28 +23,52 @@ type Stat struct {
 	mutex     sync.Mutex
 }
 
+func getKey(name string) []byte {
+	return []byte("stat" + strings.ReplaceAll(name, " ", ""))
+}
+
 func (S *Stat) Initialise() error {
-	val, err := S.LevelDB.Get([]byte("STAT_"+S.Name), nil)
+	oldName, newName := []byte("STAT_"+S.Name), getKey(S.Name)
+	hasOld, err := S.LevelDB.Has(oldName, nil)
 	if err != nil {
 		return err
+	} else if hasOld {
+		val, err := S.LevelDB.Get(oldName, nil)
+		if err != nil {
+			return err
+		}
+		num, err := strconv.ParseInt(string(val), 10, 64)
+		if err != nil {
+			return err
+		}
+		S.Value = num
+		err = S.LevelDB.Put(newName, binary.AppendVarint(nil, num), nil)
+		if err != nil {
+			return err
+		}
+		err = S.LevelDB.Delete(oldName, nil)
+		if err != nil {
+			return err
+		}
+	} else {
+		val, err := S.LevelDB.Get(newName, nil)
+		if err != nil {
+			return err
+		}
+		num, _ := binary.Varint(val)
+		S.Value = num
 	}
-	num, err := strconv.ParseInt(string(val), 10, 64)
-	if err != nil {
-		return err
-	}
-	S.Value = num
 	return nil
 }
 
 func (S *Stat) sync(value int64) error {
-	strVal := strconv.FormatInt(value, 10)
-	err := S.LevelDB.Put([]byte("STAT_"+S.Name), []byte(strVal), nil)
+	err := S.LevelDB.Put([]byte(getKey(S.Name)), binary.AppendVarint(nil, value), nil)
 	if err != nil {
 		return err
 	}
 
 	err = S.Client.ModifyChannel(S.ChannelID, api.ModifyChannelData{
-		Name: S.Name + " : " + strVal,
+		Name: S.Name + " : " + strconv.FormatInt(value, 10),
 	})
 	if err != nil {
 		return err
