@@ -17,6 +17,7 @@ import (
 
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/api/cmdroute"
+	"github.com/diamondburned/arikawa/v3/api/webhook"
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/session"
@@ -348,13 +349,19 @@ func (bbb *Benbebots) RunBenbebot() {
 
 	{
 		opts := struct {
-			Channel   discord.ChannelID
-			ChannelId uint64        `ini:"pingchannel"`
-			StatsId   uint64        `ini:"pingstatchannel"`
-			Freq      time.Duration `ini:"pingfreq"`
+			StatsId uint64        `ini:"pingstatchannel"`
+			Freq    time.Duration `ini:"pingfreq"`
 		}{}
 		cfgSec.MapTo(&opts)
-		opts.Channel = discord.ChannelID(discord.Snowflake(opts.ChannelId))
+		k, err := bbb.Config.Section("webhooks").GetKey("pinger")
+		if err != nil {
+			bbb.Logger.Error(err.Error())
+		}
+		pinghook, err := webhook.NewFromURL(string(k.String()))
+		if err != nil {
+			bbb.Logger.Error(err.Error())
+		}
+
 		var toPingMux sync.Mutex
 		toPing := map[discord.UserID]uint64{}
 		var pingerLock bool
@@ -378,7 +385,9 @@ func (bbb *Benbebots) RunBenbebot() {
 			go func() {
 				for {
 					for i := range toPing {
-						client.SendMessage(opts.Channel, "<@"+i.String()+">")
+						pinghook.Execute(webhook.ExecuteData{
+							Content: i.Mention(),
+						})
 						pgStat.Increment(1)
 						toPingMux.Lock()
 						toPing[i] -= 1
