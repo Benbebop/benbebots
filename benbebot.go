@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"strconv"
@@ -341,6 +342,93 @@ func (bbb *Benbebots) RunBenbebot() {
 			fail, _ = bbb.Logger.Assert2(client.SendMessageReply(opts.Channel, "https://www.youtube.com/watch?v="+debugInfo.AdVideoId, message.ID))
 			if fail {
 				bbb.Logger.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
+			}
+		})
+	}
+
+	{
+		opts := struct {
+			Channel   discord.ChannelID
+			ChannelId uint64 `ini:"pingchannel"`
+			StatsId   uint64 `ini:"pingstatchannel"`
+		}{}
+		cfgSec.MapTo(&opts)
+		opts.Channel = discord.ChannelID(discord.Snowflake(opts.ChannelId))
+		var toPingMux sync.Mutex
+		toPing := map[discord.UserID]uint64{}
+		var pingerLock bool
+
+		pgStat := Stat{
+			Name:      "Pings",
+			Value:     0,
+			Client:    client.Client,
+			LevelDB:   bbb.LevelDB,
+			ChannelID: discord.ChannelID(opts.StatsId),
+			Delay:     time.Second * 5,
+		}
+		pgStat.Initialise()
+
+		wakePinger := func() {
+			if pingerLock {
+				return
+			}
+			pingerLock = true
+
+			go func() {
+				for {
+					for i := range toPing {
+						client.SendMessage(opts.Channel, "<@"+i.String()+">")
+						pgStat.Increment(1)
+						toPingMux.Lock()
+						toPing[i] -= 1
+						if toPing[i] <= 0 {
+							delete(toPing, i)
+						}
+						toPingMux.Unlock()
+						time.Sleep(time.Second * 3)
+					}
+					if len(toPing) <= 0 {
+						break
+					}
+				}
+				pingerLock = false
+			}()
+		}
+
+		router.AddFunc("pingme", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+			var options = struct {
+				Times float64 `discord:"times"`
+			}{}
+			if err := data.Options.Unmarshal(&options); err != nil {
+				return bbb.CommandError(err)
+			}
+			userId := data.Event.SenderID()
+			if userId <= 0 {
+				return nil
+			}
+
+			toPingMux.Lock()
+			defer toPingMux.Unlock()
+			val, ok := toPing[userId]
+			if ok {
+				if math.Signbit(options.Times) {
+					abs := uint64(math.Abs(options.Times))
+					if abs < val {
+						toPing[userId] = val - abs
+					} else {
+						toPing[userId] = 0
+					}
+				} else {
+					toPing[userId] += uint64(math.Abs(options.Times))
+				}
+			} else {
+				toPing[userId] = uint64(max(0, options.Times))
+			}
+
+			wakePinger()
+
+			return &api.InteractionResponseData{
+				Content: option.NewNullableString(fmt.Sprintf("set to ping you %d times", toPing[userId])),
 			}
 		})
 	}
