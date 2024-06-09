@@ -423,7 +423,7 @@ func (bbb *Benbebots) RunBenbebot() {
 			if ok {
 				if math.Signbit(options.Times) {
 					abs := uint64(math.Abs(options.Times))
-					if abs < val {
+					if abs <= val {
 						toPing[userId] = val - abs
 					} else {
 						delete(toPing, userId)
@@ -445,7 +445,7 @@ func (bbb *Benbebots) RunBenbebot() {
 
 			timeToTake := time.Now()
 			for _, v := range toPing {
-				timeToTake = timeToTake.Add(opts.Freq * time.Duration(v))
+				timeToTake = timeToTake.Add(opts.Freq * time.Duration(min(v, toPing[userId])))
 			}
 
 			return &api.InteractionResponseData{
