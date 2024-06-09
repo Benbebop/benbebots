@@ -48,14 +48,12 @@ func (b *Benbebots) UpdateCommands(reset bool) error {
 		client := api.NewClient("Bot " + b.Tokens[index].Password)
 		myUser, err := client.Me()
 		if err != nil {
-			log.Println(err)
-			continue
+			return err
 		}
 
 		app, err := client.CurrentApplication()
 		if err != nil {
-			log.Println(err)
-			continue
+			return err
 		}
 		for guildID, cmds := range profile {
 			guildName := "all guilds"
@@ -66,14 +64,12 @@ func (b *Benbebots) UpdateCommands(reset bool) error {
 			} else {
 				guild, err := client.Guild(guildID)
 				if err != nil {
-					log.Println(err)
-					continue
+					return err
 				}
 				guildName = guild.Name
 				commands, err = client.BulkOverwriteGuildCommands(app.ID, guildID, cmds)
 				if err != nil {
-					log.Println(err)
-					continue
+					return err
 				}
 			}
 			if _, ok := toMarshal[index]; !ok {
