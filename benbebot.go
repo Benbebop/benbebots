@@ -424,6 +424,7 @@ func (bbb *Benbebots) RunBenbebot() {
 			}()
 			go func() {
 				for pingerLock {
+					time.Sleep(time.Second * 5)
 					for i, v := range toPing {
 						bbb.LevelDB.Put([]byte("pingsFor"+i.String()), binary.AppendUvarint(nil, v), nil)
 					}
@@ -431,7 +432,6 @@ func (bbb *Benbebots) RunBenbebot() {
 						bbb.LevelDB.Delete([]byte("pingsFor"+v.String()), nil)
 					}
 					toPingPendingDel = make([]discord.UserID, 0)
-					time.Sleep(time.Second * 5)
 				}
 			}()
 		}
