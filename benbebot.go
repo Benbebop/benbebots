@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -364,7 +365,22 @@ func (bbb *Benbebots) RunBenbebot() {
 
 		var toPingMux sync.Mutex
 		toPing := map[discord.UserID]uint64{}
+		var toPingPendingDel []discord.UserID
 		var pingerLock bool
+
+		iter := bbb.LevelDB.NewIterator(nil, nil)
+		for iter.Next() {
+			k, v := iter.Key(), iter.Value()
+			if string(k[:len("pingsFor")]) == "pingsFor" {
+				id, err := strconv.ParseUint(string(k[len("pingsFor"):]), 10, 64)
+				if err != nil {
+					bbb.Logger.Error(err.Error())
+					continue
+				}
+				toPing[discord.UserID(discord.Snowflake(id))], _ = binary.Uvarint(v)
+			}
+		}
+		iter.Release()
 
 		pgStat := Stat{
 			Name:      "Pings",
@@ -393,6 +409,7 @@ func (bbb *Benbebots) RunBenbebot() {
 						str += i.Mention()
 						toPing[i] -= 1
 						if toPing[i] <= 0 {
+							toPingPendingDel = append(toPingPendingDel, i)
 							delete(toPing, i)
 						}
 					}
@@ -405,7 +422,22 @@ func (bbb *Benbebots) RunBenbebot() {
 				}
 				pingerLock = false
 			}()
+			go func() {
+				for pingerLock {
+					for i, v := range toPing {
+						bbb.LevelDB.Put([]byte("pingsFor"+i.String()), binary.AppendUvarint(nil, v), nil)
+					}
+					for _, v := range toPingPendingDel {
+						bbb.LevelDB.Delete([]byte("pingsFor"+v.String()), nil)
+					}
+					time.Sleep(time.Second * 5)
+				}
+			}()
 		}
+
+		client.AddHandler(func(*gateway.ReadyEvent) {
+			wakePinger()
+		})
 
 		router.AddFunc("pingme", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
 			var options = struct {
@@ -428,6 +460,7 @@ func (bbb *Benbebots) RunBenbebot() {
 					if abs <= val {
 						toPing[userId] = val - abs
 					} else {
+						toPingPendingDel = append(toPingPendingDel, userId)
 						delete(toPing, userId)
 					}
 				} else {
