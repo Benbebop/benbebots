@@ -384,7 +384,13 @@ func (bbb *Benbebots) RunBenbebot() {
 
 			go func() {
 				for {
+					if len(toPing) <= 0 {
+						break
+					}
 					for i := range toPing {
+						if len(toPing) <= 0 {
+							break
+						}
 						pinghook.Execute(webhook.ExecuteData{
 							Content: i.Mention(),
 						})
@@ -396,9 +402,6 @@ func (bbb *Benbebots) RunBenbebot() {
 						}
 						toPingMux.Unlock()
 						time.Sleep(opts.Freq)
-					}
-					if len(toPing) <= 0 {
-						break
 					}
 				}
 				pingerLock = false
