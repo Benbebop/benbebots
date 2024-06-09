@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -202,12 +203,27 @@ func main() {
 			benbebots.UpdateCommands(argLen > 2 && os.Args[2] == "reset")
 			return
 		case "dump-leveldb":
+			toParse := argLen > 2 && os.Args[2] == "parse"
 			iter := benbebots.LevelDB.NewIterator(nil, nil)
 			for iter.Next() {
 				k, v := iter.Key(), iter.Value()
 				os.Stdout.Write(k)
 				os.Stdout.WriteString(": ")
-				os.Stdout.Write(v)
+				if toParse {
+					if num, read := binary.Varint(v); read > 0 {
+						fmt.Print(num)
+					}
+				} else {
+					for _, c := range v {
+						if uint8(c) < 32 || uint8(c) > 126 {
+							fmt.Printf("\\%03d", c)
+						} else if c == '\\' {
+							fmt.Print("\\\\")
+						} else {
+							os.Stdout.Write([]byte{c})
+						}
+					}
+				}
 				os.Stdout.WriteString("\n")
 			}
 			iter.Release()
