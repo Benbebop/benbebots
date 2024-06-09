@@ -387,22 +387,21 @@ func (bbb *Benbebots) RunBenbebot() {
 					if len(toPing) <= 0 {
 						break
 					}
+					var str string
+					toPingMux.Lock()
 					for i := range toPing {
-						if len(toPing) <= 0 {
-							break
-						}
-						pinghook.Execute(webhook.ExecuteData{
-							Content: i.Mention(),
-						})
-						pgStat.Increment(1)
-						toPingMux.Lock()
+						str += i.Mention()
 						toPing[i] -= 1
 						if toPing[i] <= 0 {
 							delete(toPing, i)
 						}
-						toPingMux.Unlock()
-						time.Sleep(opts.Freq)
 					}
+					toPingMux.Unlock()
+					pinghook.Execute(webhook.ExecuteData{
+						Content: str,
+					})
+					pgStat.Increment(1)
+					time.Sleep(opts.Freq)
 				}
 				pingerLock = false
 			}()
@@ -446,13 +445,8 @@ func (bbb *Benbebots) RunBenbebot() {
 				}
 			}
 
-			timeToTake := time.Now()
-			for _, v := range toPing {
-				timeToTake = timeToTake.Add(opts.Freq * time.Duration(min(v, toPing[userId])))
-			}
-
 			return &api.InteractionResponseData{
-				Content: option.NewNullableString(fmt.Sprintf("set to ping you %d times\nthis will be finished <t:%d:R> aproximately", toPing[userId], timeToTake.Unix())),
+				Content: option.NewNullableString(fmt.Sprintf("set to ping you %d times\nthis will be finished <t:%d:R> aproximately", toPing[userId], time.Now().Add(opts.Freq*time.Duration(toPing[userId])).Unix())),
 			}
 		})
 	}
