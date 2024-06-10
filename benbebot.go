@@ -452,6 +452,12 @@ func (bbb *Benbebots) RunBenbebot() {
 				return nil
 			}
 
+			if options.Times == 0 {
+				return &api.InteractionResponseData{
+					Content: option.NewNullableString(fmt.Sprintf("you have %d pings remaining\nthis will be finished <t:%d:R> aproximately", toPing[userId], time.Now().Add(opts.Freq*time.Duration(toPing[userId])).Unix())),
+				}
+			}
+
 			toPingMux.Lock()
 			defer toPingMux.Unlock()
 			val, ok := toPing[userId]
