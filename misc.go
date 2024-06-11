@@ -157,7 +157,7 @@ func (bbb *Benbebots) RunCannedFood() {
 
 	var validChannels []discord.ChannelID
 	validChannelsStr, err := bbb.LevelDB.Get([]byte("cannedFoodValidChannels"), nil)
-	if err != nil {
+	if err != nil && !errors.Is(err, leveldb.ErrNotFound) {
 		bbb.Logger.Error(err.Error())
 		return
 	}
