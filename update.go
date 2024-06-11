@@ -224,7 +224,7 @@ func (b *Benbebots) ResetStats() error {
 
 			var current uint
 			for _, message := range messages {
-				if message.Author.ID != me.ID || len(message.Attachments) <= 0 {
+				if message.Author.ID != me.ID || (len(message.Attachments) <= 0 && !strings.HasPrefix(message.Content, "https://cdn.discordapp.com/attachments/")) {
 					continue
 				}
 
