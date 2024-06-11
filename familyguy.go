@@ -1,13 +1,16 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"math/rand"
 	"time"
 
+	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/state"
+	"github.com/diamondburned/arikawa/v3/utils/json/option"
 )
 
 func (bbb *Benbebots) RunFamilyGuy() {
@@ -110,6 +113,9 @@ func (bbb *Benbebots) RunFamilyGuy() {
 			}
 		}
 		clips = clips[:index]
+		client.ModifyChannel(opts.cacheChannel, api.ModifyChannelData{
+			Topic: option.NewNullableString(fmt.Sprintf("current family guy clips in rotation: %d", len(clips))),
+		})
 
 		currentTicker = time.NewTicker(opts.Frequency / time.Duration(len(users)))
 		for {
