@@ -131,9 +131,14 @@ func (b *Benbebots) ResetStats() error {
 
 		channel, err := client.Channel(discord.ChannelID(id))
 		if err != nil {
-			log.Panicln(err)
-			return err
+			continue
 		}
+
+		guild, err := client.Guild(channel.GuildID)
+		if err != nil {
+			continue
+		}
+		log.Printf("scanning %s in %s", channel.Name, guild.Name)
 
 		messages, err := client.Messages(channel.ID, 0)
 		if err != nil {
@@ -141,7 +146,7 @@ func (b *Benbebots) ResetStats() error {
 			return err
 		}
 
-		log.Printf("scanning %d messages from %d\n", len(messages), channel.Name)
+		var current uint
 		for _, message := range messages {
 			for i, reaction := range message.Reactions {
 				if i > 2 {
@@ -152,10 +157,11 @@ func (b *Benbebots) ResetStats() error {
 					continue
 				}
 
-				log.Printf("found %d canned foods on message %d\n", reaction.CountDetails.Normal, message.ID)
-				total += uint64(reaction.CountDetails.Normal)
+				current += uint(reaction.CountDetails.Normal)
 			}
 		}
+		log.Printf("found %d canned foods\n", current)
+		total += uint64(current)
 	}
 
 	err = b.LevelDB.Put(getKey("Canned Foods"), binary.AppendUvarint(nil, total), nil)
@@ -183,6 +189,7 @@ func (b *Benbebots) ResetStats() error {
 	users := []discord.UserID{} //opts.PublicChannel
 	index := 1
 	for _, guild := range guilds {
+		log.Printf("scanning members from %s\n", guild.Name)
 		members, err := client.Members(guild.ID, 0)
 		if err != nil {
 			log.Panicln(err)
@@ -208,20 +215,23 @@ func (b *Benbebots) ResetStats() error {
 				continue
 			}
 
+			log.Printf("scanning %s\n", member.User.Username)
 			messages, err := client.Messages(priv.ID, 0)
 			if err != nil {
 				log.Panicln(err)
 				return err
 			}
 
-			log.Printf("scanning %d messages in %s's dms from %s\n", len(messages), member.User.Username, guild.Name)
+			var current uint
 			for _, message := range messages {
 				if message.Author.ID != me.ID || len(message.Attachments) <= 0 {
 					continue
 				}
 
-				total += 1
+				current += 1
 			}
+			log.Printf("found %d/%d family guy clips\n", current, len(messages))
+			total += uint64(current)
 		}
 	}
 
