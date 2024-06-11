@@ -231,6 +231,12 @@ func main() {
 			}
 			iter.Release()
 			return
+		case "reset-stats":
+			err := benbebots.ResetStats()
+			if err != nil {
+				log.Fatalln(err)
+			}
+			return
 		}
 	}
 

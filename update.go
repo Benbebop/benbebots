@@ -1,9 +1,12 @@
 package main
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
@@ -101,5 +104,133 @@ func (b *Benbebots) UpdateCommands(reset bool) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func (b *Benbebots) ResetStats() error {
+	// canned foods
+	token, err := b.LevelDB.Get([]byte("cannedFoodToken"), nil)
+	if err != nil {
+		log.Panicln(err)
+		return err
+	}
+	client := api.NewClient(string(token))
+
+	validChannelsStr, err := b.LevelDB.Get([]byte("cannedFoodValidChannels"), nil)
+	if err != nil {
+		log.Panicln(err)
+		return err
+	}
+
+	var total uint64
+	for _, v := range strings.Fields(string(validChannelsStr)) {
+		id, _ := strconv.ParseUint(v, 10, 64)
+		if id == 0 {
+			continue
+		}
+
+		channel, err := client.Channel(discord.ChannelID(id))
+		if err != nil {
+			log.Panicln(err)
+			return err
+		}
+
+		messages, err := client.Messages(channel.ID, 0)
+		if err != nil {
+			log.Panicln(err)
+			return err
+		}
+
+		log.Printf("scanning %d messages from %d\n", len(messages), channel.Name)
+		for _, message := range messages {
+			for i, reaction := range message.Reactions {
+				if i > 2 {
+					break
+				}
+
+				if reaction.Emoji.APIString() != cannedFoodEmoji {
+					continue
+				}
+
+				log.Printf("found %d canned foods on message %d\n", reaction.CountDetails.Normal, message.ID)
+				total += uint64(reaction.CountDetails.Normal)
+			}
+		}
+	}
+
+	err = b.LevelDB.Put(getKey("Canned Foods"), binary.AppendUvarint(nil, total), nil)
+	if err != nil {
+		log.Panicln(err)
+		return err
+	}
+	log.Printf("found %d canned foods in all channels", total)
+
+	// family guys
+	client = api.NewClient("Bot " + b.Tokens["familyGuy"].Password)
+	me, err := client.Me()
+	if err != nil {
+		log.Panicln(err)
+		return err
+	}
+
+	guilds, err := client.Guilds(0)
+	if err != nil {
+		log.Panicln(err)
+		return err
+	}
+
+	total = 0
+	users := []discord.UserID{} //opts.PublicChannel
+	index := 1
+	for _, guild := range guilds {
+		members, err := client.Members(guild.ID, 0)
+		if err != nil {
+			log.Panicln(err)
+			return err
+		}
+		users = append(users, make([]discord.UserID, len(members)+1)...)
+
+		for _, member := range members {
+			exists := false
+			for _, id := range users[:index] {
+				if id == member.User.ID {
+					exists = true
+				}
+			}
+			if exists {
+				continue
+			}
+			users[index] = member.User.ID
+			index += 1
+
+			priv, err := client.CreatePrivateChannel(member.User.ID)
+			if err != nil {
+				continue
+			}
+
+			messages, err := client.Messages(priv.ID, 0)
+			if err != nil {
+				log.Panicln(err)
+				return err
+			}
+
+			log.Printf("scanning %d messages in %s's dms from %s\n", len(messages), member.User.Username, guild.Name)
+			for _, message := range messages {
+				if message.Author.ID != me.ID || len(message.Attachments) <= 0 {
+					continue
+				}
+
+				total += 1
+			}
+		}
+	}
+
+	err = b.LevelDB.Put(getKey("Family Guys"), binary.AppendUvarint(nil, total), nil)
+	if err != nil {
+		log.Panicln(err)
+		return err
+	}
+	log.Printf("found %d family guy clips sent", total)
+
 	return nil
 }
