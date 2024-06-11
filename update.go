@@ -122,7 +122,7 @@ func (b *Benbebots) ResetStats() error {
 		return err
 	}
 
-	var total uint64
+	var total int64
 	for _, v := range strings.Fields(string(validChannelsStr)) {
 		id, _ := strconv.ParseUint(v, 10, 64)
 		if id == 0 {
@@ -161,10 +161,10 @@ func (b *Benbebots) ResetStats() error {
 			}
 		}
 		log.Printf("found %d canned foods\n", current)
-		total += uint64(current)
+		total += int64(current)
 	}
 
-	err = b.LevelDB.Put(getKey("Canned Foods"), binary.AppendUvarint(nil, total), nil)
+	err = b.LevelDB.Put(getKey("Canned Foods"), binary.AppendVarint(nil, total), nil)
 	if err != nil {
 		log.Panicln(err)
 		return err
@@ -231,11 +231,11 @@ func (b *Benbebots) ResetStats() error {
 				current += 1
 			}
 			log.Printf("found %d/%d family guy clips\n", current, len(messages))
-			total += uint64(current)
+			total += int64(current)
 		}
 	}
 
-	err = b.LevelDB.Put(getKey("Family Guys"), binary.AppendUvarint(nil, total), nil)
+	err = b.LevelDB.Put(getKey("Family Guys"), binary.AppendVarint(nil, total), nil)
 	if err != nil {
 		log.Panicln(err)
 		return err
