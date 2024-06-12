@@ -126,7 +126,6 @@ func (bbb *Benbebots) RunFamilyGuy() {
 			}
 			_, err = client.SendMessage(channel, clips[rand.Intn(len(clips))])
 			if err != nil {
-				bbb.Logger.Error(err.Error())
 				continue
 			}
 			fgStat.Increment(1)
