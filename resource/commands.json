@@ -17,9 +17,55 @@
 						"autocomplete": false
 					}
 				],
-				"version": "1249152090455146547",
+				"version": "1249887362809593920",
 				"dm_permission": false,
 				"default_permission": false
+			},
+			{
+				"id": "1249440276603343049",
+				"type": 1,
+				"application_id": "941372431082348544",
+				"guild_id": "1068640496139915345",
+				"name": "config",
+				"description": "modify the benbebots' config",
+				"options": [
+					{
+						"type": 3,
+						"name": "key",
+						"description": "config key",
+						"required": true,
+						"autocomplete": true
+					},
+					{
+						"type": 3,
+						"name": "section",
+						"description": "config section",
+						"required": false,
+						"autocomplete": true
+					},
+					{
+						"type": 3,
+						"name": "value",
+						"description": "value to set",
+						"required": false,
+						"autocomplete": false
+					}
+				],
+				"version": "1249440276603343050",
+				"dm_permission": false,
+				"default_permission": false
+			},
+			{
+				"type": 1,
+				"name": "mashupradio",
+				"description": "control mashup radio",
+				"options": [
+					{
+						"type": 1,
+						"name": "skip",
+						"description": "skip current mashup"
+					}
+				]
 			}
 		]
 	},

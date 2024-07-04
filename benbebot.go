@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -9,8 +10,11 @@ import (
 	"io"
 	"log"
 	"math"
+	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
@@ -23,8 +27,197 @@ import (
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/session"
 	"github.com/diamondburned/arikawa/v3/utils/json/option"
+	"github.com/diamondburned/arikawa/v3/voice"
+	"github.com/diamondburned/arikawa/v3/voice/udp"
+	"github.com/diamondburned/arikawa/v3/voice/voicegateway"
+	"github.com/diamondburned/oggreader"
 	"github.com/go-co-op/gocron/v2"
+	"github.com/google/go-querystring/query"
 )
+
+type MRadio struct {
+	sync.Mutex
+	benbebots     *Benbebots
+	session       *voice.Session
+	tracks        []uint64
+	Active        bool
+	Channel       discord.ChannelID
+	soundcloud    *SoundcloudClient
+	FFmpegPath    string `ini:"ffmpeg"`
+	YtdlpPath     string `ini:"ytdlp"`
+	ffmpeg        *exec.Cmd
+	frameDuration time.Duration
+	ytdlp         *exec.Cmd
+}
+
+func (mr *MRadio) Init(bbb *Benbebots, state *session.Session, sc *SoundcloudClient, frameDur time.Duration, timeInc uint32) error {
+	mr.benbebots = bbb
+	mr.soundcloud = sc
+	v, err := voice.NewSession(state)
+	if err != nil {
+		return err
+	}
+
+	mr.frameDuration = frameDur
+	v.SetUDPDialer(udp.DialFuncWithFrequency(
+		mr.frameDuration,
+		timeInc,
+	))
+
+	mr.session = v
+
+	if mr.FFmpegPath == "" {
+		mr.FFmpegPath, _ = exec.LookPath("ffmpeg")
+	}
+	if mr.YtdlpPath == "" {
+		mr.YtdlpPath, _ = exec.LookPath("yt-dlp")
+	}
+	return nil
+}
+
+func (mr *MRadio) GetTracks(endpoint string) error {
+	mr.Lock()
+	defer mr.Unlock()
+	tracks := struct {
+		Collection []struct {
+			Created string `json:"created_at"`
+			Kind    string `json:"kind"`
+			Track   struct {
+				Id uint64 `json:"id"`
+			}
+		}
+		Next string `json:"next_href"`
+	}{
+		Next: endpoint,
+	}
+	for {
+		parts, err := url.Parse(tracks.Next)
+		if err != nil {
+			return err
+		}
+		query := parts.Query()
+		query.Set("limit", "100")
+		query.Set("app_version", "1719992714")
+		query.Set("app_locale", "en")
+
+		resp, err := mr.soundcloud.Request("GET", parts.Path, query, "")
+		if err != nil {
+			return err
+		}
+		if resp.StatusCode != 200 {
+			resp.Body.Close()
+			log.Println(resp.StatusCode, resp.Status)
+			return nil
+		}
+		data, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return err
+		}
+		err = json.Unmarshal(data, &tracks)
+		if err != nil {
+			return err
+		}
+
+		if len(tracks.Collection) <= 0 {
+			return nil
+		}
+
+		for _, v := range tracks.Collection {
+			mr.tracks = append(mr.tracks, v.Track.Id)
+		}
+	}
+}
+
+func (mr *MRadio) Start() error {
+	mr.Lock()
+	if mr.Active {
+		mr.Unlock()
+		return nil
+	}
+	err := mr.session.JoinChannel(context.Background(), mr.Channel, false, false)
+	if err != nil {
+		mr.Unlock()
+		return err
+	}
+	mr.Active = true
+	mr.Unlock()
+
+	for mr.Active {
+		id := mr.tracks[rand.Intn(len(mr.tracks))]
+
+		mr.ffmpeg = exec.Command(mr.FFmpegPath,
+			"-hide_banner", //"-loglevel", "error",
+			"-i", "-",
+			"-c:a", "libopus",
+			"-b:a", "96k",
+			"-frame_duration", strconv.FormatInt(mr.frameDuration.Milliseconds(), 10),
+			"-vbr", "off",
+			"-f", "opus",
+			"-",
+		)
+
+		mr.ytdlp = exec.Command(mr.YtdlpPath,
+			"--ignore-config", "--write-info-json",
+			"--cache-dir", mr.benbebots.Dirs.Data+"yt-dlp/", "--cookies", mr.benbebots.Dirs.Data+"yt-dlp/cookies.netscape",
+			"--use-extractors", "soundcloud",
+			"--output", "-",
+			"https://api.soundcloud.com/tracks/"+strconv.FormatUint(id, 10),
+		)
+
+		mr.ffmpeg.Dir, mr.ytdlp.Dir = mr.benbebots.Dirs.Temp, mr.benbebots.Dirs.Temp
+		mr.ffmpeg.Stderr, mr.ytdlp.Stderr = os.Stderr, os.Stderr
+
+		// link yt-dlp and ffmpeg
+		r, err := mr.ffmpeg.StdinPipe()
+		if err != nil {
+			mr.benbebots.Logger.Error(err.Error())
+			break
+		}
+		mr.ytdlp.Stdout = bufio.NewWriter(r)
+
+		// link ffmpeg to discord
+		o, err := mr.ffmpeg.StdoutPipe()
+		if err != nil {
+			mr.benbebots.Logger.Error(err.Error())
+			break
+		}
+
+		if err := mr.ffmpeg.Start(); err != nil {
+			mr.benbebots.Logger.Error(err.Error())
+			break
+		}
+		if err := mr.ytdlp.Start(); err != nil {
+			mr.benbebots.Logger.Error(err.Error())
+			break
+		}
+
+		go func() {
+			mr.ytdlp.Wait()
+			time.Sleep(2 * time.Second)
+			mr.ffmpeg.Process.Kill()
+		}()
+
+		mr.session.Speaking(context.Background(), voicegateway.Microphone)
+		if err := oggreader.DecodeBuffered(mr.session, o); err != nil {
+			mr.benbebots.Logger.Error(err.Error())
+			break
+		}
+		mr.session.Speaking(context.Background(), voicegateway.NotSpeaking)
+	}
+	mr.ffmpeg.Process.Kill()
+	mr.ytdlp.Process.Kill()
+	mr.session.Leave(context.Background())
+	return nil
+}
+
+func (mr *MRadio) Stop() {
+	mr.Lock()
+	mr.Active = false
+	mr.ytdlp.Process.Kill()
+	mr.ffmpeg.Process.Kill()
+	mr.Unlock()
+}
 
 func (bbb *Benbebots) RunBenbebot() {
 	cfgSec := bbb.Config.Section("bot.benbebot")
@@ -41,6 +234,11 @@ func (bbb *Benbebots) RunBenbebot() {
 	client.AddHandler(bbb.Heartbeater.Heartbeat)
 	router := cmdroute.NewRouter()
 
+	scClient := SoundcloudClient{
+		MaxRetries: 1,
+		LevelDB:    bbb.LevelDB,
+	}
+	scClient.GetClientId()
 	{ // soundclown
 		opts := struct {
 			Cron        string `ini:"motdcron"`
@@ -52,10 +250,6 @@ func (bbb *Benbebots) RunBenbebot() {
 		cfgSec.MapTo(&opts)
 		opts.Channel = discord.ChannelID(discord.Snowflake(opts.ChannelId))
 
-		scClient := SoundcloudClient{
-			MaxRetries: 1,
-			LevelDB:    bbb.LevelDB,
-		}
 		scStat := Stat{
 			Name:      "Soundclowns",
 			Value:     0,
@@ -94,7 +288,7 @@ func (bbb *Benbebots) RunBenbebot() {
 
 		sendNewSoundclown := func() {
 			// request soundcloud
-			resp, err := scClient.Request("GET", "recent-tracks/soundclown", struct {
+			vals, _ := query.Values(struct {
 				Limit      int    `url:"limit"`
 				Offset     int    `url:"offset"`
 				LinkedPart int    `url:"linked_partitioning"`
@@ -105,7 +299,8 @@ func (bbb *Benbebots) RunBenbebot() {
 				LinkedPart: 1,
 				Version:    1715268073,
 				Locale:     "en",
-			}, "")
+			})
+			resp, err := scClient.Request("GET", "/recent-tracks/soundclown", vals, "")
 			if err != nil {
 				bbb.Logger.Error(err.Error())
 				return
@@ -230,6 +425,32 @@ func (bbb *Benbebots) RunBenbebot() {
 			}
 
 			sendNewSoundclown()
+		})
+	}
+
+	{ // mashup radio
+		client.AddIntents(gateway.IntentGuildVoiceStates)
+		var radio MRadio
+		bbb.Config.Section("programs").MapTo(&radio)
+		radio.Init(bbb, client, &scClient, 60*time.Millisecond, 2880)
+
+		opts := struct {
+			ChannelId uint64 `ini:"mrchannel"`
+			Endpoint  string `ini:"mrendpoint"`
+		}{}
+		cfgSec.MapTo(&opts)
+		radio.Channel = discord.ChannelID(discord.Snowflake(opts.ChannelId))
+		go func() {
+			bbb.Logger.Assert(radio.GetTracks(opts.Endpoint))
+		}()
+
+		client.AddHandler(func(state *gateway.VoiceStateUpdateEvent) {
+			if state.ChannelID != radio.Channel {
+				return
+			}
+			go func() {
+				bbb.Logger.Assert(radio.Start())
+			}()
 		})
 	}
 

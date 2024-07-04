@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/google/go-querystring/query"
 	"github.com/syndtr/goleveldb/leveldb"
 	"golang.org/x/net/html"
 )
@@ -98,7 +97,7 @@ func (S *SoundcloudClient) GetClientId() error {
 
 func (S *SoundcloudClient) req(depth uint, method string, endpoint string, values url.Values, body string) (*http.Response, error) {
 	values.Set("client_id", S.ClientId)
-	resp, err := http.Get(fmt.Sprintf("https://api-v2.soundcloud.com/%s?%s", endpoint, values.Encode()))
+	resp, err := http.Get(fmt.Sprintf("https://api-v2.soundcloud.com%s?%s", endpoint, values.Encode()))
 	if err != nil {
 		return nil, err
 	}
@@ -117,10 +116,6 @@ func (S *SoundcloudClient) req(depth uint, method string, endpoint string, value
 	return resp, nil
 }
 
-func (S *SoundcloudClient) Request(method string, endpoint string, qry interface{}, body string) (*http.Response, error) {
-	values, err := query.Values(qry)
-	if err != nil {
-		return nil, err
-	}
-	return S.req(0, method, endpoint, values, body)
+func (S *SoundcloudClient) Request(method string, endpoint string, qry url.Values, body string) (*http.Response, error) {
+	return S.req(0, method, endpoint, qry, body)
 }
