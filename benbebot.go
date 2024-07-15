@@ -120,13 +120,15 @@ func (mr *MRadio) GetTracks(endpoint string) error {
 		}
 
 		if len(tracks.Collection) <= 0 {
-			return nil
+			break
 		}
 
 		for _, v := range tracks.Collection {
 			mr.tracks = append(mr.tracks, v.Track.Id)
 		}
 	}
+	log.Println("got soundcloud radio tracks")
+	return nil
 }
 
 func (mr *MRadio) Start() error {
@@ -148,6 +150,7 @@ func (mr *MRadio) Start() error {
 
 		mr.ffmpeg = exec.Command(mr.FFmpegPath,
 			"-hide_banner", //"-loglevel", "error",
+			"-threads", "2",
 			"-i", "-",
 			"-c:a", "libopus",
 			"-b:a", "96k",
@@ -158,7 +161,8 @@ func (mr *MRadio) Start() error {
 		)
 
 		mr.ytdlp = exec.Command(mr.YtdlpPath,
-			"--ignore-config", "--write-info-json",
+			"--ignore-config",
+			"--write-info-json", "--write-thumbnail",
 			"--cache-dir", mr.benbebots.Dirs.Data+"yt-dlp/", "--cookies", mr.benbebots.Dirs.Data+"yt-dlp/cookies.netscape",
 			"--use-extractors", "soundcloud",
 			"--output", "-",
@@ -710,6 +714,10 @@ func (bbb *Benbebots) RunBenbebot() {
 				Content: option.NewNullableString(fmt.Sprintf("set to ping you %d times\nthis will be finished <t:%d:R> aproximately", toPing[userId], time.Now().Add(opts.Freq*time.Duration(toPing[userId])).Unix())),
 			}
 		})
+	}
+
+	{
+
 	}
 
 	client.AddInteractionHandler(router)
