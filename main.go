@@ -7,8 +7,10 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"os/signal"
 	"runtime"
 	"sync"
+	"syscall"
 
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
@@ -161,6 +163,11 @@ func (b *Benbebots) OpenLevelDB() error {
 	return nil
 }
 
+func (b *Benbebots) StartHTTP() error {
+
+	return nil
+}
+
 func (b *Benbebots) AddClient(client *session.Session) {
 	b.clientsMutex.Lock()
 	b.clients = append(b.clients, client)
@@ -258,27 +265,32 @@ func main() {
 		default:
 			log.Fatalln("unknown")
 		}
-		benbebots.Cron.Start()
-		select {}
+	} else {
+		benbebots.CoroutineGroup.Add(1)
+		go benbebots.RunCannedFood()
+
+		benbebots.CoroutineGroup.Add(1)
+		go benbebots.RunFnafBot()
+
+		benbebots.CoroutineGroup.Add(1)
+		go benbebots.RunFamilyGuy()
+
+		benbebots.CoroutineGroup.Add(1)
+		go benbebots.RunBenbebot()
+
+		benbebots.CoroutineGroup.Wait()
+
+		log.Println("Launched all discord bots")
 	}
-
-	benbebots.CoroutineGroup.Add(1)
-	go benbebots.RunCannedFood()
-
-	benbebots.CoroutineGroup.Add(1)
-	go benbebots.RunFnafBot()
-
-	benbebots.CoroutineGroup.Add(1)
-	go benbebots.RunFamilyGuy()
-
-	benbebots.CoroutineGroup.Add(1)
-	go benbebots.RunBenbebot()
-
-	benbebots.CoroutineGroup.Wait()
-
-	log.Println("Launched all discord bots")
 
 	benbebots.Cron.Start()
 
-	select {}
+	exit := make(chan os.Signal, 1)
+	signal.Notify(exit, syscall.SIGTERM, syscall.SIGINT)
+
+	<-exit
+
+	benbebots.CloseClients()
+	log.Println("successfully terminated discord clients")
+	os.Exit(0)
 }
