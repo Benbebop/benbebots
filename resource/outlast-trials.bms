@@ -9,6 +9,7 @@ callfunction QUICKBMS_4GB_CHECK 1
 
 # set your AES_KEY here as umodel hex ("0x1122...") or C string ("\x11\x22...")
 # don't change AES_KEY_IS_SET, it will be handled automatically
+# NOTE: this absolutely has to be provided, if you dont then the decomp will hang indefinitely trying to ask for a key
 set AES_KEY binary ""
 
 math TOC_FILE = 0
