@@ -2,12 +2,14 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"math"
 	"math/rand"
@@ -15,6 +17,8 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -221,6 +225,388 @@ func (mr *MRadio) Stop() {
 	mr.ytdlp.Process.Kill()
 	mr.ffmpeg.Process.Kill()
 	mr.Unlock()
+}
+
+type BankSoundFile struct {
+	Id   string
+	Path string
+}
+
+func (sound BankSoundFile) PutInto(fileMap map[uint64]string) error {
+	id, err := strconv.ParseUint(sound.Id, 10, 64)
+	if err != nil {
+		return err
+	}
+	fileMap[id] = sound.Path
+	return nil
+}
+
+type OutlastTrialsDiff struct {
+	SteamCMD  string        `ini:"steamcmd"`
+	QuickBMS  string        `ini:"quickbms"`
+	Interval  time.Duration `ini:"outlasttrialscheckinterval"`
+	Username  string
+	Password  string
+	OutputDir string
+}
+
+var ErrUpToDate = errors.New("already up to date")
+var ErrUnidentified = errors.New("could not parse error")
+var ErrAlreadyExists = errors.New("this build has already been decompiled")
+
+// var matchUpdateStatus, _ = regexp.Compile(`AppID\s*(\d+)\s*\((.*)\):`)
+var matchSuccess, _ = regexp.Compile(`(:?Success|ERROR)!\s*([^\r\n]*)`)
+var matchInstallDir, _ = regexp.Compile(`-\s*install\s*dir:\s*"([^"\n\r]+)`)
+var matchBuildID, _ = regexp.Compile(`-\s*size\s*on\s*disk:\s*(\d+)\s*bytes,\s*BuildID\s*(\d+)`)
+
+func limitBytes(b []byte, l int) []byte {
+	if len(b) <= l {
+		return b
+	}
+	return b[len(b)-l:]
+}
+
+func (o OutlastTrialsDiff) Execute() error {
+	var errorList []string
+
+	// update game to most recent
+	steamcmd := exec.Command(o.SteamCMD, "+login", o.Username, o.Password, "+app_update", "1304930", "+app_status", "1304930", "+quit")
+
+	out, err := steamcmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+
+	steamcmd.Start()
+
+	data, err := io.ReadAll(out)
+	if err != nil {
+		return err
+	}
+
+	steamcmd.Wait()
+
+	data = limitBytes(data, 2048)
+
+	stuff := matchSuccess.FindSubmatch(data)
+	if len(stuff) != 3 {
+		return ErrUnidentified
+	}
+
+	if !bytes.Equal(stuff[1], []byte("Success")) {
+		log.Println(string(stuff[2]))
+		return ErrUnidentified
+	} else if bytes.Contains(stuff[2], []byte("already up to date")) {
+		return ErrUpToDate
+	} else if !bytes.Contains(stuff[2], []byte("fully installed")) {
+		return ErrUnidentified
+	}
+
+	stuff = matchInstallDir.FindSubmatch(data)
+	if len(stuff) != 2 {
+		return ErrUnidentified
+	}
+	installationDir := string(stuff[1])
+
+	stuff = matchBuildID.FindSubmatch(data)
+	if len(stuff) != 3 {
+		return ErrUnidentified
+	}
+	buildID := string(stuff[2])
+
+	// decompile with bms
+	currentDir := filepath.Join(o.OutputDir, buildID)
+	os.MkdirAll(currentDir, 0777)
+
+	bmsScript, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	bmsScript = filepath.Join(bmsScript, "resource/outlast-trials.bms")
+
+	err = filepath.WalkDir(installationDir, func(pth string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if entry.IsDir() {
+			return nil
+		}
+
+		ext := filepath.Ext(pth)
+		switch ext {
+		case ".pak":
+			quickbms := exec.Command(o.QuickBMS, "-K", bmsScript, pth, currentDir)
+
+			quickbms.Stdout = os.Stdout
+			out, err = quickbms.StderrPipe()
+			if err != nil {
+				return err
+			}
+
+			quickbms.Start()
+
+			data, err = io.ReadAll(out)
+			if err != nil {
+				return err
+			}
+
+			quickbms.Wait()
+
+			data = limitBytes(data, 2048)
+		default:
+			source, err := os.Open(pth)
+			if err != nil {
+				return err
+			}
+			defer source.Close()
+
+			rel, err := filepath.Rel(installationDir, pth)
+			if err != nil {
+				return err
+			}
+			output := filepath.Join(currentDir, rel)
+
+			err = os.MkdirAll(filepath.Dir(output), 0777)
+			if err != nil {
+				return err
+			}
+			destination, err := os.Create(output)
+			if err != nil {
+				return err
+			}
+			defer destination.Close()
+
+			_, err = io.Copy(destination, source)
+			if err != nil {
+				return err
+			}
+			log.Println(rel)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	// diff
+	decomps, err := os.ReadDir(o.OutputDir)
+	if err != nil {
+		return err
+	}
+
+	var compareDir string
+	{
+		currentBID, err := strconv.ParseUint(buildID, 10, 64)
+		if err != nil {
+			return err
+		}
+
+		var compareBID uint64
+		for _, d := range decomps {
+			if !d.IsDir() {
+				continue
+			}
+
+			compareBIDNew, err := strconv.ParseUint(d.Name(), 10, 64)
+			if err != nil {
+				errorList = append(errorList, filepath.Join(o.OutputDir, d.Name())+"\n\t"+err.Error())
+				continue
+			}
+
+			if compareBIDNew > compareBID && compareBIDNew < currentBID {
+				compareBID = compareBIDNew
+				compareDir = filepath.Join(o.OutputDir, d.Name())
+			}
+		}
+	}
+
+	changelog, err := os.Create(filepath.Join(o.OutputDir, "changelog_"+buildID+".txt"))
+	if err != nil {
+		return err
+	}
+	defer changelog.Close()
+
+	var addedFiles uint
+
+	err = filepath.WalkDir(currentDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if d.IsDir() {
+			if d.Name() == "WwiseAudio" {
+				mount, err := filepath.Rel(currentDir, path)
+				if err != nil {
+					return err
+				}
+
+				systems, err := os.ReadDir(path)
+				if err != nil {
+					return err
+				}
+				for _, system := range systems {
+					if !system.IsDir() {
+						continue
+					}
+
+					systemPath := filepath.Join(path, system.Name())
+
+					// read all indexing files
+					wwiseFileMap := map[uint64]string{}
+
+					err := filepath.WalkDir(systemPath, func(path string, d fs.DirEntry, err error) error {
+						if err != nil {
+							return err
+						}
+
+						if d.IsDir() {
+							return nil
+						}
+
+						if filepath.Ext(path) != ".json" {
+							return nil
+						}
+
+						bankInfoFile, err := os.Open(path)
+						if err != nil {
+							return err
+						}
+						defer bankInfoFile.Close()
+
+						bnkInfo := struct {
+							SoundBanksInfo struct {
+								StreamedFiles          []BankSoundFile
+								MediaFilesNotInAnyBank []BankSoundFile
+								SoundBanks             []struct {
+									IncludedEvents []struct {
+										ExcludedMemoryFiles []BankSoundFile
+									}
+								}
+							}
+						}{}
+
+						err = json.NewDecoder(bankInfoFile).Decode(&bnkInfo)
+						if err != nil {
+							erro := path + "\n\t" + err.Error()
+							if strings.Contains(err.Error(), "ï") {
+								erro += "\n\tNOTE: this is likely because the file contains a utf8 bom"
+							}
+							errorList = append(errorList, erro)
+							return nil
+						}
+
+						for i, sound := range bnkInfo.SoundBanksInfo.StreamedFiles {
+							err = sound.PutInto(wwiseFileMap)
+							if err != nil {
+								errorList = append(errorList, fmt.Sprintf("%s\n\tSoundBanksInfo.StreamedFiles[%d]\n\t%s", path, i, err.Error()))
+							}
+						}
+						for i, sound := range bnkInfo.SoundBanksInfo.MediaFilesNotInAnyBank {
+							err = sound.PutInto(wwiseFileMap)
+							if err != nil {
+								errorList = append(errorList, fmt.Sprintf("%s\n\tSoundBanksInfo.MediaFilesNotInAnyBank[%d]\n\t%s", path, i, err.Error()))
+							}
+						}
+						for bi, bank := range bnkInfo.SoundBanksInfo.SoundBanks {
+							for ei, event := range bank.IncludedEvents {
+								for i, sound := range event.ExcludedMemoryFiles {
+									err = sound.PutInto(wwiseFileMap)
+									if err != nil {
+										errorList = append(errorList, fmt.Sprintf("%s\n\tSoundBanksInfo.SoundBanks[%d].IncludedEvents[%d].ExcludedMemoryFiles[%d]\n\t%s", path, bi, ei, i, err.Error()))
+									}
+								}
+							}
+						}
+						return nil
+					})
+
+					if err != nil {
+						return err
+					}
+
+					err = filepath.WalkDir(path, func(path string, d fs.DirEntry, err error) error {
+						if err != nil {
+							return err
+						}
+
+						if d.IsDir() {
+							return nil
+						}
+
+						if filepath.Ext(path) != ".wem" {
+							return nil
+						}
+
+						rel, err := filepath.Rel(currentDir, path)
+						if err != nil {
+							return err
+						}
+
+						_, err = os.Stat(filepath.Join(compareDir, rel))
+						if errors.Is(err, os.ErrNotExist) {
+							id, err := strconv.ParseUint(strings.TrimRight(filepath.Base(path), ".wem"), 10, 64)
+							if err != nil {
+								errorList = append(errorList, path+"\n\t"+err.Error())
+								return nil
+							}
+
+							ath, ok := wwiseFileMap[id]
+
+							if ok {
+								changelog.WriteString("+ " + filepath.Join(mount, ath) + "\n")
+							} else {
+								changelog.WriteString("+ " + rel + "\n")
+							}
+							addedFiles += 1
+						} else if err != nil {
+							errorList = append(errorList, filepath.Join(compareDir, rel)+"\n\t"+err.Error())
+						}
+
+						return nil
+					})
+				}
+
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		switch filepath.Ext(d.Name()) {
+		case ".uexp":
+			return nil
+		case ".ubulk":
+			return nil
+		}
+
+		rel, err := filepath.Rel(currentDir, path)
+		if err != nil {
+			return err
+		}
+
+		_, err = os.Stat(filepath.Join(compareDir, rel))
+		if errors.Is(err, os.ErrNotExist) {
+			changelog.WriteString("+ " + rel + "\n")
+			addedFiles += 1
+		} else if err != nil {
+			errorList = append(errorList, filepath.Join(compareDir, rel)+"\n\t"+err.Error())
+		}
+		return nil
+	})
+
+	if err != nil {
+		errorList = append(errorList, o.OutputDir+"\n\t"+err.Error())
+	}
+
+	changelog.WriteString(fmt.Sprintf("\n%d new files, %d removed files, %d modified files\n", addedFiles, 0, 0))
+
+	changelog.WriteString("\nerrors:\n\n")
+	for _, err := range errorList {
+		changelog.WriteString(err + "\n\n")
+	}
+
+	return err
 }
 
 func (bbb *Benbebots) RunBenbebot() {
@@ -716,8 +1102,17 @@ func (bbb *Benbebots) RunBenbebot() {
 		})
 	}
 
-	{
+	{ // outlast trials diff
+		var otd OutlastTrialsDiff
+		cfgSec.MapTo(&otd)
+		bbb.Config.Section("programs").MapTo(&otd)
+		otd.Username = bbb.Tokens["steam"].Login
+		otd.Password = bbb.Tokens["steam"].Password
+		otd.OutputDir = filepath.Join(bbb.Dirs.Data, "opp-decomp")
 
+		client.AddHandler(func(*gateway.ReadyEvent) {
+			bbb.Logger.Assert(otd.Execute())
+		})
 	}
 
 	client.AddInteractionHandler(router)
