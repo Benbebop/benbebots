@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -228,8 +229,9 @@ func (mr *MRadio) Stop() {
 }
 
 type BankSoundFile struct {
-	Id   string
-	Path string
+	Id        string `xml:"Id,attr"`
+	ShortName string
+	Path      string
 }
 
 func (sound BankSoundFile) PutInto(fileMap map[uint64]string) error {
@@ -237,7 +239,7 @@ func (sound BankSoundFile) PutInto(fileMap map[uint64]string) error {
 	if err != nil {
 		return err
 	}
-	fileMap[id] = sound.Path
+	fileMap[id] = filepath.Join(filepath.Dir(sound.Path), sound.ShortName)
 	return nil
 }
 
@@ -465,7 +467,7 @@ func (o OutlastTrialsDiff) Execute() error {
 							return nil
 						}
 
-						if filepath.Ext(path) != ".json" {
+						if filepath.Ext(path) != ".xml" {
 							return nil
 						}
 
@@ -475,19 +477,17 @@ func (o OutlastTrialsDiff) Execute() error {
 						}
 						defer bankInfoFile.Close()
 
-						bnkInfo := struct {
-							SoundBanksInfo struct {
-								StreamedFiles          []BankSoundFile
-								MediaFilesNotInAnyBank []BankSoundFile
-								SoundBanks             []struct {
-									IncludedEvents []struct {
-										ExcludedMemoryFiles []BankSoundFile
-									}
+						SoundBankInfo := struct {
+							StreamedFiles          []BankSoundFile `xml:"StreamedFiles>File"`
+							MediaFilesNotInAnyBank []BankSoundFile `xml:"MediaFilesNotInAnyBank>File"`
+							SoundBanks             []struct {
+								IncludedEvents []struct {
+									ExcludedMemoryFiles []BankSoundFile `xml:"ExcludedMemoryFiles>File"`
 								}
 							}
 						}{}
 
-						err = json.NewDecoder(bankInfoFile).Decode(&bnkInfo)
+						err = xml.NewDecoder(bankInfoFile).Decode(&SoundBankInfo)
 						if err != nil {
 							erro := path + "\n\t" + err.Error()
 							if strings.Contains(err.Error(), "ï") {
@@ -497,19 +497,19 @@ func (o OutlastTrialsDiff) Execute() error {
 							return nil
 						}
 
-						for i, sound := range bnkInfo.SoundBanksInfo.StreamedFiles {
+						for i, sound := range SoundBankInfo.StreamedFiles {
 							err = sound.PutInto(wwiseFileMap)
 							if err != nil {
 								errorList = append(errorList, fmt.Sprintf("%s\n\tSoundBanksInfo.StreamedFiles[%d]\n\t%s", path, i, err.Error()))
 							}
 						}
-						for i, sound := range bnkInfo.SoundBanksInfo.MediaFilesNotInAnyBank {
+						for i, sound := range SoundBankInfo.MediaFilesNotInAnyBank {
 							err = sound.PutInto(wwiseFileMap)
 							if err != nil {
 								errorList = append(errorList, fmt.Sprintf("%s\n\tSoundBanksInfo.MediaFilesNotInAnyBank[%d]\n\t%s", path, i, err.Error()))
 							}
 						}
-						for bi, bank := range bnkInfo.SoundBanksInfo.SoundBanks {
+						for bi, bank := range SoundBankInfo.SoundBanks {
 							for ei, event := range bank.IncludedEvents {
 								for i, sound := range event.ExcludedMemoryFiles {
 									err = sound.PutInto(wwiseFileMap)
@@ -566,6 +566,10 @@ func (o OutlastTrialsDiff) Execute() error {
 
 						return nil
 					})
+
+					if err != nil {
+						return err
+					}
 				}
 
 				return filepath.SkipDir
@@ -605,6 +609,8 @@ func (o OutlastTrialsDiff) Execute() error {
 	for _, err := range errorList {
 		changelog.WriteString(err + "\n\n")
 	}
+
+	log.Fatalln("DONE!")
 
 	return err
 }
