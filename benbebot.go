@@ -723,10 +723,10 @@ func (bbb *Benbebots) RunBenbebot() {
 					Artwork      string    `json:"artwork_url"`
 					Title        string    `json:"title"`
 					Description  string    `json:"description"`
-					Comments     uint      `json:"comment_count"`
-					Likes        uint      `json:"likes_count"`
-					Plays        uint      `json:"playback_count"`
-					Reposts      uint      `json:"reposts_count"`
+					Comments     int       `json:"comment_count"`
+					Likes        int       `json:"likes_count"`
+					Plays        int       `json:"playback_count"`
+					Reposts      int       `json:"reposts_count"`
 					CreatedAt    time.Time `json:"created_at"`
 					Duration     uint      `json:"duration"`
 					EmbeddableBy string    `json:"embeddable_by"`
