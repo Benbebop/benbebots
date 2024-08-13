@@ -27,6 +27,7 @@ type Benbebots struct {
 	Cron        gocron.Scheduler
 	Logger      Logger
 	Config      *ini.File
+	Components  Components
 	LevelDB     *leveldb.DB
 	Heartbeater Heartbeater
 	Tokens      map[string]netrc.Machine
@@ -196,6 +197,7 @@ func main() {
 	if err != nil {
 		log.Println(err)
 	}
+	benbebots.Logger.Assert(benbebots.Components.Init(benbebots.Config.Section("components")))
 	benbebots.Logger.Assert(benbebots.InitHeartbeater())
 	benbebots.Logger.Assert(benbebots.InitCron())
 	benbebots.Logger.Assert(benbebots.ParseTokens())

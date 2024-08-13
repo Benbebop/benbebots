@@ -35,6 +35,9 @@ var gnerbReader io.Reader
 var gnerbTimer *time.Timer
 
 func (bbb *Benbebots) RunFnafBot() { // gnerb
+	if !bbb.Components.IsEnabled("gnerb") {
+		return
+	}
 	opts := struct {
 		Time        time.Duration `ini:"poutime"`
 		Destination uint64        `ini:"destination"`
@@ -110,6 +113,9 @@ func (b *Benbebots) LoginCannedFood() (*session.Session, error) {
 var cannedFoodEmoji = discord.NewAPIEmoji(discord.NullEmojiID, `🥫`)
 
 func (bbb *Benbebots) RunCannedFood() {
+	if !bbb.Components.IsEnabled("cannedfood") {
+		return
+	}
 	opts := struct {
 		Delay         []int64 `ini:"delay"`
 		CommandRole   uint64  `ini:"commandrole"`

@@ -14,6 +14,9 @@ import (
 )
 
 func (bbb *Benbebots) RunFamilyGuy() {
+	if !bbb.Components.IsEnabled("familyguy") {
+		return
+	}
 	opts := struct {
 		CacheChannelId uint64 `ini:"cachechannel"`
 		cacheChannel   discord.ChannelID

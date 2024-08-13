@@ -640,7 +640,7 @@ func (bbb *Benbebots) RunBenbebot() {
 		LevelDB:    bbb.LevelDB,
 	}
 	scClient.GetClientId()
-	{ // soundclown
+	if bbb.Components.IsEnabled("motd") {
 		opts := struct {
 			Cron        string `ini:"motdcron"`
 			ChannelId   uint64 `ini:"motdchannel"`
@@ -829,7 +829,7 @@ func (bbb *Benbebots) RunBenbebot() {
 		})
 	}
 
-	{ // mashup radio
+	if bbb.Components.IsEnabled("mashupradio") {
 		client.AddIntents(gateway.IntentGuildVoiceStates)
 		var radio MRadio
 		bbb.Config.Section("programs").MapTo(&radio)
@@ -855,7 +855,7 @@ func (bbb *Benbebots) RunBenbebot() {
 		})
 	}
 
-	{ // get logs
+	if bbb.Components.IsEnabled("logcommand") {
 		router.AddFunc("getlog", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
 			var options = struct {
 				Id string `discord:"id"`
@@ -879,7 +879,7 @@ func (bbb *Benbebots) RunBenbebot() {
 		})
 	}
 
-	{ // sex command
+	if bbb.Components.IsEnabled("sexcommand") {
 		router.AddFunc("sex", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
 			sndr := data.Event.SenderID()
 			if sndr == 0 {
@@ -906,7 +906,7 @@ func (bbb *Benbebots) RunBenbebot() {
 		})
 	}
 
-	{ // extract ad id
+	if bbb.Components.IsEnabled("adextractor") {
 		opts := struct {
 			ChannelId uint64 `ini:"adextractorchannel"`
 			Channel   discord.ChannelID
@@ -970,7 +970,7 @@ func (bbb *Benbebots) RunBenbebot() {
 		})
 	}
 
-	{
+	if bbb.Components.IsEnabled("pinger") {
 		opts := struct {
 			StatsId uint64        `ini:"pingstatchannel"`
 			Freq    time.Duration `ini:"pingfreq"`
@@ -1113,7 +1113,7 @@ func (bbb *Benbebots) RunBenbebot() {
 		})
 	}
 
-	{ // outlast trials diff
+	if bbb.Components.IsEnabled("outlasttrialsdiff") {
 		var otd OutlastTrialsDiff
 		cfgSec.MapTo(&otd)
 		bbb.Config.Section("programs").MapTo(&otd)
