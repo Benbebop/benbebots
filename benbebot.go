@@ -272,7 +272,12 @@ func (o OutlastTrialsDiff) Execute() error {
 	var errorList []string
 
 	// update game to most recent
-	steamcmd := exec.Command(o.SteamCMD, "+login", o.Username, o.Password, "+app_update", "1304930", "+app_status", "1304930", "+quit")
+	var steamcmd *exec.Cmd
+	if filepath.Ext(o.SteamCMD) == "sh" {
+		steamcmd = exec.Command("bash", o.SteamCMD, "+login", o.Username, o.Password, "+app_update", "1304930", "+app_status", "1304930", "+quit")
+	} else {
+		steamcmd = exec.Command(o.SteamCMD, "+login", o.Username, o.Password, "+app_update", "1304930", "+app_status", "1304930", "+quit")
+	}
 
 	out, err := steamcmd.StdoutPipe()
 	if err != nil {
@@ -338,7 +343,7 @@ func (o OutlastTrialsDiff) Execute() error {
 		ext := filepath.Ext(pth)
 		switch ext {
 		case ".pak":
-			quickbms := exec.Command(o.QuickBMS, "-K", bmsScript, pth, currentDir)
+			quickbms := exec.Command(o.QuickBMS+"_4gb_files", "-K", bmsScript, pth, currentDir)
 
 			quickbms.Stdout = os.Stdout
 			out, err = quickbms.StderrPipe()
