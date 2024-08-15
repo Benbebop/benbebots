@@ -1369,6 +1369,80 @@ func (bbb *Benbebots) RunBenbebot() {
 		})
 	}
 
+	if bbb.Components.IsEnabled("pingeverything") {
+		bb, err := bbb.Config.Section("servers").Key("breadbag").Uint64()
+		if err != nil {
+			log.Fatalln(err)
+		}
+		breadbag := discord.GuildID(bb)
+
+		matchEverything, _ := regexp.Compile("@everything")
+
+		sc, err := cfgSec.Key("everythingstatchannel").Uint64()
+		if err != nil {
+			log.Fatalln(err)
+		}
+		eStat := Stat{
+			Name:      "Everythings Pinged",
+			Value:     0,
+			Client:    client.Client,
+			LevelDB:   bbb.LevelDB,
+			ChannelID: discord.ChannelID(sc),
+			Delay:     time.Second * 5,
+		}
+		eStat.Initialise()
+
+		var lock sync.Mutex
+		client.AddHandler(func(message *gateway.MessageCreateEvent) {
+			if message.GuildID != breadbag {
+				return
+			}
+
+			if message.Author.Bot {
+				return
+			}
+
+			if !matchEverything.MatchString(message.Content) {
+				return
+			}
+
+			lock.Lock()
+			defer lock.Unlock()
+			guild, err := client.Guild(breadbag)
+			if err != nil {
+				bbb.Logger.Error("%s", err)
+				return
+			}
+
+			mentions := make([]string, 0, len(guild.Roles))
+
+			for _, role := range guild.Roles {
+				mentions = append(mentions, role.Mention())
+			}
+
+			var str string
+			for _, mention := range mentions {
+				if len(str)+len(mention) > discordMaxMessageSize {
+					_, err = client.SendMessage(message.ChannelID, str)
+					if err != nil {
+						bbb.Logger.Error("%s", err)
+					}
+					str = ""
+				}
+
+				str += mention
+			}
+			if str != "" {
+				_, err = client.SendMessage(message.ChannelID, str)
+				if err != nil {
+					bbb.Logger.Error("%s", err)
+				}
+			}
+
+			eStat.Increment(1)
+		})
+	}
+
 	client.AddInteractionHandler(router)
 	client.Open(client.Context())
 	bbb.AddClient(client)
