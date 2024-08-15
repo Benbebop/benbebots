@@ -1243,7 +1243,7 @@ func (bbb *Benbebots) RunBenbebot() {
 					return bbb.CommandError(err)
 				}
 				return &api.InteractionResponseData{
-					Content: option.NewNullableString(fmt.Sprintf("succesfully added role %d to user %d", options.Role, options.User)),
+					Content: option.NewNullableString(fmt.Sprintf("succesfully removed role %d from user %d", options.Role, options.User)),
 				}
 			})
 			r.AddFunc("list", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
@@ -1323,7 +1323,7 @@ func (bbb *Benbebots) RunBenbebot() {
 					return bbb.CommandError(err)
 				}
 				return &api.InteractionResponseData{
-					Content: option.NewNullableString(fmt.Sprintf("succesfully added role %d", options.Role)),
+					Content: option.NewNullableString(fmt.Sprintf("succesfully removed role %d", options.Role)),
 				}
 			})
 			r.AddFunc("list", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
