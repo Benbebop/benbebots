@@ -56,16 +56,141 @@
 				"default_permission": false
 			},
 			{
+				"id": "1273036371266768897",
 				"type": 1,
+				"application_id": "941372431082348544",
+				"guild_id": "1068640496139915345",
 				"name": "mashupradio",
 				"description": "control mashup radio",
 				"options": [
 					{
 						"type": 1,
 						"name": "skip",
-						"description": "skip current mashup"
+						"description": "skip current mashup",
+						"required": false,
+						"options": []
 					}
-				]
+				],
+				"version": "1273036371266768898",
+				"dm_permission": false,
+				"default_permission": false
+			}
+		],
+		"822165179692220476": [
+			{
+				"id": "1273036373116457061",
+				"type": 1,
+				"application_id": "941372431082348544",
+				"guild_id": "822165179692220476",
+				"name": "permarole",
+				"description": "modify your permaroles",
+				"options": [
+					{
+						"type": 1,
+						"name": "add",
+						"description": "add a permarole",
+						"required": false,
+						"options": [
+							{
+								"type": 8,
+								"name": "role",
+								"description": "permarole to add",
+								"required": true
+							}
+						]
+					},
+					{
+						"type": 1,
+						"name": "remove",
+						"description": "remove a permarole",
+						"required": false,
+						"options": [
+							{
+								"type": 8,
+								"name": "role",
+								"description": "permarole to add",
+								"required": true
+							}
+						]
+					},
+					{
+						"type": 1,
+						"name": "list",
+						"description": "list your permaroles",
+						"required": false,
+						"options": []
+					}
+				],
+				"version": "1273036373116457062",
+				"dm_permission": false,
+				"default_permission": false
+			},
+			{
+				"id": "1273039106213154916",
+				"type": 1,
+				"application_id": "941372431082348544",
+				"guild_id": "822165179692220476",
+				"name": "managepermaroles",
+				"description": "modify a user's permaroles",
+				"options": [
+					{
+						"type": 1,
+						"name": "add",
+						"description": "add a permarole",
+						"required": false,
+						"options": [
+							{
+								"type": 6,
+								"name": "user",
+								"description": "user to modify",
+								"required": true
+							},
+							{
+								"type": 8,
+								"name": "role",
+								"description": "permarole to add",
+								"required": true
+							}
+						]
+					},
+					{
+						"type": 1,
+						"name": "remove",
+						"description": "remove a permarole",
+						"required": false,
+						"options": [
+							{
+								"type": 6,
+								"name": "user",
+								"description": "user to modify",
+								"required": true
+							},
+							{
+								"type": 8,
+								"name": "role",
+								"description": "permarole to add",
+								"required": true
+							}
+						]
+					},
+					{
+						"type": 1,
+						"name": "list",
+						"description": "list a user's permaroles",
+						"required": false,
+						"options": [
+							{
+								"type": 6,
+								"name": "user",
+								"description": "user to list",
+								"required": true
+							}
+						]
+					}
+				],
+				"version": "1273039106213154917",
+				"dm_permission": false,
+				"default_permission": false
 			}
 		]
 	},

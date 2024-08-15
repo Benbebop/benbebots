@@ -38,6 +38,7 @@ import (
 	"github.com/diamondburned/oggreader"
 	"github.com/go-co-op/gocron/v2"
 	"github.com/google/go-querystring/query"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 type MRadio struct {
@@ -620,6 +621,83 @@ func (o OutlastTrialsDiff) Execute() error {
 	return err
 }
 
+type Permaroles struct {
+	DB *leveldb.DB
+}
+
+type UserRole struct {
+	User discord.UserID `discord:"user?"`
+	Role discord.RoleID `discord:"role?"`
+}
+
+func (p *Permaroles) getKey(user discord.UserID) []byte {
+	return binary.BigEndian.AppendUint64([]byte("permaroleProfile"), uint64(user))
+}
+
+func (p *Permaroles) find(ur UserRole) ([]byte, []byte, []byte, int, error) {
+	key := p.getKey(ur.User)
+	role := binary.BigEndian.AppendUint64([]byte(""), uint64(ur.Role))
+
+	val, err := p.DB.Get(key, nil)
+	if errors.Is(err, leveldb.ErrNotFound) {
+		return key, role, []byte{}, -1, nil
+	} else if err != nil {
+		return nil, nil, nil, 0, err
+	}
+
+	for i := 0; i < len(val); i += 8 {
+		if bytes.Equal(val[i:i+8], role) {
+			return key, role, val, i, nil
+		}
+	}
+	return key, role, val, -1, nil
+}
+
+func (p *Permaroles) Add(ur UserRole) error {
+	key, role, val, index, err := p.find(ur)
+	if err != nil {
+		return err
+	}
+
+	if index < 0 {
+		return p.DB.Put(key, append(val, role...), nil)
+	}
+
+	return ErrAlreadyExists
+}
+
+var ErrNotExists = errors.New("role does not exist")
+
+func (p *Permaroles) Remove(ur UserRole) error {
+	key, _, val, index, err := p.find(ur)
+	if err != nil {
+		return err
+	}
+
+	if index >= 0 {
+		return p.DB.Put(key, append(val[:index], val[index+8:]...), nil)
+	}
+
+	return ErrNotExists
+}
+
+func (p *Permaroles) RemoveAll(user discord.UserID) error {
+	return p.DB.Delete(p.getKey(user), nil)
+}
+
+func (p *Permaroles) Get(user discord.UserID) ([]discord.RoleID, error) {
+	val, err := p.DB.Get(p.getKey(user), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	roles := make([]discord.RoleID, 0, len(val)/8)
+	for i := 0; i < len(val); i += 8 {
+		roles = append(roles, discord.RoleID(binary.BigEndian.Uint64(val[i:i+8])))
+	}
+	return roles, nil
+}
+
 func (bbb *Benbebots) RunBenbebot() {
 	cfgSec := bbb.Config.Section("bot.benbebot")
 
@@ -1123,6 +1201,171 @@ func (bbb *Benbebots) RunBenbebot() {
 
 		client.AddHandler(func(*gateway.ReadyEvent) {
 			bbb.Logger.Assert(otd.Execute())
+		})
+	}
+
+	if bbb.Components.IsEnabled("permaroles") {
+		pr := Permaroles{
+			DB: bbb.LevelDB,
+		}
+
+		router.Sub("managepermaroles", func(r *cmdroute.Router) {
+			r.AddFunc("add", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+				var options UserRole
+
+				if err := data.Options.Unmarshal(&options); err != nil {
+					return bbb.CommandError(err)
+				}
+
+				if _, err := client.Member(data.Data.GuildID, options.User); err != nil {
+					return bbb.CommandError(err)
+				}
+
+				if err := pr.Add(options); err != nil {
+					return bbb.CommandError(err)
+				}
+				return &api.InteractionResponseData{
+					Content: option.NewNullableString(fmt.Sprintf("succesfully added role %d to user %d", options.Role, options.User)),
+				}
+			})
+			r.AddFunc("remove", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+				var options UserRole
+
+				if err := data.Options.Unmarshal(&options); err != nil {
+					return bbb.CommandError(err)
+				}
+
+				if _, err := client.Member(data.Data.GuildID, options.User); err != nil {
+					return bbb.CommandError(err)
+				}
+
+				if err := pr.Remove(options); err != nil {
+					return bbb.CommandError(err)
+				}
+				return &api.InteractionResponseData{
+					Content: option.NewNullableString(fmt.Sprintf("succesfully added role %d to user %d", options.Role, options.User)),
+				}
+			})
+			r.AddFunc("list", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+				var options UserRole
+
+				if err := data.Options.Unmarshal(&options); err != nil {
+					return bbb.CommandError(err)
+				}
+
+				if _, err := client.Member(data.Data.GuildID, options.User); err != nil {
+					return bbb.CommandError(err)
+				}
+
+				roles, err := pr.Get(options.User)
+				if err != nil {
+					return bbb.CommandError(err)
+				}
+
+				var roleStr string
+				for _, role := range roles {
+					roleStr += role.Mention()
+				}
+
+				return &api.InteractionResponseData{
+					Content:         option.NewNullableString(roleStr),
+					AllowedMentions: &api.AllowedMentions{},
+				}
+			})
+		})
+		router.Sub("permarole", func(r *cmdroute.Router) {
+			r.AddFunc("add", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+				var options UserRole
+
+				if err := data.Options.Unmarshal(&options); err != nil {
+					return bbb.CommandError(err)
+				}
+
+				options.User = data.Event.SenderID()
+
+				// see if user has role
+				member, err := client.Member(data.Data.GuildID, options.User)
+				if err != nil {
+					return bbb.CommandError(err)
+				}
+
+				var exists bool
+				for _, role := range member.RoleIDs {
+					if role == options.Role {
+						exists = true
+						break
+					}
+				}
+
+				if !exists {
+					return &api.InteractionResponseData{
+						Content: option.NewNullableString("you must already have a role to add it as a permarole"),
+					}
+				}
+
+				if err := pr.Add(options); err != nil {
+					return bbb.CommandError(err)
+				}
+				return &api.InteractionResponseData{
+					Content: option.NewNullableString(fmt.Sprintf("succesfully added role %d", options.Role)),
+				}
+			})
+			r.AddFunc("remove", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+				var options UserRole
+
+				if err := data.Options.Unmarshal(&options); err != nil {
+					return bbb.CommandError(err)
+				}
+
+				options.User = data.Event.SenderID()
+
+				if err := pr.Remove(options); err != nil {
+					return bbb.CommandError(err)
+				}
+				return &api.InteractionResponseData{
+					Content: option.NewNullableString(fmt.Sprintf("succesfully added role %d", options.Role)),
+				}
+			})
+			r.AddFunc("list", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+				roles, err := pr.Get(data.Event.SenderID())
+				if err != nil {
+					return bbb.CommandError(err)
+				}
+
+				var roleStr string
+				for _, role := range roles {
+					roleStr += role.Mention()
+				}
+
+				return &api.InteractionResponseData{
+					Content:         option.NewNullableString(roleStr),
+					AllowedMentions: &api.AllowedMentions{},
+				}
+			})
+		})
+
+		bb, err := bbb.Config.Section("servers").Key("breadbag").Uint64()
+		if err != nil {
+			log.Fatalln(err)
+		}
+		breadbag := discord.GuildID(bb)
+
+		client.AddHandler(func(member *gateway.GuildMemberAddEvent) {
+			if member.GuildID != breadbag {
+				return
+			}
+
+			roles, err := pr.Get(member.User.ID)
+			if err != nil {
+				bbb.Logger.Error("%s", err)
+				return
+			}
+
+			for _, role := range roles {
+				client.AddRole(breadbag, member.User.ID, role, api.AddRoleData{
+					AuditLogReason: api.AuditLogReason("Adding user permaroles"),
+				})
+			}
 		})
 	}
 
