@@ -73,18 +73,20 @@ func (b *Benbebots) CommandError(inErr error) *api.InteractionResponseData {
 }
 
 func (b *Benbebots) GetDirs() error {
+	sec := b.Config.Section("directories")
+
 	dir, err := os.UserCacheDir()
 	if err != nil {
 		return err
 	}
-	b.Dirs.Data = dir + "/benbebots/"
+	b.Dirs.Data = sec.Key("cache").MustString(dir + "/benbebots/")
 	if _, err := os.Stat(b.Dirs.Data); errors.Is(err, os.ErrNotExist) {
 		os.Mkdir(b.Dirs.Data, fs.FileMode(0777))
 	} else if err != nil {
 		return err
 	}
 
-	b.Dirs.Temp = os.TempDir() + "/benbebots/"
+	b.Dirs.Temp = sec.Key("temp").MustString(os.TempDir() + "/benbebots/")
 	if _, err := os.Stat(b.Dirs.Temp); errors.Is(err, os.ErrNotExist) {
 		err := os.MkdirAll(b.Dirs.Temp, 0777)
 		if err != nil {
@@ -185,11 +187,11 @@ func main() {
 	var benbebots = Benbebots{}
 
 	// initialise benbebots
-	err := benbebots.GetDirs()
+	err := benbebots.ParseConfig()
 	if err != nil {
 		log.Println(err)
 	}
-	err = benbebots.ParseConfig()
+	err = benbebots.GetDirs()
 	if err != nil {
 		log.Println(err)
 	}
