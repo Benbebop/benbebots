@@ -234,7 +234,7 @@ func (bbb *Benbebots) RunCannedFood() {
 				}
 			}
 		} else {
-			bbb.Logger.Assert2(client.SendMessage(opts.PingChannel, message.URL()))
+			bbb.Logger.Assert(client.SendMessage(opts.PingChannel, message.URL()))
 		}
 
 		delay := time.Duration(opts.Delay[0]+rand.Int63n(opts.Delay[1]-opts.Delay[0])) * time.Millisecond

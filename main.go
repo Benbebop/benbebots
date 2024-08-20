@@ -8,12 +8,11 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"runtime"
+	"path/filepath"
 	"sync"
 	"syscall"
 
-	"github.com/diamondburned/arikawa/v3/api"
-	"github.com/diamondburned/arikawa/v3/discord"
+	"benbebop.net/benbebots/internal/logger"
 	"github.com/diamondburned/arikawa/v3/session"
 	netrc "github.com/fhs/go-netrc/netrc"
 	"github.com/go-co-op/gocron/v2"
@@ -25,7 +24,7 @@ import (
 
 type Benbebots struct {
 	Cron        gocron.Scheduler
-	Logger      Logger
+	Logger      *logger.DiscordLogger
 	Config      *ini.File
 	Components  Components
 	LevelDB     *leveldb.DB
@@ -38,38 +37,6 @@ type Benbebots struct {
 	clients        []*session.Session
 	clientsMutex   sync.Mutex
 	CoroutineGroup sync.WaitGroup
-}
-
-func (b *Benbebots) CommandError(inErr error) *api.InteractionResponseData {
-	b.Logger.Error(inErr.Error())
-
-	var stk string
-	for i := 1; i < 6; i++ {
-		pc, file, line, ok := runtime.Caller(i)
-		stk += "\n"
-		if !ok {
-			stk += "..."
-			break
-		}
-		stk += fmt.Sprintf("%s:%d 0x%x", file, line, pc)
-	}
-
-	return &api.InteractionResponseData{
-		Flags: discord.EphemeralMessage,
-		Embeds: &[]discord.Embed{
-			{
-				Author: &discord.EmbedAuthor{
-					Name: "There was an error!",
-				},
-				URL:         "https://github.com/Benbebop/benbebots/issues/new?body=my%20error%20id%3A%20",
-				Title:       "idk",
-				Description: inErr.Error(),
-				Footer: &discord.EmbedFooter{
-					Text: stk,
-				},
-			},
-		},
-	}
 }
 
 func (b *Benbebots) GetDirs() error {
@@ -123,13 +90,12 @@ func (b *Benbebots) InitHeartbeater() error {
 }
 
 func (b *Benbebots) InitLogger() error {
-	b.Logger.Directory = b.Dirs.Data + "logs/"
 	k, err := b.Config.Section("webhooks").GetKey("log")
 	if err != nil {
 		return err
 	}
-	b.Logger.Webhook = k.String()
-	return nil
+	b.Logger, err = logger.NewDiscordLogger(1, filepath.Join(b.Dirs.Data, "logs"), k.String())
+	return err
 }
 
 type LoggerCron interface {
@@ -137,7 +103,9 @@ type LoggerCron interface {
 
 func (b *Benbebots) InitCron() error {
 	var err error
-	b.Cron, err = gocron.NewScheduler(gocron.WithLogger(&b.Logger))
+	b.Cron, err = gocron.NewScheduler(gocron.WithLogger(&logger.SLogCompat{
+		DL: b.Logger,
+	}))
 	if err != nil {
 		return err
 	}
