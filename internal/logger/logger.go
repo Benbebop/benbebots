@@ -65,7 +65,18 @@ func (l *DiscordLogger) out(level int, msg string, args []any) uint32 {
 	out := fmt.Sprintf(msg, args...)
 
 	// short outputs
-	log.Println("[DBG]: " + out)
+	var label string
+	switch level {
+	case 2:
+		label = "ERR"
+	case 1:
+		label = "WRN"
+	case 0:
+		label = "INF"
+	case -1:
+		label = "DBG"
+	}
+	log.Printf("[%s] %s", label, out)
 	if level >= l.WebhookLogLevel {
 		l.Webhook.Execute(webhook.ExecuteData{
 			Content: out,
