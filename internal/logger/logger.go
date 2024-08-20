@@ -83,16 +83,16 @@ func (l *DiscordLogger) out(level int, msg string, args []any) uint32 {
 		})
 	}
 
-	// generate id
-	hasher := sha1.New()
-	hasher.Write(traceSterliser.ReplaceAll([]byte(out), []byte("")))
-	id := binary.BigEndian.Uint32(hasher.Sum(nil))
-
 	if level >= l.OutLogLevel {
 		// add traceback
 		trc := make([]byte, 2048)
 		n := runtime.Stack(trc, false)
 		out += "\n\n" + string(trc[:n])
+
+		// generate id
+		hasher := sha1.New()
+		hasher.Write(traceSterliser.ReplaceAll([]byte(out), []byte("")))
+		id := binary.BigEndian.Uint32(hasher.Sum(nil))
 
 		// create log file
 		file, err := os.OpenFile(filepath.Join(l.Directory, base64.URLEncoding.EncodeToString(binary.BigEndian.AppendUint32(nil, id))+".log"), os.O_CREATE|os.O_WRONLY, 0777)
@@ -104,9 +104,11 @@ func (l *DiscordLogger) out(level int, msg string, args []any) uint32 {
 			return 0
 		}
 		file.Close()
+
+		return id
 	}
 
-	return id
+	return 0
 }
 
 func (l *DiscordLogger) Dump(data []byte, level int, msg string, args ...any) uint32 {
