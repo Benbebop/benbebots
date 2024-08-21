@@ -12,6 +12,7 @@ import (
 	"sync"
 	"syscall"
 
+	"benbebop.net/benbebots/internal/components"
 	"benbebop.net/benbebots/internal/heartbeat"
 	"benbebop.net/benbebots/internal/logger"
 	"github.com/diamondburned/arikawa/v3/session"
@@ -27,7 +28,7 @@ type Benbebots struct {
 	Cron        gocron.Scheduler
 	Logger      *logger.DiscordLogger
 	Config      *ini.File
-	Components  Components
+	Components  components.Components
 	LevelDB     *leveldb.DB
 	Heartbeater heartbeat.Heartbeater
 	Tokens      map[string]netrc.Machine

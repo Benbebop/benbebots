@@ -1,4 +1,4 @@
-package main
+package components
 
 import "gopkg.in/ini.v1"
 
