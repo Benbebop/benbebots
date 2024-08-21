@@ -67,6 +67,8 @@ func (l *DiscordLogger) out(level int, msg string, args []any) uint32 {
 	// short outputs
 	var label string
 	switch level {
+	case 3:
+		label = "FTL"
 	case 2:
 		label = "ERR"
 	case 1:
@@ -124,6 +126,11 @@ func (l *DiscordLogger) Dump(data []byte, level int, msg string, args ...any) ui
 	}
 	file.Close()
 	return id
+}
+
+func (l *DiscordLogger) Fatal(msg string, args ...any) {
+	l.out(3, msg, args)
+	os.Exit(1)
 }
 
 func (l *DiscordLogger) Error(msg string, args ...any) uint32 {
