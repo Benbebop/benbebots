@@ -1,4 +1,4 @@
-package main
+package soundcloud
 
 import (
 	"errors"
@@ -11,14 +11,14 @@ import (
 	"golang.org/x/net/html"
 )
 
-type SoundcloudClient struct {
+type Client struct {
 	ClientId   string
 	LevelDB    *leveldb.DB
 	Cookie     string
 	MaxRetries uint
 }
 
-func (S *SoundcloudClient) GetClientId() error {
+func (S *Client) GetClientId() error {
 	resp, err := http.Get("https://soundcloud.com/")
 	if err != nil {
 		return err
@@ -95,7 +95,7 @@ func (S *SoundcloudClient) GetClientId() error {
 	return nil
 }
 
-func (S *SoundcloudClient) req(depth uint, method string, endpoint string, values url.Values, body string) (*http.Response, error) {
+func (S *Client) req(depth uint, method string, endpoint string, values url.Values, body string) (*http.Response, error) {
 	values.Set("client_id", S.ClientId)
 	resp, err := http.Get(fmt.Sprintf("https://api-v2.soundcloud.com%s?%s", endpoint, values.Encode()))
 	if err != nil {
@@ -116,6 +116,6 @@ func (S *SoundcloudClient) req(depth uint, method string, endpoint string, value
 	return resp, nil
 }
 
-func (S *SoundcloudClient) Request(method string, endpoint string, qry url.Values, body string) (*http.Response, error) {
+func (S *Client) Request(method string, endpoint string, qry url.Values, body string) (*http.Response, error) {
 	return S.req(0, method, endpoint, qry, body)
 }

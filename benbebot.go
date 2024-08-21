@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"benbebop.net/benbebots/internal/soundcloud"
 	"benbebop.net/benbebots/internal/stats"
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/api/cmdroute"
@@ -49,7 +50,7 @@ type MRadio struct {
 	tracks        []uint64
 	Active        bool
 	Channel       discord.ChannelID
-	soundcloud    *SoundcloudClient
+	soundcloud    *soundcloud.Client
 	FFmpegPath    string `ini:"ffmpeg"`
 	YtdlpPath     string `ini:"ytdlp"`
 	ffmpeg        *exec.Cmd
@@ -57,7 +58,7 @@ type MRadio struct {
 	ytdlp         *exec.Cmd
 }
 
-func (mr *MRadio) Init(bbb *Benbebots, state *session.Session, sc *SoundcloudClient, frameDur time.Duration, timeInc uint32) error {
+func (mr *MRadio) Init(bbb *Benbebots, state *session.Session, sc *soundcloud.Client, frameDur time.Duration, timeInc uint32) error {
 	mr.benbebots = bbb
 	mr.soundcloud = sc
 	v, err := voice.NewSession(state)
@@ -714,7 +715,7 @@ func (bbb *Benbebots) RunBenbebot() {
 	client.AddHandler(bbb.Heartbeater.Heartbeat)
 	router := cmdroute.NewRouter()
 
-	scClient := SoundcloudClient{
+	scClient := soundcloud.Client{
 		MaxRetries: 1,
 		LevelDB:    bbb.LevelDB,
 	}
