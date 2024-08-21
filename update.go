@@ -32,10 +32,10 @@ func createCommandsToCommands(inputs []api.CreateCommandData) []discord.Command 
 	return output
 }
 
-var commandFile = "resource/commands.json"
-var commandFileOld = "resource/commands_old.json"
+const commandFile = "resource/commands.json"
+const commandFileOld = "resource/commands_old.json"
 
-func (b *Benbebots) UpdateCommands(reset bool) error {
+func updateCommands(reset bool) error {
 	var toUnmarshal map[string]map[discord.GuildID][]api.CreateCommandData
 	toMarshal := make(map[string]map[discord.GuildID][]discord.Command)
 
@@ -49,7 +49,7 @@ func (b *Benbebots) UpdateCommands(reset bool) error {
 	}
 
 	for index, profile := range toUnmarshal {
-		client := api.NewClient("Bot " + b.Tokens[index].Password)
+		client := api.NewClient("Bot " + tokens[index].Password)
 		myUser, err := client.Me()
 		if err != nil {
 			return err
@@ -108,16 +108,16 @@ func (b *Benbebots) UpdateCommands(reset bool) error {
 	return nil
 }
 
-func (b *Benbebots) ResetStats() error {
+func resetStats() error {
 	// canned foods
-	token, err := b.LevelDB.Get([]byte("cannedFoodToken"), nil)
+	token, err := lvldb.Get([]byte("cannedFoodToken"), nil)
 	if err != nil {
 		log.Panicln(err)
 		return err
 	}
 	client := api.NewClient(string(token))
 
-	validChannelsStr, err := b.LevelDB.Get([]byte("cannedFoodValidChannels"), nil)
+	validChannelsStr, err := lvldb.Get([]byte("cannedFoodValidChannels"), nil)
 	if err != nil {
 		log.Panicln(err)
 		return err
@@ -165,7 +165,7 @@ func (b *Benbebots) ResetStats() error {
 		total += int64(current)
 	}
 
-	err = b.LevelDB.Put(stats.GetKey("Canned Foods"), binary.AppendVarint(nil, total), nil)
+	err = lvldb.Put(stats.GetKey("Canned Foods"), binary.AppendVarint(nil, total), nil)
 	if err != nil {
 		log.Panicln(err)
 		return err
@@ -173,7 +173,7 @@ func (b *Benbebots) ResetStats() error {
 	log.Printf("found %d canned foods in all channels", total)
 
 	// family guys
-	client = api.NewClient("Bot " + b.Tokens["familyGuy"].Password)
+	client = api.NewClient("Bot " + tokens["familyGuy"].Password)
 	me, err := client.Me()
 	if err != nil {
 		log.Panicln(err)
@@ -236,7 +236,7 @@ func (b *Benbebots) ResetStats() error {
 		}
 	}
 
-	err = b.LevelDB.Put(stats.GetKey("Family Guys"), binary.AppendVarint(nil, total), nil)
+	err = lvldb.Put(stats.GetKey("Family Guys"), binary.AppendVarint(nil, total), nil)
 	if err != nil {
 		log.Panicln(err)
 		return err

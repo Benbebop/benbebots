@@ -2,6 +2,20 @@ package components
 
 import "gopkg.in/ini.v1"
 
+func NewComponents(sec *ini.Section) (*Components, error) {
+	var c Components
+	c.enabled = map[string]bool{}
+	for _, key := range sec.Keys() {
+		value, err := key.Bool()
+		if err != nil {
+			return nil, err
+		}
+
+		c.enabled[key.Name()] = value
+	}
+	return &c, nil
+}
+
 type Components struct {
 	enabled map[string]bool
 }

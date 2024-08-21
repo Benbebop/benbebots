@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"math/rand"
 	"time"
 
@@ -10,13 +9,15 @@ import (
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/gateway"
+	"github.com/diamondburned/arikawa/v3/session"
 	"github.com/diamondburned/arikawa/v3/state"
 	"github.com/diamondburned/arikawa/v3/utils/json/option"
 )
 
-func (bbb *Benbebots) RunFamilyGuy() {
-	if !bbb.Components.IsEnabled("familyguy") {
-		return
+func (Benbebots) FAMILYGUY() *session.Session {
+	if !component.IsEnabled("familyguy") {
+		logs.Info("family guy component has been disabled")
+		return nil
 	}
 	opts := struct {
 		CacheChannelId uint64 `ini:"cachechannel"`
@@ -27,27 +28,24 @@ func (bbb *Benbebots) RunFamilyGuy() {
 		TestId         uint64        `ini:"test"`
 		Test           discord.ChannelID
 	}{}
-	bbb.Logger.Assert(bbb.Config.Section("bot.familyguy").StrictMapTo(&opts))
+	logs.Assert(config.Section("bot.familyguy").StrictMapTo(&opts))
 	opts.cacheChannel = discord.ChannelID(opts.CacheChannelId)
 	if opts.TestId != 0 {
 		opts.Test = discord.ChannelID(opts.TestId)
 	}
 
-	client := state.New("Bot " + bbb.Tokens["familyGuy"].Password)
+	client := state.New("Bot " + tokens["familyGuy"].Password)
 	client.AddIntents(gateway.IntentGuildMembers) // privileged
-	client.AddHandler(func(*gateway.ReadyEvent) {
-		me, _ := client.Me()
-		log.Println("Connected to discord as", me.Tag())
-	})
-	client.AddHandler(bbb.Heartbeater.Init)
-	client.AddHandler(bbb.Heartbeater.Heartbeat)
+	client.AddHandler(AnnounceReady)
+	client.AddHandler(heartbeater.Init)
+	client.AddHandler(heartbeater.Heartbeat)
 
 	fgStat := stats.Stat{
 		Name:      "Family Guys",
 		Value:     0,
 		Client:    client.Client,
 		ChannelID: discord.ChannelID(opts.StatChannel),
-		LevelDB:   bbb.LevelDB,
+		LevelDB:   lvldb,
 		Delay:     time.Second * 5,
 	}
 	fgStat.Initialise()
@@ -60,7 +58,7 @@ func (bbb *Benbebots) RunFamilyGuy() {
 		// get users
 		guilds, err := client.Guilds()
 		if err != nil {
-			bbb.Logger.Error(err.Error())
+			logs.ErrorQuick(err)
 			return
 		}
 
@@ -69,7 +67,7 @@ func (bbb *Benbebots) RunFamilyGuy() {
 		for _, guild := range guilds {
 			members, err := client.Members(guild.ID)
 			if err != nil {
-				bbb.Logger.Error(err.Error())
+				logs.ErrorQuick(err)
 				continue
 			}
 			users = append(users, make([]discord.ChannelID, len(members))...)
@@ -97,7 +95,7 @@ func (bbb *Benbebots) RunFamilyGuy() {
 		// get clips
 		messages, err := client.Messages(opts.cacheChannel, 1000)
 		if err != nil {
-			bbb.Logger.Error(err.Error())
+			logs.ErrorQuick(err)
 			return
 		}
 
@@ -137,6 +135,5 @@ func (bbb *Benbebots) RunFamilyGuy() {
 	})
 
 	client.Open(client.Context())
-	bbb.AddClient(client.Session)
-	bbb.CoroutineGroup.Done()
+	return client.Session
 }

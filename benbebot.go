@@ -45,7 +45,6 @@ import (
 
 type MRadio struct {
 	sync.Mutex
-	benbebots     *Benbebots
 	session       *voice.Session
 	tracks        []uint64
 	Active        bool
@@ -58,8 +57,7 @@ type MRadio struct {
 	ytdlp         *exec.Cmd
 }
 
-func (mr *MRadio) Init(bbb *Benbebots, state *session.Session, sc *soundcloud.Client, frameDur time.Duration, timeInc uint32) error {
-	mr.benbebots = bbb
+func (mr *MRadio) Init(state *session.Session, sc *soundcloud.Client, frameDur time.Duration, timeInc uint32) error {
 	mr.soundcloud = sc
 	v, err := voice.NewSession(state)
 	if err != nil {
@@ -171,19 +169,19 @@ func (mr *MRadio) Start() error {
 		mr.ytdlp = exec.Command(mr.YtdlpPath,
 			"--ignore-config",
 			"--write-info-json", "--write-thumbnail",
-			"--cache-dir", mr.benbebots.Dirs.Data+"yt-dlp/", "--cookies", mr.benbebots.Dirs.Data+"yt-dlp/cookies.netscape",
+			"--cache-dir", dirs.data+"yt-dlp/", "--cookies", dirs.data+"yt-dlp/cookies.netscape",
 			"--use-extractors", "soundcloud",
 			"--output", "-",
 			"https://api.soundcloud.com/tracks/"+strconv.FormatUint(id, 10),
 		)
 
-		mr.ffmpeg.Dir, mr.ytdlp.Dir = mr.benbebots.Dirs.Temp, mr.benbebots.Dirs.Temp
+		mr.ffmpeg.Dir, mr.ytdlp.Dir = dirs.temp, dirs.temp
 		mr.ffmpeg.Stderr, mr.ytdlp.Stderr = os.Stderr, os.Stderr
 
 		// link yt-dlp and ffmpeg
 		r, err := mr.ffmpeg.StdinPipe()
 		if err != nil {
-			mr.benbebots.Logger.Error(err.Error())
+			logs.ErrorQuick(err)
 			break
 		}
 		mr.ytdlp.Stdout = bufio.NewWriter(r)
@@ -191,16 +189,16 @@ func (mr *MRadio) Start() error {
 		// link ffmpeg to discord
 		o, err := mr.ffmpeg.StdoutPipe()
 		if err != nil {
-			mr.benbebots.Logger.Error(err.Error())
+			logs.ErrorQuick(err)
 			break
 		}
 
 		if err := mr.ffmpeg.Start(); err != nil {
-			mr.benbebots.Logger.Error(err.Error())
+			logs.ErrorQuick(err)
 			break
 		}
 		if err := mr.ytdlp.Start(); err != nil {
-			mr.benbebots.Logger.Error(err.Error())
+			logs.ErrorQuick(err)
 			break
 		}
 
@@ -212,7 +210,7 @@ func (mr *MRadio) Start() error {
 
 		mr.session.Speaking(context.Background(), voicegateway.Microphone)
 		if err := oggreader.DecodeBuffered(mr.session, o); err != nil {
-			mr.benbebots.Logger.Error(err.Error())
+			logs.ErrorQuick(err)
 			break
 		}
 		mr.session.Speaking(context.Background(), voicegateway.NotSpeaking)
@@ -700,27 +698,24 @@ func (p *Permaroles) Get(user discord.UserID) ([]discord.RoleID, error) {
 	return roles, nil
 }
 
-func (bbb *Benbebots) RunBenbebot() {
-	cfgSec := bbb.Config.Section("bot.benbebot")
+func (Benbebots) BENBEBOT() *session.Session {
+	cfgSec := config.Section("bot.benbebot")
 
-	client := session.New("Bot " + bbb.Tokens["benbebot"].Password)
+	client := session.New("Bot " + tokens["benbebot"].Password)
 	client.AddIntents(gateway.IntentGuildPresences | gateway.IntentGuildMembers | gateway.IntentMessageContent) // privileged
 	client.AddIntents(gateway.IntentGuildMessages | gateway.IntentDirectMessages)
 	client.AddIntents(gateway.IntentGuilds)
-	client.AddHandler(func(*gateway.ReadyEvent) {
-		me, _ := client.Me()
-		log.Println("Connected to discord as", me.Tag())
-	})
-	client.AddHandler(bbb.Heartbeater.Init)
-	client.AddHandler(bbb.Heartbeater.Heartbeat)
+	client.AddHandler(AnnounceReady)
+	client.AddHandler(heartbeater.Init)
+	client.AddHandler(heartbeater.Heartbeat)
 	router := cmdroute.NewRouter()
 
 	scClient := soundcloud.Client{
 		MaxRetries: 1,
-		LevelDB:    bbb.LevelDB,
+		LevelDB:    lvldb,
 	}
 	scClient.GetClientId()
-	if bbb.Components.IsEnabled("motd") {
+	if component.IsEnabled("motd") {
 		opts := struct {
 			Cron        string `ini:"motdcron"`
 			ChannelId   uint64 `ini:"motdchannel"`
@@ -735,7 +730,7 @@ func (bbb *Benbebots) RunBenbebot() {
 			Name:      "Soundclowns",
 			Value:     0,
 			Client:    client.Client,
-			LevelDB:   bbb.LevelDB,
+			LevelDB:   lvldb,
 			ChannelID: discord.ChannelID(opts.StatChannel),
 			Delay:     time.Second * 5,
 		}
@@ -744,23 +739,23 @@ func (bbb *Benbebots) RunBenbebot() {
 		var recents [30]uint
 		var recentsIndex uint64
 		client.AddHandler(func(*gateway.ReadyEvent) {
-			validChannelsStr, err := bbb.LevelDB.Get([]byte("recentSoundclowns"), nil)
+			validChannelsStr, err := lvldb.Get([]byte("recentSoundclowns"), nil)
 			if err != nil {
-				bbb.Logger.Error(err.Error())
+				logs.ErrorQuick(err)
 				return
 			}
 
 			strs := strings.Fields(string(validChannelsStr))
 			recentsIndex, err = strconv.ParseUint(strs[0], 10, 64)
 			if err != nil {
-				bbb.Logger.Error(err.Error())
+				logs.ErrorQuick(err)
 				return
 			}
 			strs = strs[1:]
 			for i, v := range strs {
 				id, err := strconv.ParseUint(v, 10, 64)
 				if err != nil {
-					bbb.Logger.Error(err.Error())
+					logs.ErrorQuick(err)
 					return
 				}
 				recents[i] = uint(id)
@@ -783,19 +778,19 @@ func (bbb *Benbebots) RunBenbebot() {
 			})
 			resp, err := scClient.Request("GET", "/recent-tracks/soundclown", vals, "")
 			if err != nil {
-				bbb.Logger.Error(err.Error())
+				logs.ErrorQuick(err)
 				return
 			}
 			defer resp.Body.Close()
 			if resp.StatusCode != 200 {
-				bbb.Logger.Error(fmt.Errorf("couldnt get soundclouds: %s", resp.Status).Error())
+				logs.Error("couldnt get soundclouds: %s", resp.Status)
 				return
 			}
 
 			// get recent tracks
 			data, err := io.ReadAll(resp.Body)
 			if err != nil {
-				bbb.Logger.Error(err.Error())
+				logs.ErrorQuick(err)
 				return
 			}
 			tracks := struct {
@@ -820,7 +815,7 @@ func (bbb *Benbebots) RunBenbebot() {
 			}{}
 			err = json.Unmarshal(data, &tracks)
 			if err != nil {
-				bbb.Logger.Error(err.Error())
+				logs.ErrorQuick(err)
 				return
 			}
 
@@ -842,7 +837,7 @@ func (bbb *Benbebots) RunBenbebot() {
 			}
 
 			if !found {
-				bbb.Logger.Error("could not find a soundcloud within 20 tracks")
+				logs.Error("could not find a soundcloud within 20 tracks")
 				return
 			}
 
@@ -857,21 +852,21 @@ func (bbb *Benbebots) RunBenbebot() {
 			for i := 0; i < 30; i++ {
 				str = append(strconv.AppendUint(str, uint64(recents[i]), 10), ' ')
 			}
-			bbb.LevelDB.Put([]byte("recentSoundclowns"), str, nil)
+			lvldb.Put([]byte("recentSoundclowns"), str, nil)
 
 			// send
 			log.Println("sending soundclown")
-			bbb.Logger.Assert(client.SendMessage(opts.Channel, toSend.Permalink))
+			logs.Assert(client.SendMessage(opts.Channel, toSend.Permalink))
 		}
 
 		client.AddHandler(func(*gateway.ReadyEvent) {
 			// get soundcloud token
-			cltId, err := bbb.LevelDB.Get([]byte("soundcloudClientId"), nil)
+			cltId, err := lvldb.Get([]byte("soundcloudClientId"), nil)
 			if err != nil {
-				bbb.Logger.Error(err.Error())
+				logs.ErrorQuick(err)
 				err = scClient.GetClientId()
 				if err != nil {
-					bbb.Logger.Error(err.Error())
+					logs.ErrorQuick(err)
 				}
 			} else {
 				scClient.ClientId = string(cltId)
@@ -880,17 +875,17 @@ func (bbb *Benbebots) RunBenbebot() {
 			url := "https://soundcloud.com/"
 			urlLen := len(url)
 			var mut sync.Mutex
-			bbb.Logger.Assert(bbb.Cron.NewJob(gocron.CronJob(opts.Cron, true), gocron.NewTask(func() {
+			logs.Assert(cron.NewJob(gocron.CronJob(opts.Cron, true), gocron.NewTask(func() {
 				mut.Lock()
 				defer mut.Unlock()
 				messages, err := client.Messages(opts.Channel, 1)
 				if err != nil {
-					bbb.Logger.Error(err.Error())
+					logs.ErrorQuick(err)
 					return
 				}
 				message := messages[0]
 				if len(message.Content) >= urlLen && message.Content[:urlLen] == url {
-					fail, _ := bbb.Logger.Assert(client.CrosspostMessage(opts.Channel, messages[0].ID))
+					fail, _ := logs.Assert(client.CrosspostMessage(opts.Channel, messages[0].ID))
 					if !fail {
 						scStat.Increment(1)
 					}
@@ -909,11 +904,11 @@ func (bbb *Benbebots) RunBenbebot() {
 		})
 	}
 
-	if bbb.Components.IsEnabled("mashupradio") {
+	if component.IsEnabled("mashupradio") {
 		client.AddIntents(gateway.IntentGuildVoiceStates)
 		var radio MRadio
-		bbb.Config.Section("programs").MapTo(&radio)
-		radio.Init(bbb, client, &scClient, 60*time.Millisecond, 2880)
+		config.Section("programs").MapTo(&radio)
+		radio.Init(client, &scClient, 60*time.Millisecond, 2880)
 
 		opts := struct {
 			ChannelId uint64 `ini:"mrchannel"`
@@ -922,7 +917,7 @@ func (bbb *Benbebots) RunBenbebot() {
 		cfgSec.MapTo(&opts)
 		radio.Channel = discord.ChannelID(discord.Snowflake(opts.ChannelId))
 		go func() {
-			bbb.Logger.Assert(radio.GetTracks(opts.Endpoint))
+			logs.Assert(radio.GetTracks(opts.Endpoint))
 		}()
 
 		client.AddHandler(func(state *gateway.VoiceStateUpdateEvent) {
@@ -930,12 +925,12 @@ func (bbb *Benbebots) RunBenbebot() {
 				return
 			}
 			go func() {
-				bbb.Logger.Assert(radio.Start())
+				logs.Assert(radio.Start())
 			}()
 		})
 	}
 
-	if bbb.Components.IsEnabled("logcommand") {
+	if component.IsEnabled("logcommand") {
 		errTooLong := errors.New("too long woops")
 
 		router.AddFunc("getlog", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
@@ -943,16 +938,16 @@ func (bbb *Benbebots) RunBenbebot() {
 				Id string `discord:"id"`
 			}{}
 			if err := data.Options.Unmarshal(&options); err != nil {
-				return bbb.Logger.InteractionResponse(bbb.Logger.ErrorQuick(err), err.Error())
+				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
 			}
 
-			buffer, err := os.ReadFile(bbb.Logger.Directory + options.Id + ".log")
+			buffer, err := os.ReadFile(logs.Directory + options.Id + ".log")
 			if err != nil {
-				return bbb.Logger.InteractionResponse(bbb.Logger.ErrorQuick(err), err.Error())
+				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
 			}
 
 			if len(buffer) > 2000 {
-				return bbb.Logger.InteractionResponse(bbb.Logger.ErrorQuick(errTooLong), errTooLong.Error())
+				return logs.InteractionResponse(logs.ErrorQuick(errTooLong), errTooLong.Error())
 			}
 
 			return &api.InteractionResponseData{
@@ -961,20 +956,20 @@ func (bbb *Benbebots) RunBenbebot() {
 		})
 	}
 
-	if bbb.Components.IsEnabled("sexcommand") {
+	if component.IsEnabled("sexcommand") {
 		errSenderNil := errors.New("sender is 0")
 
 		router.AddFunc("sex", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
 			sndr := data.Event.SenderID()
 			if sndr == 0 {
-				return bbb.Logger.InteractionResponse(bbb.Logger.ErrorQuick(errSenderNil), errSenderNil.Error())
+				return logs.InteractionResponse(logs.ErrorQuick(errSenderNil), errSenderNil.Error())
 			}
 			err := client.Ban(data.Event.GuildID, sndr, api.BanData{
 				DeleteDays:     option.ZeroUint,
 				AuditLogReason: "sex command",
 			})
 			if err != nil {
-				return bbb.Logger.InteractionResponse(bbb.Logger.ErrorQuick(err), err.Error())
+				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
 			}
 			return &api.InteractionResponseData{
 				Content: option.NewNullableString("idk"),
@@ -983,7 +978,7 @@ func (bbb *Benbebots) RunBenbebot() {
 		})
 	}
 
-	if bbb.Components.IsEnabled("adextractor") {
+	if component.IsEnabled("adextractor") {
 		opts := struct {
 			ChannelId uint64 `ini:"adextractorchannel"`
 			Channel   discord.ChannelID
@@ -1000,7 +995,7 @@ func (bbb *Benbebots) RunBenbebot() {
 			}
 
 			if len(message.Attachments) < 1 {
-				bbb.Logger.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
+				logs.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
 				return
 			}
 
@@ -1013,53 +1008,53 @@ func (bbb *Benbebots) RunBenbebot() {
 			}
 
 			if toDownload.Size > 25000 {
-				bbb.Logger.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
+				logs.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
 				return
 			}
 
 			fileBuffer := make([]byte, toDownload.Size)
 			resp, err := http.Get(toDownload.URL)
 			if err != nil {
-				bbb.Logger.Error(err.Error())
-				bbb.Logger.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
+				logs.ErrorQuick(err)
+				logs.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
 				return
 			}
 
 			if _, err := io.ReadFull(resp.Body, fileBuffer); err != nil {
-				bbb.Logger.Error(err.Error())
-				bbb.Logger.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
+				logs.ErrorQuick(err)
+				logs.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
 				return
 			}
 
 			debugInfo := struct {
 				AdVideoId string `json:"addebug_videoId"`
 			}{}
-			fail, _ := bbb.Logger.Assert(json.Unmarshal(fileBuffer, &debugInfo))
+			fail, _ := logs.Assert(json.Unmarshal(fileBuffer, &debugInfo))
 			if fail {
-				bbb.Logger.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
+				logs.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
 				return
 			}
 
-			fail, _ = bbb.Logger.Assert(client.SendMessageReply(opts.Channel, "https://www.youtube.com/watch?v="+debugInfo.AdVideoId, message.ID))
+			fail, _ = logs.Assert(client.SendMessageReply(opts.Channel, "https://www.youtube.com/watch?v="+debugInfo.AdVideoId, message.ID))
 			if fail {
-				bbb.Logger.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
+				logs.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
 			}
 		})
 	}
 
-	if bbb.Components.IsEnabled("pinger") {
+	if component.IsEnabled("pinger") {
 		opts := struct {
 			StatsId uint64        `ini:"pingstatchannel"`
 			Freq    time.Duration `ini:"pingfreq"`
 		}{}
 		cfgSec.MapTo(&opts)
-		k, err := bbb.Config.Section("webhooks").GetKey("pinger")
+		k, err := config.Section("webhooks").GetKey("pinger")
 		if err != nil {
-			bbb.Logger.Error(err.Error())
+			logs.ErrorQuick(err)
 		}
 		pinghook, err := webhook.NewFromURL(string(k.String()))
 		if err != nil {
-			bbb.Logger.Error(err.Error())
+			logs.ErrorQuick(err)
 		}
 
 		var toPingMux sync.Mutex
@@ -1067,13 +1062,13 @@ func (bbb *Benbebots) RunBenbebot() {
 		var toPingPendingDel []discord.UserID
 		var pingerLock bool
 
-		iter := bbb.LevelDB.NewIterator(nil, nil)
+		iter := lvldb.NewIterator(nil, nil)
 		for iter.Next() {
 			k, v := iter.Key(), iter.Value()
 			if string(k[:len("pingsFor")]) == "pingsFor" {
 				id, err := strconv.ParseUint(string(k[len("pingsFor"):]), 10, 64)
 				if err != nil {
-					bbb.Logger.Error(err.Error())
+					logs.ErrorQuick(err)
 					continue
 				}
 				toPing[discord.UserID(discord.Snowflake(id))], _ = binary.Uvarint(v)
@@ -1085,7 +1080,7 @@ func (bbb *Benbebots) RunBenbebot() {
 			Name:      "Pings",
 			Value:     0,
 			Client:    client.Client,
-			LevelDB:   bbb.LevelDB,
+			LevelDB:   lvldb,
 			ChannelID: discord.ChannelID(opts.StatsId),
 			Delay:     time.Second * 5,
 		}
@@ -1125,10 +1120,10 @@ func (bbb *Benbebots) RunBenbebot() {
 				for pingerLock {
 					time.Sleep(time.Second * 5)
 					for i, v := range toPing {
-						bbb.LevelDB.Put([]byte("pingsFor"+i.String()), binary.AppendUvarint(nil, v), nil)
+						lvldb.Put([]byte("pingsFor"+i.String()), binary.AppendUvarint(nil, v), nil)
 					}
 					for _, v := range toPingPendingDel {
-						bbb.LevelDB.Delete([]byte("pingsFor"+v.String()), nil)
+						lvldb.Delete([]byte("pingsFor"+v.String()), nil)
 					}
 					toPingPendingDel = make([]discord.UserID, 0)
 				}
@@ -1144,7 +1139,7 @@ func (bbb *Benbebots) RunBenbebot() {
 				Times float64 `discord:"times"`
 			}{}
 			if err := data.Options.Unmarshal(&options); err != nil {
-				return bbb.Logger.InteractionResponse(bbb.Logger.ErrorQuick(err), err.Error())
+				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
 			}
 			userId := data.Event.SenderID()
 			if userId <= 0 {
@@ -1190,22 +1185,22 @@ func (bbb *Benbebots) RunBenbebot() {
 		})
 	}
 
-	if bbb.Components.IsEnabled("outlasttrialsdiff") {
+	if component.IsEnabled("outlasttrialsdiff") {
 		var otd OutlastTrialsDiff
 		cfgSec.MapTo(&otd)
-		bbb.Config.Section("programs").MapTo(&otd)
-		otd.Username = bbb.Tokens["steam"].Login
-		otd.Password = bbb.Tokens["steam"].Password
-		otd.OutputDir = filepath.Join(bbb.Dirs.Data, "opp-decomp")
+		config.Section("programs").MapTo(&otd)
+		otd.Username = tokens["steam"].Login
+		otd.Password = tokens["steam"].Password
+		otd.OutputDir = filepath.Join(dirs.data, "opp-decomp")
 
 		client.AddHandler(func(*gateway.ReadyEvent) {
-			bbb.Logger.Assert(otd.Execute())
+			logs.Assert(otd.Execute())
 		})
 	}
 
-	if bbb.Components.IsEnabled("permaroles") {
+	if component.IsEnabled("permaroles") {
 		pr := Permaroles{
-			DB: bbb.LevelDB,
+			DB: lvldb,
 		}
 
 		router.Sub("managepermaroles", func(r *cmdroute.Router) {
@@ -1213,15 +1208,15 @@ func (bbb *Benbebots) RunBenbebot() {
 				var options UserRole
 
 				if err := data.Options.Unmarshal(&options); err != nil {
-					return bbb.Logger.InteractionResponse(bbb.Logger.ErrorQuick(err), err.Error())
+					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
 				}
 
 				if _, err := client.Member(data.Data.GuildID, options.User); err != nil {
-					return bbb.Logger.InteractionResponse(bbb.Logger.ErrorQuick(err), err.Error())
+					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
 				}
 
 				if err := pr.Add(options); err != nil {
-					return bbb.Logger.InteractionResponse(bbb.Logger.ErrorQuick(err), err.Error())
+					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
 				}
 				return &api.InteractionResponseData{
 					Content: option.NewNullableString(fmt.Sprintf("succesfully added role %d to user %d", options.Role, options.User)),
@@ -1231,15 +1226,15 @@ func (bbb *Benbebots) RunBenbebot() {
 				var options UserRole
 
 				if err := data.Options.Unmarshal(&options); err != nil {
-					return bbb.Logger.InteractionResponse(bbb.Logger.ErrorQuick(err), err.Error())
+					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
 				}
 
 				if _, err := client.Member(data.Data.GuildID, options.User); err != nil {
-					return bbb.Logger.InteractionResponse(bbb.Logger.ErrorQuick(err), err.Error())
+					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
 				}
 
 				if err := pr.Remove(options); err != nil {
-					return bbb.Logger.InteractionResponse(bbb.Logger.ErrorQuick(err), err.Error())
+					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
 				}
 				return &api.InteractionResponseData{
 					Content: option.NewNullableString(fmt.Sprintf("succesfully removed role %d from user %d", options.Role, options.User)),
@@ -1249,16 +1244,16 @@ func (bbb *Benbebots) RunBenbebot() {
 				var options UserRole
 
 				if err := data.Options.Unmarshal(&options); err != nil {
-					return bbb.Logger.InteractionResponse(bbb.Logger.ErrorQuick(err), err.Error())
+					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
 				}
 
 				if _, err := client.Member(data.Data.GuildID, options.User); err != nil {
-					return bbb.Logger.InteractionResponse(bbb.Logger.ErrorQuick(err), err.Error())
+					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
 				}
 
 				roles, err := pr.Get(options.User)
 				if err != nil {
-					return bbb.Logger.InteractionResponse(bbb.Logger.ErrorQuick(err), err.Error())
+					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
 				}
 
 				var roleStr string
@@ -1277,7 +1272,7 @@ func (bbb *Benbebots) RunBenbebot() {
 				var options UserRole
 
 				if err := data.Options.Unmarshal(&options); err != nil {
-					return bbb.Logger.InteractionResponse(bbb.Logger.ErrorQuick(err), err.Error())
+					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
 				}
 
 				options.User = data.Event.SenderID()
@@ -1285,7 +1280,7 @@ func (bbb *Benbebots) RunBenbebot() {
 				// see if user has role
 				member, err := client.Member(data.Data.GuildID, options.User)
 				if err != nil {
-					return bbb.Logger.InteractionResponse(bbb.Logger.ErrorQuick(err), err.Error())
+					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
 				}
 
 				var exists bool
@@ -1303,7 +1298,7 @@ func (bbb *Benbebots) RunBenbebot() {
 				}
 
 				if err := pr.Add(options); err != nil {
-					return bbb.Logger.InteractionResponse(bbb.Logger.ErrorQuick(err), err.Error())
+					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
 				}
 				return &api.InteractionResponseData{
 					Content: option.NewNullableString(fmt.Sprintf("succesfully added role %d", options.Role)),
@@ -1313,13 +1308,13 @@ func (bbb *Benbebots) RunBenbebot() {
 				var options UserRole
 
 				if err := data.Options.Unmarshal(&options); err != nil {
-					return bbb.Logger.InteractionResponse(bbb.Logger.ErrorQuick(err), err.Error())
+					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
 				}
 
 				options.User = data.Event.SenderID()
 
 				if err := pr.Remove(options); err != nil {
-					return bbb.Logger.InteractionResponse(bbb.Logger.ErrorQuick(err), err.Error())
+					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
 				}
 				return &api.InteractionResponseData{
 					Content: option.NewNullableString(fmt.Sprintf("succesfully removed role %d", options.Role)),
@@ -1328,7 +1323,7 @@ func (bbb *Benbebots) RunBenbebot() {
 			r.AddFunc("list", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
 				roles, err := pr.Get(data.Event.SenderID())
 				if err != nil {
-					return bbb.Logger.InteractionResponse(bbb.Logger.ErrorQuick(err), err.Error())
+					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
 				}
 
 				var roleStr string
@@ -1343,7 +1338,7 @@ func (bbb *Benbebots) RunBenbebot() {
 			})
 		})
 
-		bb, err := bbb.Config.Section("servers").Key("breadbag").Uint64()
+		bb, err := config.Section("servers").Key("breadbag").Uint64()
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -1356,7 +1351,7 @@ func (bbb *Benbebots) RunBenbebot() {
 
 			roles, err := pr.Get(member.User.ID)
 			if err != nil {
-				bbb.Logger.Error("%s", err)
+				logs.ErrorQuick(err)
 				return
 			}
 
@@ -1368,8 +1363,8 @@ func (bbb *Benbebots) RunBenbebot() {
 		})
 	}
 
-	if bbb.Components.IsEnabled("pingeverything") {
-		bb, err := bbb.Config.Section("servers").Key("breadbag").Uint64()
+	if component.IsEnabled("pingeverything") {
+		bb, err := config.Section("servers").Key("breadbag").Uint64()
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -1385,7 +1380,7 @@ func (bbb *Benbebots) RunBenbebot() {
 			Name:      "Everythings Pinged",
 			Value:     0,
 			Client:    client.Client,
-			LevelDB:   bbb.LevelDB,
+			LevelDB:   lvldb,
 			ChannelID: discord.ChannelID(sc),
 			Delay:     time.Second * 5,
 		}
@@ -1409,7 +1404,7 @@ func (bbb *Benbebots) RunBenbebot() {
 			defer lock.Unlock()
 			guild, err := client.Guild(breadbag)
 			if err != nil {
-				bbb.Logger.Error("%s", err)
+				logs.ErrorQuick(err)
 				return
 			}
 
@@ -1424,7 +1419,7 @@ func (bbb *Benbebots) RunBenbebot() {
 				if len(str)+len(mention) > discordMaxMessageSize {
 					_, err = client.SendMessage(message.ChannelID, str)
 					if err != nil {
-						bbb.Logger.Error("%s", err)
+						logs.ErrorQuick(err)
 					}
 					str = ""
 				}
@@ -1434,7 +1429,7 @@ func (bbb *Benbebots) RunBenbebot() {
 			if str != "" {
 				_, err = client.SendMessage(message.ChannelID, str)
 				if err != nil {
-					bbb.Logger.Error("%s", err)
+					logs.ErrorQuick(err)
 				}
 			}
 
@@ -1442,8 +1437,8 @@ func (bbb *Benbebots) RunBenbebot() {
 		})
 	}
 
-	if bbb.Components.IsEnabled("extrawebhooks") {
-		wh, err := webhook.NewFromURL(bbb.Config.Section("webhooks").Key("extwh").String())
+	if component.IsEnabled("extrawebhooks") {
+		wh, err := webhook.NewFromURL(config.Section("webhooks").Key("extwh").String())
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -1459,12 +1454,12 @@ func (bbb *Benbebots) RunBenbebot() {
 		client.AddHandler(func(*gateway.ReadyEvent) {
 			channel, err := client.Channel(category.channel)
 			if err != nil {
-				bbb.Logger.ErrorQuick(err)
+				logs.ErrorQuick(err)
 				return
 			}
 			category.guild = channel.GuildID
 
-			m, err := bbb.LevelDB.Get([]byte("extwhMaster"), nil)
+			m, err := lvldb.Get([]byte("extwhMaster"), nil)
 			if errors.Is(err, leveldb.ErrNotFound) {
 				channel, err := client.CreateChannel(category.guild, api.CreateChannelData{
 					Name:       "extra-webhooks-master",
@@ -1472,23 +1467,23 @@ func (bbb *Benbebots) RunBenbebot() {
 					CategoryID: category.channel,
 				})
 				if err != nil {
-					bbb.Logger.ErrorQuick(err)
+					logs.ErrorQuick(err)
 					return
 				}
 				master = channel.ID
 				proxies = []discord.ChannelID{master}
-				bbb.LevelDB.Put([]byte("extwhMaster"), binary.BigEndian.AppendUint64(nil, uint64(master)), nil)
-				bbb.LevelDB.Put([]byte("extwhProxies"), binary.BigEndian.AppendUint64(nil, uint64(master)), nil)
+				lvldb.Put([]byte("extwhMaster"), binary.BigEndian.AppendUint64(nil, uint64(master)), nil)
+				lvldb.Put([]byte("extwhProxies"), binary.BigEndian.AppendUint64(nil, uint64(master)), nil)
 				return
 			} else if err != nil {
-				bbb.Logger.ErrorQuick(err)
+				logs.ErrorQuick(err)
 				return
 			}
 			master = discord.ChannelID(binary.BigEndian.Uint64(m))
 
-			m, err = bbb.LevelDB.Get([]byte("extwhProxies"), nil)
+			m, err = lvldb.Get([]byte("extwhProxies"), nil)
 			if err != nil {
-				bbb.Logger.ErrorQuick(err)
+				logs.ErrorQuick(err)
 				return
 			}
 
@@ -1514,7 +1509,7 @@ func (bbb *Benbebots) RunBenbebot() {
 
 				webhooks, err := client.ChannelWebhooks(message.ChannelID)
 				if err != nil {
-					bbb.Logger.ErrorQuick(err)
+					logs.ErrorQuick(err)
 					return
 				}
 
@@ -1522,7 +1517,7 @@ func (bbb *Benbebots) RunBenbebot() {
 					return
 				}
 
-				bbb.Logger.Assert(client.ModifyChannel(master, api.ModifyChannelData{
+				logs.Assert(client.ModifyChannel(master, api.ModifyChannelData{
 					Name: fmt.Sprintf("extra-webhooks-%x", len(proxies)),
 				}))
 
@@ -1532,7 +1527,7 @@ func (bbb *Benbebots) RunBenbebot() {
 					CategoryID: category.channel,
 				})
 				if err != nil {
-					bbb.Logger.ErrorQuick(err)
+					logs.ErrorQuick(err)
 					return
 				}
 
@@ -1542,8 +1537,8 @@ func (bbb *Benbebots) RunBenbebot() {
 				for _, proxy := range proxies {
 					proxStr = binary.BigEndian.AppendUint64(proxStr, uint64(proxy))
 				}
-				bbb.LevelDB.Put([]byte("extwhMaster"), binary.BigEndian.AppendUint64(nil, uint64(master)), nil)
-				bbb.LevelDB.Put([]byte("extwhProxies"), proxStr, nil)
+				lvldb.Put([]byte("extwhMaster"), binary.BigEndian.AppendUint64(nil, uint64(master)), nil)
+				lvldb.Put([]byte("extwhProxies"), proxStr, nil)
 				return
 			}
 
@@ -1583,6 +1578,5 @@ func (bbb *Benbebots) RunBenbebot() {
 
 	client.AddInteractionHandler(router)
 	client.Open(client.Context())
-	bbb.AddClient(client)
-	bbb.CoroutineGroup.Done()
+	return client
 }

@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
-	"log"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -78,7 +77,7 @@ func (l *DiscordLogger) out(level int, msg string, args []any) uint32 {
 	case -1:
 		label = "DBG"
 	}
-	log.Printf("[%s] %s", label, out)
+	fmt.Printf("[%s] %s\n", label, out)
 	if level >= l.WebhookLogLevel {
 		l.Webhook.Execute(webhook.ExecuteData{
 			Content: out,
