@@ -1,11 +1,10 @@
-package main
+package heartbeat
 
 import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"sync"
@@ -15,14 +14,13 @@ import (
 )
 
 type Heartbeater struct {
+	sync.Mutex
 	Filepath string
 	Webhook  string
 	interval time.Duration
-	mut      sync.Mutex
 }
 
 func (h *Heartbeater) output(str string) {
-	log.Println(str)
 	data, err := json.Marshal(struct {
 		Content string `json:"content"`
 	}{
@@ -40,7 +38,7 @@ func (h *Heartbeater) Init(hello *gateway.HelloEvent) {
 }
 
 func (h *Heartbeater) Heartbeat(*gateway.HeartbeatAckEvent) {
-	h.mut.Lock()
+	h.Lock()
 	timestamp := time.Now()
 	bytes, err := os.ReadFile(h.Filepath)
 	if err == nil {
@@ -54,5 +52,5 @@ func (h *Heartbeater) Heartbeat(*gateway.HeartbeatAckEvent) {
 	bytes = make([]byte, 8)
 	binary.LittleEndian.PutUint64(bytes, uint64(timestamp.UnixMilli()))
 	os.WriteFile(h.Filepath, bytes, 0777)
-	h.mut.Unlock()
+	h.Unlock()
 }

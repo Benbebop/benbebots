@@ -12,6 +12,7 @@ import (
 	"sync"
 	"syscall"
 
+	"benbebop.net/benbebots/internal/heartbeat"
 	"benbebop.net/benbebots/internal/logger"
 	"github.com/diamondburned/arikawa/v3/session"
 	netrc "github.com/fhs/go-netrc/netrc"
@@ -28,7 +29,7 @@ type Benbebots struct {
 	Config      *ini.File
 	Components  Components
 	LevelDB     *leveldb.DB
-	Heartbeater Heartbeater
+	Heartbeater heartbeat.Heartbeater
 	Tokens      map[string]netrc.Machine
 	Dirs        struct {
 		Data string
