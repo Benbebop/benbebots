@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io/fs"
+	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -39,7 +42,7 @@ var (
 	lvldb       *leveldb.DB
 	heartbeater heartbeat.Heartbeater
 	tokens      map[string]netrc.Machine
-	httpc       *http.Client
+	httpc       *http.ServeMux
 	dirs        struct {
 		data string
 		temp string
@@ -144,6 +147,20 @@ func main() {
 		}
 
 		defer lvldb.Close()
+	}
+
+	{ // http socket
+		client := &http.Server{
+			Handler:  httpc,
+			ErrorLog: log.New(log.Writer(), "[ERR] ", 0),
+		}
+		defer client.Shutdown(context.Background())
+
+		l, err := net.Listen("unix", filepath.Join(dirs.temp, "http.sock"))
+		if err != nil {
+			logs.Fatal("%s", err)
+		}
+		go client.Serve(l)
 	}
 
 	// read args
