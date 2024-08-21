@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"benbebop.net/benbebots/internal/stats"
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/gateway"
@@ -47,7 +48,7 @@ func (bbb *Benbebots) RunFnafBot() { // gnerb
 
 	client := api.NewClient("Bot " + bbb.Tokens["fnaf"].Password)
 
-	fnafStat := Stat{
+	fnafStat := stats.Stat{
 		Name:      "Gnerbs",
 		Value:     0,
 		Client:    client,
@@ -245,7 +246,7 @@ func (bbb *Benbebots) RunCannedFood() {
 		log.Printf("CannedFood reacted to a message after %dms\n", delay.Milliseconds())
 	})
 
-	reactionStat := Stat{
+	reactionStat := stats.Stat{
 		Name:      "Canned Foods",
 		Value:     0,
 		Client:    client.Client,

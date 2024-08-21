@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"benbebop.net/benbebots/internal/stats"
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/api/cmdroute"
 	"github.com/diamondburned/arikawa/v3/api/webhook"
@@ -729,7 +730,7 @@ func (bbb *Benbebots) RunBenbebot() {
 		cfgSec.MapTo(&opts)
 		opts.Channel = discord.ChannelID(discord.Snowflake(opts.ChannelId))
 
-		scStat := Stat{
+		scStat := stats.Stat{
 			Name:      "Soundclowns",
 			Value:     0,
 			Client:    client.Client,
@@ -1079,7 +1080,7 @@ func (bbb *Benbebots) RunBenbebot() {
 		}
 		iter.Release()
 
-		pgStat := Stat{
+		pgStat := stats.Stat{
 			Name:      "Pings",
 			Value:     0,
 			Client:    client.Client,
@@ -1379,7 +1380,7 @@ func (bbb *Benbebots) RunBenbebot() {
 		if err != nil {
 			log.Fatalln(err)
 		}
-		eStat := Stat{
+		eStat := stats.Stat{
 			Name:      "Everythings Pinged",
 			Value:     0,
 			Client:    client.Client,

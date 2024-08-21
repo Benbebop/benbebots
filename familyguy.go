@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"time"
 
+	"benbebop.net/benbebots/internal/stats"
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/gateway"
@@ -41,7 +42,7 @@ func (bbb *Benbebots) RunFamilyGuy() {
 	client.AddHandler(bbb.Heartbeater.Init)
 	client.AddHandler(bbb.Heartbeater.Heartbeat)
 
-	fgStat := Stat{
+	fgStat := stats.Stat{
 		Name:      "Family Guys",
 		Value:     0,
 		Client:    client.Client,

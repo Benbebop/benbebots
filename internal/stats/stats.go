@@ -1,4 +1,4 @@
-package main
+package stats
 
 import (
 	"encoding/binary"
@@ -23,12 +23,12 @@ type Stat struct {
 	mutex     sync.Mutex
 }
 
-func getKey(name string) []byte {
+func GetKey(name string) []byte {
 	return []byte("stat" + strings.ReplaceAll(name, " ", ""))
 }
 
 func (S *Stat) Initialise() error {
-	oldName, newName := []byte("STAT_"+S.Name), getKey(S.Name)
+	oldName, newName := []byte("STAT_"+S.Name), GetKey(S.Name)
 	hasOld, err := S.LevelDB.Has(oldName, nil)
 	if err != nil {
 		return err
@@ -62,7 +62,7 @@ func (S *Stat) Initialise() error {
 }
 
 func (S *Stat) sync(value int64) error {
-	err := S.LevelDB.Put([]byte(getKey(S.Name)), binary.AppendVarint(nil, value), nil)
+	err := S.LevelDB.Put([]byte(GetKey(S.Name)), binary.AppendVarint(nil, value), nil)
 	if err != nil {
 		return err
 	}

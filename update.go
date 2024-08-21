@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"benbebop.net/benbebots/internal/stats"
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
 )
@@ -164,7 +165,7 @@ func (b *Benbebots) ResetStats() error {
 		total += int64(current)
 	}
 
-	err = b.LevelDB.Put(getKey("Canned Foods"), binary.AppendVarint(nil, total), nil)
+	err = b.LevelDB.Put(stats.GetKey("Canned Foods"), binary.AppendVarint(nil, total), nil)
 	if err != nil {
 		log.Panicln(err)
 		return err
@@ -235,7 +236,7 @@ func (b *Benbebots) ResetStats() error {
 		}
 	}
 
-	err = b.LevelDB.Put(getKey("Family Guys"), binary.AppendVarint(nil, total), nil)
+	err = b.LevelDB.Put(stats.GetKey("Family Guys"), binary.AppendVarint(nil, total), nil)
 	if err != nil {
 		log.Panicln(err)
 		return err
