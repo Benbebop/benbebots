@@ -1440,6 +1440,140 @@ func (bbb *Benbebots) RunBenbebot() {
 		})
 	}
 
+	if bbb.Components.IsEnabled("extrawebhooks") {
+		wh, err := webhook.NewFromURL(bbb.Config.Section("webhooks").Key("extwh").String())
+		if err != nil {
+			log.Fatalln(err)
+		}
+		var category struct {
+			channel discord.ChannelID
+			guild   discord.GuildID
+		}
+		category.channel = discord.ChannelID(cfgSec.Key("extwhcategory").MustUint64(0))
+
+		var master discord.ChannelID
+		var proxies []discord.ChannelID
+
+		client.AddHandler(func(*gateway.ReadyEvent) {
+			channel, err := client.Channel(category.channel)
+			if err != nil {
+				bbb.Logger.ErrorQuick(err)
+				return
+			}
+			category.guild = channel.GuildID
+
+			m, err := bbb.LevelDB.Get([]byte("extwhMaster"), nil)
+			if errors.Is(err, leveldb.ErrNotFound) {
+				channel, err := client.CreateChannel(category.guild, api.CreateChannelData{
+					Name:       "extra-webhooks-master",
+					Type:       discord.GuildText,
+					CategoryID: category.channel,
+				})
+				if err != nil {
+					bbb.Logger.ErrorQuick(err)
+					return
+				}
+				master = channel.ID
+				proxies = []discord.ChannelID{master}
+				bbb.LevelDB.Put([]byte("extwhMaster"), binary.BigEndian.AppendUint64(nil, uint64(master)), nil)
+				bbb.LevelDB.Put([]byte("extwhProxies"), binary.BigEndian.AppendUint64(nil, uint64(master)), nil)
+				return
+			} else if err != nil {
+				bbb.Logger.ErrorQuick(err)
+				return
+			}
+			master = discord.ChannelID(binary.BigEndian.Uint64(m))
+
+			m, err = bbb.LevelDB.Get([]byte("extwhProxies"), nil)
+			if err != nil {
+				bbb.Logger.ErrorQuick(err)
+				return
+			}
+
+			for i := 0; i < len(m); i += 8 {
+				proxies = append(proxies, discord.ChannelID(binary.BigEndian.Uint64(m[i:i+8])))
+			}
+		})
+
+		client.AddHandler(func(message *gateway.MessageCreateEvent) {
+			if message.GuildID != category.guild {
+				return
+			}
+
+			if message.Type == discord.ChannelFollowAddMessage {
+				if message.ChannelID != master {
+					return
+				}
+
+				webhooks, err := client.ChannelWebhooks(message.ChannelID)
+				if err != nil {
+					bbb.Logger.ErrorQuick(err)
+					return
+				}
+
+				if len(webhooks) < 15 {
+					return
+				}
+
+				bbb.Logger.Assert(client.ModifyChannel(master, api.ModifyChannelData{
+					Name: fmt.Sprintf("extra-webhooks-%x", len(proxies)),
+				}))
+
+				channel, err := client.CreateChannel(category.guild, api.CreateChannelData{
+					Name:       "extra-webhooks-master",
+					Type:       discord.GuildText,
+					CategoryID: category.channel,
+				})
+				if err != nil {
+					bbb.Logger.ErrorQuick(err)
+					return
+				}
+
+				master = channel.ID
+				proxies = append(proxies, master)
+				var proxStr []byte
+				for _, proxy := range proxies {
+					proxStr = binary.BigEndian.AppendUint64(proxStr, uint64(proxy))
+				}
+				bbb.LevelDB.Put([]byte("extwhMaster"), binary.BigEndian.AppendUint64(nil, uint64(master)), nil)
+				bbb.LevelDB.Put([]byte("extwhProxies"), proxStr, nil)
+				return
+			}
+
+			var valid bool
+			for _, channel := range proxies {
+				if message.ChannelID == channel {
+					valid = true
+					break
+				}
+			}
+
+			if !valid {
+				return
+			}
+
+			files := "\n"
+			for _, file := range message.Attachments {
+				files += file.URL + "\n"
+			}
+
+			content := message.Content
+			if len(content)+len(files) <= 2000 {
+				content += files
+			}
+
+			wh.Execute(webhook.ExecuteData{
+				Content:         content,
+				Username:        message.Author.Username,
+				AvatarURL:       message.Author.AvatarURL(),
+				TTS:             message.TTS,
+				Embeds:          message.Embeds,
+				Components:      message.Components,
+				AllowedMentions: &api.AllowedMentions{},
+			})
+		})
+	}
+
 	client.AddInteractionHandler(router)
 	client.Open(client.Context())
 	bbb.AddClient(client)
