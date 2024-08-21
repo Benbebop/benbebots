@@ -1495,12 +1495,17 @@ func (bbb *Benbebots) RunBenbebot() {
 			}
 		})
 
+		var followLock sync.Mutex
+
 		client.AddHandler(func(message *gateway.MessageCreateEvent) {
 			if message.GuildID != category.guild {
 				return
 			}
 
 			if message.Type == discord.ChannelFollowAddMessage {
+				followLock.Lock()
+				defer followLock.Unlock()
+
 				if message.ChannelID != master {
 					return
 				}
