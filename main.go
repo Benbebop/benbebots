@@ -150,6 +150,8 @@ func main() {
 	}
 
 	{ // http socket
+		httpc = http.NewServeMux()
+
 		client := &http.Server{
 			Handler:  httpc,
 			ErrorLog: log.New(log.Writer(), "[ERR] ", 0),

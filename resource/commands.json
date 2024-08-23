@@ -74,6 +74,32 @@
 				"version": "1273036371266768898",
 				"dm_permission": false,
 				"default_permission": false
+			},
+			{
+				"id": "1276311735657042051",
+				"type": 1,
+				"application_id": "941372431082348544",
+				"guild_id": "1068640496139915345",
+				"name": "subscribe",
+				"description": "subscribe to a certain service and send notifs to stuff",
+				"options": [
+					{
+						"type": 3,
+						"name": "url",
+						"description": "url to subscribe to",
+						"required": true,
+						"autocomplete": false
+					},
+					{
+						"type": 5,
+						"name": "unsub",
+						"description": "whether to unsubscribe",
+						"required": false
+					}
+				],
+				"version": "1276311735657042052",
+				"dm_permission": false,
+				"default_permission": false
 			}
 		],
 		"822165179692220476": [
