@@ -96,11 +96,12 @@ func main() {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		logs, err = logger.NewDiscordLogger(1, filepath.Join(dirs.data, "logs"), k.String())
+		logs, err = logger.NewDiscordLogger(2, filepath.Join(dirs.data, "logs"), k.String())
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
+		logs.PrintLogLevel = 0
 	}
 
 	{ // components

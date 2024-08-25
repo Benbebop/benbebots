@@ -4,6 +4,7 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"net/url"
 	"os"
@@ -44,24 +45,27 @@ func NewDiscordLogger(loglevel int, dir string, wh string) (*DiscordLogger, erro
 	}
 
 	return &DiscordLogger{
-		WebhookLogLevel: loglevel,
-		OutLogLevel:     loglevel,
-		Directory:       dir,
-		Webhook:         cl,
+		FileLogLevel:  loglevel,
+		PrintLogLevel: loglevel,
+		WebLogLevel:   loglevel,
+		Directory:     dir,
+		Webhook:       cl,
 	}, nil
 }
 
 type DiscordLogger struct {
-	WebhookLogLevel int
-	OutLogLevel     int
-	Directory       string
-	Webhook         *webhook.Client
+	FileLogLevel  int
+	PrintLogLevel int
+	WebLogLevel   int
+	Directory     string
+	Webhook       *webhook.Client
 }
 
 var traceSterliser *regexp.Regexp = regexp.MustCompile("0[xX][0-9a-fA-F]+|goroutine [0-9]+")
 
 func (l *DiscordLogger) out(level int, msg string, args []any) uint32 {
-	out := fmt.Sprintf(msg, args...)
+	short := fmt.Sprintf(msg, args...)
+	long := short
 
 	// short outputs
 	var label string
@@ -77,36 +81,51 @@ func (l *DiscordLogger) out(level int, msg string, args []any) uint32 {
 	case -1:
 		label = "DBG"
 	}
-	fmt.Printf("[%s] %s\n", label, out)
-	if level >= l.WebhookLogLevel {
-		l.Webhook.Execute(webhook.ExecuteData{
-			Content: out,
-		})
-	}
-
-	if level >= l.OutLogLevel {
+	if level >= l.FileLogLevel {
 		// add traceback
 		trc := make([]byte, 2048)
 		n := runtime.Stack(trc, false)
-		out += "\n\n" + string(trc[:n])
+		long += "\n\n" + string(trc[:n])
 
 		// generate id
 		hasher := sha1.New()
-		hasher.Write(traceSterliser.ReplaceAll([]byte(out), []byte("")))
+		hasher.Write(traceSterliser.ReplaceAll([]byte(long), []byte("")))
 		id := binary.BigEndian.Uint32(hasher.Sum(nil))
 
+		idStr := hex.EncodeToString(binary.BigEndian.AppendUint32(nil, id))
+
+		if level >= l.PrintLogLevel {
+			fmt.Printf("[%s] (%s) %s\n", label, idStr, short)
+		}
+
+		if level >= l.WebLogLevel {
+			l.Webhook.Execute(webhook.ExecuteData{
+				Content: fmt.Sprintf("`%s` %s", idStr, short),
+			})
+		}
+
 		// create log file
-		file, err := os.OpenFile(filepath.Join(l.Directory, base64.URLEncoding.EncodeToString(binary.BigEndian.AppendUint32(nil, id))+".log"), os.O_CREATE|os.O_WRONLY, 0777)
+		file, err := os.OpenFile(filepath.Join(l.Directory, idStr+".log"), os.O_CREATE|os.O_WRONLY, 0777)
 		if err != nil {
 			return 0
 		}
-		_, err = file.Write([]byte(out))
+		defer file.Close()
+		_, err = file.Write([]byte(long))
 		if err != nil {
 			return 0
 		}
-		file.Close()
 
 		return id
+	}
+
+	if level >= l.PrintLogLevel {
+		fmt.Printf("[%s] %s\n", label, short)
+	}
+
+	if level >= l.WebLogLevel {
+		l.Webhook.Execute(webhook.ExecuteData{
+			Content: short,
+		})
 	}
 
 	return 0
@@ -115,7 +134,7 @@ func (l *DiscordLogger) out(level int, msg string, args []any) uint32 {
 func (l *DiscordLogger) Dump(data []byte, level int, msg string, args ...any) uint32 {
 	id := l.out(level, msg, args)
 
-	file, err := os.OpenFile(filepath.Join(l.Directory, base64.URLEncoding.EncodeToString(binary.BigEndian.AppendUint32(nil, id))+".dmp"), os.O_CREATE|os.O_WRONLY, 0777)
+	file, err := os.OpenFile(filepath.Join(l.Directory, hex.EncodeToString(binary.BigEndian.AppendUint32(nil, id))+".dmp"), os.O_CREATE|os.O_WRONLY, 0777)
 	if err != nil {
 		return 0
 	}
