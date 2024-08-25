@@ -4,7 +4,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"net/url"
 	"reflect"
 	"strconv"
 	"sync"
@@ -130,16 +129,7 @@ func (c *Client) Subscribe(data interface{}) SubscriptionError {
 func (c *Client) Handle(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		content, err := io.ReadAll(r.Body)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
-		}
-		vals, err := url.ParseQuery(string(content))
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(err.Error()))
-		}
+		vals := r.URL.Query()
 		var validate SubscriptionValidation
 		validate.Mode = vals.Get("hub.mode")
 		validate.Topic = vals.Get("hub.topic")
