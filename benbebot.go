@@ -118,7 +118,7 @@ func (mr *MRadio) GetTracks(endpoint string) error {
 		}
 		if resp.StatusCode != 200 {
 			resp.Body.Close()
-			log.Println(resp.StatusCode, resp.Status)
+			logs.Warn("%d: %s", resp.StatusCode, resp.Status)
 			return nil
 		}
 		data, err := io.ReadAll(resp.Body)
@@ -139,7 +139,7 @@ func (mr *MRadio) GetTracks(endpoint string) error {
 			mr.tracks = append(mr.tracks, v.Track.Id)
 		}
 	}
-	log.Println("got soundcloud radio tracks")
+	logs.Info("got soundcloud radio tracks")
 	return nil
 }
 
@@ -861,8 +861,8 @@ func (Benbebots) BENBEBOT() *session.Session {
 			lvldb.Put([]byte("recentSoundclowns"), str, nil)
 
 			// send
-			log.Println("sending soundclown")
 			logs.Assert(client.SendMessage(opts.Channel, toSend.Permalink))
+			logs.Info("submitted new mashup: %s", toSend.Title)
 		}
 
 		client.AddHandler(func(*gateway.ReadyEvent) {
@@ -1346,7 +1346,7 @@ func (Benbebots) BENBEBOT() *session.Session {
 
 		bb, err := config.Section("servers").Key("breadbag").Uint64()
 		if err != nil {
-			log.Fatalln(err)
+			logs.Fatal("%s", err)
 		}
 		breadbag := discord.GuildID(bb)
 
@@ -1372,7 +1372,7 @@ func (Benbebots) BENBEBOT() *session.Session {
 	if component.IsEnabled("pingeverything") {
 		bb, err := config.Section("servers").Key("breadbag").Uint64()
 		if err != nil {
-			log.Fatalln(err)
+			logs.Fatal("%s", err)
 		}
 		breadbag := discord.GuildID(bb)
 
@@ -1380,7 +1380,7 @@ func (Benbebots) BENBEBOT() *session.Session {
 
 		sc, err := cfgSec.Key("everythingstatchannel").Uint64()
 		if err != nil {
-			log.Fatalln(err)
+			logs.Fatal("%s", err)
 		}
 		eStat := stats.Stat{
 			Name:      "Everythings Pinged",
@@ -1446,7 +1446,7 @@ func (Benbebots) BENBEBOT() *session.Session {
 	if component.IsEnabled("extrawebhooks") {
 		wh, err := webhook.NewFromURL(config.Section("webhooks").Key("extwh").String())
 		if err != nil {
-			log.Fatalln(err)
+			logs.Fatal("%s", err)
 		}
 		var category struct {
 			channel discord.ChannelID

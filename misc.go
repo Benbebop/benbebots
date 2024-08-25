@@ -5,7 +5,6 @@ import (
 	"embed"
 	"errors"
 	"io"
-	"log"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -71,7 +70,7 @@ func (Benbebots) FNAF() *session.Session { // gnerb
 				var err error
 				gnerbReader, err = gnerbFS.Open("resource/pou.png")
 				if err != nil {
-					log.Fatalln(err)
+					logs.Fatal("%s", err)
 				}
 				_, err = client.SendMessageComplex(channel, api.SendMessageData{
 					Files: []sendpart.File{{
@@ -80,7 +79,7 @@ func (Benbebots) FNAF() *session.Session { // gnerb
 					}},
 				})
 				if err != nil {
-					log.Println(err)
+					logs.ErrorQuick(err)
 					continue
 				}
 
