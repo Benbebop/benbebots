@@ -160,7 +160,7 @@ func main() {
 		}
 		defer client.Shutdown(context.Background())
 
-		l, err := net.Listen("unix", filepath.Join(dirs.temp, "http.sock"))
+		l, err := net.Listen("unix", filepath.Join(dirs.run, "http.sock"))
 		if err != nil {
 			logs.Fatal("%s", err)
 		}
