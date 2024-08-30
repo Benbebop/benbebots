@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io/fs"
 	"log"
@@ -20,6 +19,7 @@ import (
 	"benbebop.net/benbebots/internal/components"
 	"benbebop.net/benbebots/internal/heartbeat"
 	"benbebop.net/benbebots/internal/logger"
+	"benbebop.net/benbebots/internal/platform"
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/session"
 	netrc "github.com/fhs/go-netrc/netrc"
@@ -46,6 +46,7 @@ var (
 	dirs        struct {
 		data string
 		temp string
+		run  string
 	}
 )
 
@@ -68,26 +69,26 @@ func main() {
 	{ // directories
 		sec := config.Section("directories")
 
-		dir, err := os.UserCacheDir()
+		dir, err := platform.GetDataDir(fs.FileMode(0777))
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 		dirs.data = sec.Key("cache").MustString(filepath.Join(dir, "benbebots"))
-		if _, err := os.Stat(dirs.data); errors.Is(err, os.ErrNotExist) {
-			os.Mkdir(dirs.data, fs.FileMode(0777))
-		} else if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
 
-		dirs.temp = sec.Key("temp").MustString(os.TempDir() + "/benbebots/")
-		if _, err := os.Stat(dirs.temp); errors.Is(err, os.ErrNotExist) {
-			os.MkdirAll(dirs.temp, 0777)
-		} else if err != nil {
+		dir, err = platform.GetTempDir(fs.FileMode(0777))
+		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
+		dirs.temp = sec.Key("temp").MustString(dir)
+
+		dir, err = platform.GetRuntimeDir(fs.FileMode(0777))
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		dirs.run = sec.Key("run").MustString(dir)
 	}
 
 	{ // logger
