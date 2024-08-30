@@ -1496,6 +1496,52 @@ func (Benbebots) BENBEBOT() *session.Session {
 			for i := 0; i < len(m); i += 8 {
 				proxies = append(proxies, discord.ChannelID(binary.BigEndian.Uint64(m[i:i+8])))
 			}
+
+			m, err = lvldb.Get([]byte("extwhLastRecieved"), nil)
+			if !errors.Is(err, leveldb.ErrNotFound) {
+				if err != nil {
+					logs.ErrorQuick(err)
+					return
+				}
+				lastRecieved := discord.MessageID(binary.BigEndian.Uint64(m[:8]))
+
+				var nLR discord.MessageID
+				for _, channel := range proxies {
+					msgs, err := client.MessagesAfter(channel, lastRecieved, 0)
+					if err != nil {
+						logs.ErrorQuick(err)
+						continue
+					}
+					for _, message := range msgs {
+						files := "\n"
+						for _, file := range message.Attachments {
+							files += file.URL + "\n"
+						}
+
+						content := message.Content
+						if len(content)+len(files) <= 2000 {
+							content += files
+						}
+
+						wh.Execute(webhook.ExecuteData{
+							Content:         content,
+							Username:        message.Author.Username,
+							AvatarURL:       message.Author.AvatarURL(),
+							TTS:             message.TTS,
+							Embeds:          message.Embeds,
+							Components:      message.Components,
+							AllowedMentions: &api.AllowedMentions{},
+						})
+
+						nLR = message.ID
+					}
+				}
+				err = lvldb.Put([]byte("extwhLastRecieved"), binary.BigEndian.AppendUint64(nil, uint64(nLR)), nil)
+				if err != nil {
+					logs.ErrorQuick(err)
+					return
+				}
+			}
 		})
 
 		var followLock sync.Mutex
@@ -1579,6 +1625,11 @@ func (Benbebots) BENBEBOT() *session.Session {
 				Components:      message.Components,
 				AllowedMentions: &api.AllowedMentions{},
 			})
+			err = lvldb.Put([]byte("extwhLastRecieved"), binary.BigEndian.AppendUint64(nil, uint64(message.ID)), nil)
+			if err != nil {
+				logs.ErrorQuick(err)
+				return
+			}
 		})
 	}
 
