@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"net"
@@ -74,7 +75,7 @@ func main() {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		dirs.data = sec.Key("cache").MustString(filepath.Join(dir, "benbebots"))
+		dirs.data = sec.Key("cache").MustString(dir)
 
 		dir, err = platform.GetTempDir(fs.FileMode(0777))
 		if err != nil {
@@ -153,6 +154,11 @@ func main() {
 
 	{ // http socket
 		httpc = http.NewServeMux()
+
+		httpc.HandleFunc("/discord/test/echo", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			io.Copy(w, r.Body)
+		})
 
 		client := &http.Server{
 			Handler:  httpc,
