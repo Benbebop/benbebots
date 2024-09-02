@@ -1506,6 +1506,7 @@ func (Benbebots) BENBEBOT() *session.Session {
 				lastRecieved := discord.MessageID(binary.BigEndian.Uint64(m[:8]))
 
 				var nLR discord.MessageID
+				var nLRT time.Time
 				for _, channel := range proxies {
 					msgs, err := client.MessagesAfter(channel, lastRecieved, 0)
 					if err != nil {
@@ -1537,7 +1538,10 @@ func (Benbebots) BENBEBOT() *session.Session {
 							AllowedMentions: &api.AllowedMentions{},
 						})
 
-						nLR = message.ID
+						if message.ID.Time().After(nLRT) {
+							nLR = message.ID
+							nLRT = message.ID.Time()
+						}
 					}
 				}
 				err = lvldb.Put([]byte("extwhLastRecieved"), binary.BigEndian.AppendUint64(nil, uint64(nLR)), nil)
