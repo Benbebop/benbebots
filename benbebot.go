@@ -1513,6 +1513,10 @@ func (Benbebots) BENBEBOT() *session.Session {
 						continue
 					}
 					for _, message := range msgs {
+						if message.Type == discord.ChannelFollowAddMessage {
+							continue
+						}
+
 						files := "\n"
 						for _, file := range message.Attachments {
 							files += file.URL + "\n"
