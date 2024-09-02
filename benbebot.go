@@ -1503,12 +1503,11 @@ func (Benbebots) BENBEBOT() *session.Session {
 					logs.ErrorQuick(err)
 					return
 				}
-				lastRecieved := discord.MessageID(binary.BigEndian.Uint64(m[:8]))
+				nLR := discord.MessageID(binary.BigEndian.Uint64(m[:8]))
+				nLRT := nLR.Time()
 
-				var nLR discord.MessageID
-				var nLRT time.Time
 				for _, channel := range proxies {
-					msgs, err := client.MessagesAfter(channel, lastRecieved, 0)
+					msgs, err := client.MessagesAfter(channel, nLR, 0)
 					if err != nil {
 						logs.ErrorQuick(err)
 						continue
