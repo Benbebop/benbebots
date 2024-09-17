@@ -1498,7 +1498,7 @@ func (Benbebots) BENBEBOT() *session.Session {
 			}
 
 			m, err = lvldb.Get([]byte("extwhLastRecieved"), nil)
-			if !errors.Is(err, leveldb.ErrNotFound) {
+			if false && !errors.Is(err, leveldb.ErrNotFound) { // disable this cause it doesnt seem to work
 				if err != nil {
 					logs.ErrorQuick(err)
 					return
