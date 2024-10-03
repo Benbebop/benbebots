@@ -38,6 +38,7 @@ import (
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/session"
+	"github.com/diamondburned/arikawa/v3/state"
 	"github.com/diamondburned/arikawa/v3/utils/json/option"
 	"github.com/diamondburned/arikawa/v3/voice"
 	"github.com/diamondburned/arikawa/v3/voice/udp"
@@ -707,7 +708,7 @@ func (p *Permaroles) Get(user discord.UserID) ([]discord.RoleID, error) {
 func (Benbebots) BENBEBOT() *session.Session {
 	cfgSec := config.Section("bot.benbebot")
 
-	client := session.New("Bot " + tokens["benbebot"].Password)
+	client := state.New("Bot " + tokens["benbebot"].Password)
 	client.AddIntents(gateway.IntentGuildPresences | gateway.IntentGuildMembers | gateway.IntentMessageContent) // privileged
 	client.AddIntents(gateway.IntentGuildMessages | gateway.IntentDirectMessages)
 	client.AddIntents(gateway.IntentGuilds)
@@ -914,7 +915,7 @@ func (Benbebots) BENBEBOT() *session.Session {
 		client.AddIntents(gateway.IntentGuildVoiceStates)
 		var radio MRadio
 		config.Section("programs").MapTo(&radio)
-		radio.Init(client, &scClient, 60*time.Millisecond, 2880)
+		radio.Init(client.Session, &scClient, 60*time.Millisecond, 2880)
 
 		opts := struct {
 			ChannelId uint64 `ini:"mrchannel"`
@@ -1392,6 +1393,11 @@ func (Benbebots) BENBEBOT() *session.Session {
 		}
 		eStat.Initialise()
 
+		mentionCache := struct {
+			mentions []string
+			gentime  time.Time
+		}{}
+
 		var lock sync.Mutex
 		client.AddHandler(func(message *gateway.MessageCreateEvent) {
 			if message.GuildID != breadbag {
@@ -1408,16 +1414,44 @@ func (Benbebots) BENBEBOT() *session.Session {
 
 			lock.Lock()
 			defer lock.Unlock()
-			guild, err := client.Guild(breadbag)
-			if err != nil {
-				logs.ErrorQuick(err)
-				return
+
+			if time.Since(mentionCache.gentime) > 5*time.Minute {
+				roles, err := client.Roles(breadbag)
+				if err != nil {
+					logs.ErrorQuick(err)
+					return
+				}
+				members, err := client.Members(breadbag)
+				if err != nil {
+					logs.ErrorQuick(err)
+					return
+				}
+				channels, err := client.Channels(breadbag)
+				if err != nil {
+					logs.ErrorQuick(err)
+					return
+				}
+
+				mentionCache.mentions = make([]string, 0, len(roles)+len(members)+len(channels))
+
+				for _, role := range roles {
+					mentionCache.mentions = append(mentionCache.mentions, role.Mention())
+				}
+
+				for _, member := range members {
+					mentionCache.mentions = append(mentionCache.mentions, member.Mention())
+				}
+
+				for _, channel := range channels {
+					mentionCache.mentions = append(mentionCache.mentions, channel.Mention())
+				}
 			}
 
-			mentions := make([]string, 0, len(guild.Roles))
+			mentions := mentionCache.mentions
 
-			for _, role := range guild.Roles {
-				mentions = append(mentions, role.Mention())
+			for i := range mentions {
+				j := rand.Intn(i + 1)
+				mentions[i], mentions[j] = mentions[j], mentions[i]
 			}
 
 			var str string
@@ -1777,5 +1811,5 @@ func (Benbebots) BENBEBOT() *session.Session {
 
 	client.AddInteractionHandler(router)
 	client.Open(client.Context())
-	return client
+	return client.Session
 }
