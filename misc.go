@@ -34,17 +34,17 @@ var gnerbFS embed.FS
 var gnerbReader io.Reader
 var gnerbTimer *time.Timer
 
+type FnafConfig struct {
+	Time        time.Duration     `toml:"pou_time"`
+	Destination discord.ChannelID `toml:"destination"`
+	StatChannel discord.ChannelID `toml:"stat_channel"`
+}
+
 func (Benbebots) FNAF() *session.Session { // gnerb
-	if !component.IsEnabled("gnerb") {
+	if !config.Components.IsEnabled("gnerb") {
 		logs.Info("gnerb component has been disabled")
 		return nil
 	}
-	opts := struct {
-		Time        time.Duration `ini:"poutime"`
-		Destination uint64        `ini:"destination"`
-		StatChannel uint64        `ini:"statchannel"`
-	}{}
-	config.Section("bot.fnaf").MapTo(&opts)
 
 	client := api.NewClient("Bot " + tokens["fnaf"].Password)
 
@@ -52,7 +52,7 @@ func (Benbebots) FNAF() *session.Session { // gnerb
 		Name:      "Gnerbs",
 		Value:     0,
 		Client:    client,
-		ChannelID: discord.ChannelID(opts.StatChannel),
+		ChannelID: config.Bot.Fnaf.StatChannel,
 		LevelDB:   lvldb,
 		Delay:     time.Second * 5,
 	}
@@ -60,8 +60,7 @@ func (Benbebots) FNAF() *session.Session { // gnerb
 
 	defer func() {
 		go func() {
-			channel := discord.ChannelID(opts.Destination)
-			sleep, _ := getWaitTime(time.Now().UTC(), opts.Time, 0)
+			sleep, _ := getWaitTime(time.Now().UTC(), config.Bot.Fnaf.Time, 0)
 			logs.Info("sending next pou in %dm.", sleep/time.Minute)
 			for {
 				gnerbTimer = time.NewTimer(sleep)
@@ -72,7 +71,7 @@ func (Benbebots) FNAF() *session.Session { // gnerb
 				if err != nil {
 					logs.Fatal("%s", err)
 				}
-				_, err = client.SendMessageComplex(channel, api.SendMessageData{
+				_, err = client.SendMessageComplex(config.Bot.Fnaf.Destination, api.SendMessageData{
 					Files: []sendpart.File{{
 						Name:   "pou.png",
 						Reader: gnerbReader,
@@ -112,22 +111,18 @@ func LoginCannedFood() (*session.Session, error) {
 
 var cannedFoodEmoji = discord.NewAPIEmoji(discord.NullEmojiID, `🥫`)
 
+type CannedFoodConfig struct {
+	CommandRole discord.RoleID    `toml:"command_role"`
+	StatChannel discord.ChannelID `toml:"stat_channel"`
+	PingChannel discord.ChannelID `toml:"ping_channel"`
+	Delay       []int64
+}
+
 func (Benbebots) CANNEDFOOD() *session.Session {
-	if !component.IsEnabled("cannedfood") {
+	if !config.Components.IsEnabled("cannedfood") {
 		logs.Info("canned food component has been disabled")
 		return nil
 	}
-	opts := struct {
-		Delay         []int64 `ini:"delay"`
-		CommandRole   uint64  `ini:"commandrole"`
-		BotServer     uint64  `ini:"benbebots"`
-		StatChannel   uint64  `ini:"statchannel"`
-		PingChannelId uint64  `ini:"pingchannel"`
-		PingChannel   discord.ChannelID
-	}{}
-	config.Section("bot.cannedfood").MapTo(&opts)
-	config.Section("servers").MapTo(&opts)
-	opts.PingChannel = discord.ChannelID(opts.PingChannelId)
 
 	var client *session.Session
 	if t, err := lvldb.Get([]byte("cannedFoodToken"), nil); err == nil {
@@ -229,10 +224,10 @@ func (Benbebots) CANNEDFOOD() *session.Session {
 				}
 			}
 		} else {
-			logs.Assert(client.SendMessage(opts.PingChannel, message.URL()))
+			logs.Assert(client.SendMessage(config.Bot.CannedFood.PingChannel, message.URL()))
 		}
 
-		delay := time.Duration(opts.Delay[0]+rand.Int63n(opts.Delay[1]-opts.Delay[0])) * time.Millisecond
+		delay := time.Duration(config.Bot.CannedFood.Delay[0]+rand.Int63n(config.Bot.CannedFood.Delay[1]-config.Bot.CannedFood.Delay[0])) * time.Millisecond
 		time.Sleep(delay)
 
 		logs.Assert(client.React(message.ChannelID, message.ID, cannedFoodEmoji))
@@ -244,7 +239,7 @@ func (Benbebots) CANNEDFOOD() *session.Session {
 		Name:      "Canned Foods",
 		Value:     0,
 		Client:    client.Client,
-		ChannelID: discord.ChannelID(opts.StatChannel),
+		ChannelID: config.Bot.CannedFood.StatChannel,
 		LevelDB:   lvldb,
 		Delay:     time.Second * 5,
 	}
@@ -302,14 +297,14 @@ func (Benbebots) CANNEDFOOD() *session.Session {
 		}
 
 		// check
-		member, err := client.Member(discord.GuildID(opts.BotServer), message.Author.ID)
+		member, err := client.Member(config.Servers.Benbebots, message.Author.ID)
 		if err != nil {
 			return
 		}
 
 		allowed := false
 		for _, v := range member.RoleIDs {
-			if opts.CommandRole == uint64(v) {
+			if config.Bot.CannedFood.CommandRole == v {
 				allowed = true
 				break
 			}

@@ -13,21 +13,25 @@ import (
 const DON_CHEADLE_MIN_TIME = time.Minute * 5
 const RANDOM_WORD_URL = "https://random-word-api.herokuapp.com/word"
 
+type DonCheadleConfig struct {
+	SendTime time.Duration `toml:"send_time"`
+	Webhook  string        `toml:"webhook"`
+}
+
 func (Benbebots) DONCHEADLE() *session.Session {
-	if !component.IsEnabled("doncheatle") {
+	if !config.Components.IsEnabled("doncheatle") {
 		logs.Info("don cheadle component has been disabled")
 		return nil
 	}
-	client, err := webhook.NewFromURL(config.Section("webhooks").Key("doncheadle").MustString(""))
+	fmt.Println(config.Bot.DonCheadle.Webhook)
+	client, err := webhook.NewFromURL(config.Bot.DonCheadle.Webhook)
 	if err != nil {
 		logs.Fatal("%s", err)
 	}
 
-	sendTime := config.Section("bot.doncheadle").Key("timeofday").MustDuration(0)
-
 	go func() {
 		for {
-			wait := time.Until(time.Now().Add(-sendTime).Round(time.Hour * 24).Add(sendTime))
+			wait := time.Until(time.Now().Add(-config.Bot.DonCheadle.SendTime).Round(time.Hour * 24).Add(config.Bot.DonCheadle.SendTime))
 			if wait <= DON_CHEADLE_MIN_TIME {
 				time.Sleep(DON_CHEADLE_MIN_TIME)
 				continue

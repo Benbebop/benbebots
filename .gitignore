@@ -15,4 +15,4 @@
 resource/commands_old.json
 resource/outlast-trials.bms
 
-!config-template.ini
+!config-template.toml

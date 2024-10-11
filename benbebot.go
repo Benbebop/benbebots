@@ -9,12 +9,9 @@ import (
 	"crypto/sha1"
 	"encoding/binary"
 	"encoding/json"
-	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
-	"log"
 	"math"
 	"math/rand"
 	"net/http"
@@ -22,7 +19,6 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -176,13 +172,13 @@ func (mr *MRadio) Start() error {
 		mr.ytdlp = exec.Command(mr.YtdlpPath,
 			"--ignore-config",
 			"--write-info-json", "--write-thumbnail",
-			"--cache-dir", dirs.data+"yt-dlp/", "--cookies", dirs.data+"yt-dlp/cookies.netscape",
+			"--cache-dir", config.Dirs.Cache+"yt-dlp/", "--cookies", config.Dirs.Cache+"yt-dlp/cookies.netscape",
 			"--use-extractors", "soundcloud",
 			"--output", "-",
 			"https://api.soundcloud.com/tracks/"+strconv.FormatUint(id, 10),
 		)
 
-		mr.ffmpeg.Dir, mr.ytdlp.Dir = dirs.temp, dirs.temp
+		mr.ffmpeg.Dir, mr.ytdlp.Dir = config.Dirs.Temp, config.Dirs.Temp
 		mr.ffmpeg.Stderr, mr.ytdlp.Stderr = os.Stderr, os.Stderr
 
 		// link yt-dlp and ffmpeg
@@ -236,412 +232,467 @@ func (mr *MRadio) Stop() {
 	mr.Unlock()
 }
 
-type BankSoundFile struct {
-	Id        string `xml:"Id,attr"`
-	ShortName string
-	Path      string
+type motdConfig struct {
+	Cron        string            `toml:"cron"`
+	Channel     discord.ChannelID `toml:"channel"`
+	Endpoint    string            `toml:"endpoint"`
+	StatChannel discord.ChannelID `toml:"stat_channel"`
 }
 
-func (sound BankSoundFile) PutInto(fileMap map[uint64]string) error {
-	id, err := strconv.ParseUint(sound.Id, 10, 64)
-	if err != nil {
-		return err
+func motd(client *state.State) {
+	scClient := soundcloud.Client{
+		MaxRetries: 1,
+		LevelDB:    lvldb,
 	}
-	fileMap[id] = filepath.Join(filepath.Dir(sound.Path), sound.ShortName)
-	return nil
-}
-
-type OutlastTrialsDiff struct {
-	SteamCMD  string        `ini:"steamcmd"`
-	QuickBMS  string        `ini:"quickbms"`
-	Interval  time.Duration `ini:"outlasttrialscheckinterval"`
-	Username  string
-	Password  string
-	OutputDir string
-}
-
-var ErrUpToDate = errors.New("already up to date")
-var ErrUnidentified = errors.New("could not parse error")
-var ErrAlreadyExists = errors.New("this build has already been decompiled")
-
-// var matchUpdateStatus, _ = regexp.Compile(`AppID\s*(\d+)\s*\((.*)\):`)
-var matchSuccess, _ = regexp.Compile(`(:?Success|ERROR)!\s*([^\r\n]*)`)
-var matchInstallDir, _ = regexp.Compile(`-\s*install\s*dir:\s*"([^"\n\r]+)`)
-var matchBuildID, _ = regexp.Compile(`-\s*size\s*on\s*disk:\s*(\d+)\s*bytes,\s*BuildID\s*(\d+)`)
-
-func limitBytes(b []byte, l int) []byte {
-	if len(b) <= l {
-		return b
+	scClient.GetClientId()
+	scStat := stats.Stat{
+		Name:      "Soundclowns",
+		Value:     0,
+		Client:    client.Client,
+		LevelDB:   lvldb,
+		ChannelID: config.Bot.Benbebots.MOTD.StatChannel,
+		Delay:     time.Second * 5,
 	}
-	return b[len(b)-l:]
-}
+	scStat.Initialise()
 
-func (o OutlastTrialsDiff) Execute() error {
-	var errorList []string
-
-	// update game to most recent
-	var steamcmd *exec.Cmd
-	if filepath.Ext(o.SteamCMD) == "sh" {
-		steamcmd = exec.Command("bash", o.SteamCMD, "+login", o.Username, o.Password, "+app_update", "1304930", "+app_status", "1304930", "+quit")
-	} else {
-		steamcmd = exec.Command(o.SteamCMD, "+login", o.Username, o.Password, "+app_update", "1304930", "+app_status", "1304930", "+quit")
-	}
-
-	out, err := steamcmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-
-	steamcmd.Start()
-
-	data, err := io.ReadAll(out)
-	if err != nil {
-		return err
-	}
-
-	steamcmd.Wait()
-
-	data = limitBytes(data, 2048)
-
-	stuff := matchSuccess.FindSubmatch(data)
-	if len(stuff) != 3 {
-		return ErrUnidentified
-	}
-
-	if !bytes.Equal(stuff[1], []byte("Success")) {
-		log.Println(string(stuff[2]))
-		return ErrUnidentified
-	} else if bytes.Contains(stuff[2], []byte("already up to date")) {
-		return ErrUpToDate
-	} else if !bytes.Contains(stuff[2], []byte("fully installed")) {
-		return ErrUnidentified
-	}
-
-	stuff = matchInstallDir.FindSubmatch(data)
-	if len(stuff) != 2 {
-		return ErrUnidentified
-	}
-	installationDir := string(stuff[1])
-
-	stuff = matchBuildID.FindSubmatch(data)
-	if len(stuff) != 3 {
-		return ErrUnidentified
-	}
-	buildID := string(stuff[2])
-
-	// decompile with bms
-	currentDir := filepath.Join(o.OutputDir, buildID)
-	os.MkdirAll(currentDir, 0777)
-
-	bmsScript, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	bmsScript = filepath.Join(bmsScript, "resource/outlast-trials.bms")
-
-	err = filepath.WalkDir(installationDir, func(pth string, entry fs.DirEntry, err error) error {
+	var recents [30]uint
+	var recentsIndex uint64
+	client.AddHandler(func(*gateway.ReadyEvent) {
+		validChannelsStr, err := lvldb.Get([]byte("recentSoundclowns"), nil)
 		if err != nil {
-			return err
+			logs.ErrorQuick(err)
+			return
 		}
 
-		if entry.IsDir() {
-			return nil
+		strs := strings.Fields(string(validChannelsStr))
+		recentsIndex, err = strconv.ParseUint(strs[0], 10, 64)
+		if err != nil {
+			logs.ErrorQuick(err)
+			return
 		}
-
-		ext := filepath.Ext(pth)
-		switch ext {
-		case ".pak":
-			quickbms := exec.Command(o.QuickBMS+"_4gb_files", "-K", bmsScript, pth, currentDir)
-
-			quickbms.Stdout = os.Stdout
-			out, err = quickbms.StderrPipe()
+		strs = strs[1:]
+		for i, v := range strs {
+			id, err := strconv.ParseUint(v, 10, 64)
 			if err != nil {
-				return err
+				logs.ErrorQuick(err)
+				return
 			}
-
-			quickbms.Start()
-
-			data, err = io.ReadAll(out)
-			if err != nil {
-				return err
-			}
-
-			quickbms.Wait()
-
-			data = limitBytes(data, 2048)
-		default:
-			source, err := os.Open(pth)
-			if err != nil {
-				return err
-			}
-			defer source.Close()
-
-			rel, err := filepath.Rel(installationDir, pth)
-			if err != nil {
-				return err
-			}
-			output := filepath.Join(currentDir, rel)
-
-			err = os.MkdirAll(filepath.Dir(output), 0777)
-			if err != nil {
-				return err
-			}
-			destination, err := os.Create(output)
-			if err != nil {
-				return err
-			}
-			defer destination.Close()
-
-			_, err = io.Copy(destination, source)
-			if err != nil {
-				return err
-			}
-			log.Println(rel)
+			recents[i] = uint(id)
 		}
-		return nil
 	})
 
-	if err != nil {
-		return err
-	}
-
-	// diff
-	decomps, err := os.ReadDir(o.OutputDir)
-	if err != nil {
-		return err
-	}
-
-	var compareDir string
-	{
-		currentBID, err := strconv.ParseUint(buildID, 10, 64)
+	sendNewSoundclown := func() {
+		// request soundcloud
+		vals, _ := query.Values(struct {
+			Limit      int    `url:"limit"`
+			Offset     int    `url:"offset"`
+			LinkedPart int    `url:"linked_partitioning"`
+			Version    uint64 `url:"app_version"`
+			Locale     string `url:"app_locale"`
+		}{
+			Limit:      20,
+			LinkedPart: 1,
+			Version:    1715268073,
+			Locale:     "en",
+		})
+		resp, err := scClient.Request("GET", "/recent-tracks/soundclown", vals, "")
 		if err != nil {
-			return err
+			logs.ErrorQuick(err)
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != 200 {
+			logs.Error("couldnt get soundclouds: %s", resp.Status)
+			return
 		}
 
-		var compareBID uint64
-		for _, d := range decomps {
-			if !d.IsDir() {
-				continue
-			}
+		// get recent tracks
+		data, err := io.ReadAll(resp.Body)
+		if err != nil {
+			logs.ErrorQuick(err)
+			return
+		}
+		tracks := struct {
+			Collection []struct {
+				Artwork      string    `json:"artwork_url"`
+				Title        string    `json:"title"`
+				Description  string    `json:"description"`
+				Comments     int       `json:"comment_count"`
+				Likes        int       `json:"likes_count"`
+				Plays        int       `json:"playback_count"`
+				Reposts      int       `json:"reposts_count"`
+				CreatedAt    time.Time `json:"created_at"`
+				Duration     uint      `json:"duration"`
+				EmbeddableBy string    `json:"embeddable_by"`
+				Id           uint      `json:"id"`
+				Kind         string    `json:"kind"`
+				Permalink    string    `json:"permalink_url"`
+				Public       bool      `json:"public"`
+				Sharing      string    `json:"sharing"`
+			} `json:"collection"`
+			Next string `json:"next_href"`
+		}{}
+		err = json.Unmarshal(data, &tracks)
+		if err != nil {
+			logs.ErrorQuick(err)
+			return
+		}
 
-			compareBIDNew, err := strconv.ParseUint(d.Name(), 10, 64)
+		// filter sent already
+		toSend, found := tracks.Collection[0], false
+		for _, track := range tracks.Collection {
+			sentAlready := false
+			for _, rec := range recents {
+				if track.Id == rec {
+					sentAlready = true
+					break
+				}
+			}
+			if !sentAlready {
+				toSend = track
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			logs.Error("could not find a soundcloud within 20 tracks")
+			return
+		}
+
+		// add to recents
+		recents[recentsIndex] = toSend.Id
+		recentsIndex += 1
+		if recentsIndex >= 30 {
+			recentsIndex = 0
+		}
+		var str []byte
+		str = append(strconv.AppendUint(str, recentsIndex, 10), ' ')
+		for i := 0; i < 30; i++ {
+			str = append(strconv.AppendUint(str, uint64(recents[i]), 10), ' ')
+		}
+		lvldb.Put([]byte("recentSoundclowns"), str, nil)
+
+		// send
+		logs.Assert(client.SendMessage(config.Bot.Benbebots.MOTD.Channel, toSend.Permalink))
+		logs.Info("submitted new mashup: %s", toSend.Title)
+	}
+
+	client.AddHandler(func(*gateway.ReadyEvent) {
+		// get soundcloud token
+		cltId, err := lvldb.Get([]byte("soundcloudClientId"), nil)
+		if err != nil {
+			logs.ErrorQuick(err)
+			err = scClient.GetClientId()
 			if err != nil {
-				errorList = append(errorList, filepath.Join(o.OutputDir, d.Name())+"\n\t"+err.Error())
-				continue
+				logs.ErrorQuick(err)
+			}
+		} else {
+			scClient.ClientId = string(cltId)
+		}
+
+		url := "https://soundcloud.com/"
+		urlLen := len(url)
+		var mut sync.Mutex
+		logs.Assert(cron.NewJob(gocron.CronJob(config.Bot.Benbebots.MOTD.Cron, true), gocron.NewTask(func() {
+			mut.Lock()
+			defer mut.Unlock()
+			messages, err := client.Messages(config.Bot.Benbebots.MOTD.Channel, 1)
+			if err != nil {
+				logs.ErrorQuick(err)
+				return
+			}
+			message := messages[0]
+			if len(message.Content) >= urlLen && message.Content[:urlLen] == url {
+				fail, _ := logs.Assert(client.CrosspostMessage(config.Bot.Benbebots.MOTD.Channel, messages[0].ID))
+				if !fail {
+					scStat.Increment(1)
+				}
 			}
 
-			if compareBIDNew > compareBID && compareBIDNew < currentBID {
-				compareBID = compareBIDNew
-				compareDir = filepath.Join(o.OutputDir, d.Name())
-			}
-		}
-	}
-
-	changelog, err := os.Create(filepath.Join(o.OutputDir, "changelog_"+buildID+".txt"))
-	if err != nil {
-		return err
-	}
-	defer changelog.Close()
-
-	var addedFiles uint
-
-	err = filepath.WalkDir(currentDir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if d.IsDir() {
-			if d.Name() == "WwiseAudio" {
-				mount, err := filepath.Rel(currentDir, path)
-				if err != nil {
-					return err
-				}
-
-				systems, err := os.ReadDir(path)
-				if err != nil {
-					return err
-				}
-				for _, system := range systems {
-					if !system.IsDir() {
-						continue
-					}
-
-					systemPath := filepath.Join(path, system.Name())
-
-					// read all indexing files
-					wwiseFileMap := map[uint64]string{}
-
-					err := filepath.WalkDir(systemPath, func(path string, d fs.DirEntry, err error) error {
-						if err != nil {
-							return err
-						}
-
-						if d.IsDir() {
-							return nil
-						}
-
-						if filepath.Ext(path) != ".xml" {
-							return nil
-						}
-
-						bankInfoFile, err := os.Open(path)
-						if err != nil {
-							return err
-						}
-						defer bankInfoFile.Close()
-
-						SoundBankInfo := struct {
-							StreamedFiles          []BankSoundFile `xml:"StreamedFiles>File"`
-							MediaFilesNotInAnyBank []BankSoundFile `xml:"MediaFilesNotInAnyBank>File"`
-							SoundBanks             []struct {
-								IncludedEvents []struct {
-									ExcludedMemoryFiles []BankSoundFile `xml:"ExcludedMemoryFiles>File"`
-								}
-							}
-						}{}
-
-						err = xml.NewDecoder(bankInfoFile).Decode(&SoundBankInfo)
-						if err != nil {
-							erro := path + "\n\t" + err.Error()
-							if strings.Contains(err.Error(), "ï") {
-								erro += "\n\tNOTE: this is likely because the file contains a utf8 bom"
-							}
-							errorList = append(errorList, erro)
-							return nil
-						}
-
-						for i, sound := range SoundBankInfo.StreamedFiles {
-							err = sound.PutInto(wwiseFileMap)
-							if err != nil {
-								errorList = append(errorList, fmt.Sprintf("%s\n\tSoundBanksInfo.StreamedFiles[%d]\n\t%s", path, i, err.Error()))
-							}
-						}
-						for i, sound := range SoundBankInfo.MediaFilesNotInAnyBank {
-							err = sound.PutInto(wwiseFileMap)
-							if err != nil {
-								errorList = append(errorList, fmt.Sprintf("%s\n\tSoundBanksInfo.MediaFilesNotInAnyBank[%d]\n\t%s", path, i, err.Error()))
-							}
-						}
-						for bi, bank := range SoundBankInfo.SoundBanks {
-							for ei, event := range bank.IncludedEvents {
-								for i, sound := range event.ExcludedMemoryFiles {
-									err = sound.PutInto(wwiseFileMap)
-									if err != nil {
-										errorList = append(errorList, fmt.Sprintf("%s\n\tSoundBanksInfo.SoundBanks[%d].IncludedEvents[%d].ExcludedMemoryFiles[%d]\n\t%s", path, bi, ei, i, err.Error()))
-									}
-								}
-							}
-						}
-						return nil
-					})
-
-					if err != nil {
-						return err
-					}
-
-					err = filepath.WalkDir(path, func(path string, d fs.DirEntry, err error) error {
-						if err != nil {
-							return err
-						}
-
-						if d.IsDir() {
-							return nil
-						}
-
-						if filepath.Ext(path) != ".wem" {
-							return nil
-						}
-
-						rel, err := filepath.Rel(currentDir, path)
-						if err != nil {
-							return err
-						}
-
-						_, err = os.Stat(filepath.Join(compareDir, rel))
-						if errors.Is(err, os.ErrNotExist) {
-							id, err := strconv.ParseUint(strings.TrimRight(filepath.Base(path), ".wem"), 10, 64)
-							if err != nil {
-								errorList = append(errorList, path+"\n\t"+err.Error())
-								return nil
-							}
-
-							ath, ok := wwiseFileMap[id]
-
-							if ok {
-								changelog.WriteString("+ " + filepath.Join(mount, ath) + "\n")
-							} else {
-								changelog.WriteString("+ " + rel + "\n")
-							}
-							addedFiles += 1
-						} else if err != nil {
-							errorList = append(errorList, filepath.Join(compareDir, rel)+"\n\t"+err.Error())
-						}
-
-						return nil
-					})
-
-					if err != nil {
-						return err
-					}
-				}
-
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
-		switch filepath.Ext(d.Name()) {
-		case ".uexp":
-			return nil
-		case ".ubulk":
-			return nil
-		}
-
-		rel, err := filepath.Rel(currentDir, path)
-		if err != nil {
-			return err
-		}
-
-		_, err = os.Stat(filepath.Join(compareDir, rel))
-		if errors.Is(err, os.ErrNotExist) {
-			changelog.WriteString("+ " + rel + "\n")
-			addedFiles += 1
-		} else if err != nil {
-			errorList = append(errorList, filepath.Join(compareDir, rel)+"\n\t"+err.Error())
-		}
-		return nil
+			sendNewSoundclown()
+		}), gocron.WithSingletonMode(gocron.LimitModeReschedule)))
 	})
 
-	if err != nil {
-		errorList = append(errorList, o.OutputDir+"\n\t"+err.Error())
-	}
+	client.AddHandler(func(message *gateway.MessageDeleteEvent) {
+		if message.ChannelID != config.Bot.Benbebots.MOTD.Channel {
+			return
+		}
 
-	changelog.WriteString(fmt.Sprintf("\n%d new files, %d removed files, %d modified files\n", addedFiles, 0, 0))
-
-	changelog.WriteString("\nerrors:\n\n")
-	for _, err := range errorList {
-		changelog.WriteString(err + "\n\n")
-	}
-
-	log.Fatalln("DONE!")
-
-	return err
+		sendNewSoundclown()
+	})
 }
 
-type Permaroles struct {
+var errTooLong = errors.New("too long woops")
+
+func logCommand(router *cmdroute.Router) {
+	router.AddFunc("getlog", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+		var options = struct {
+			Id string `discord:"id"`
+		}{}
+		if err := data.Options.Unmarshal(&options); err != nil {
+			return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+		}
+
+		buffer, err := os.ReadFile(logs.Directory + options.Id + ".log")
+		if err != nil {
+			return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+		}
+
+		if len(buffer) > 2000 {
+			return logs.InteractionResponse(logs.ErrorQuick(errTooLong), errTooLong.Error())
+		}
+
+		return &api.InteractionResponseData{
+			Content: option.NewNullableString(fmt.Sprintf("```\n%s\n```", string(buffer))),
+		}
+	})
+}
+
+var errSenderNil = errors.New("sender is 0")
+
+func sexCommand(client *state.State, router *cmdroute.Router) {
+	router.AddFunc("sex", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+		sndr := data.Event.SenderID()
+		if sndr == 0 {
+			return logs.InteractionResponse(logs.ErrorQuick(errSenderNil), errSenderNil.Error())
+		}
+		err := client.Ban(data.Event.GuildID, sndr, api.BanData{
+			DeleteDays:     option.ZeroUint,
+			AuditLogReason: "sex command",
+		})
+		if err != nil {
+			return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+		}
+		return &api.InteractionResponseData{
+			Content: option.NewNullableString("idk"),
+			Flags:   discord.EphemeralMessage,
+		}
+	})
+}
+
+type adExtractorConfig struct {
+	Channel discord.ChannelID `toml:"channel"`
+}
+
+func adExtractor(client *state.State) {
+	client.AddHandler(func(message *gateway.MessageCreateEvent) {
+		if message.ChannelID != config.Bot.Benbebots.AdExtractor.Channel {
+			return
+		}
+		if message.Author.Bot {
+			return
+		}
+
+		if len(message.Attachments) < 1 {
+			logs.Assert(client.DeleteMessage(config.Bot.Benbebots.AdExtractor.Channel, message.ID, ""))
+			return
+		}
+
+		toDownload := message.Attachments[0]
+		for _, attachemnt := range message.Attachments {
+			if attachemnt.Filename == "message.txt" {
+				toDownload = attachemnt
+				break
+			}
+		}
+
+		if toDownload.Size > 25000 {
+			logs.Assert(client.DeleteMessage(config.Bot.Benbebots.AdExtractor.Channel, message.ID, ""))
+			return
+		}
+
+		fileBuffer := make([]byte, toDownload.Size)
+		resp, err := http.Get(toDownload.URL)
+		if err != nil {
+			logs.ErrorQuick(err)
+			logs.Assert(client.DeleteMessage(config.Bot.Benbebots.AdExtractor.Channel, message.ID, ""))
+			return
+		}
+
+		if _, err := io.ReadFull(resp.Body, fileBuffer); err != nil {
+			logs.ErrorQuick(err)
+			logs.Assert(client.DeleteMessage(config.Bot.Benbebots.AdExtractor.Channel, message.ID, ""))
+			return
+		}
+
+		debugInfo := struct {
+			AdVideoId string `json:"addebug_videoId"`
+		}{}
+		fail, _ := logs.Assert(json.Unmarshal(fileBuffer, &debugInfo))
+		if fail {
+			logs.Assert(client.DeleteMessage(config.Bot.Benbebots.AdExtractor.Channel, message.ID, ""))
+			return
+		}
+
+		fail, _ = logs.Assert(client.SendMessageReply(config.Bot.Benbebots.AdExtractor.Channel, "https://www.youtube.com/watch?v="+debugInfo.AdVideoId, message.ID))
+		if fail {
+			logs.Assert(client.DeleteMessage(config.Bot.Benbebots.AdExtractor.Channel, message.ID, ""))
+		}
+	})
+}
+
+type pingerConfig struct {
+	StatChannel discord.ChannelID `toml:"stat_channel"`
+	Frequency   time.Duration     `toml:"frequency"`
+	Webhook     string            `toml:"webhook"`
+}
+
+type pinger struct {
+	sync.Mutex
+	hook       *webhook.Client
+	stat       stats.Stat
+	toPing     map[discord.UserID]uint64
+	pendingDel []discord.UserID
+	lock       bool
+}
+
+func (p *pinger) wake() {
+	if p.lock {
+		return
+	}
+	p.lock = true
+
+	go func() {
+		for {
+			if len(p.toPing) <= 0 {
+				break
+			}
+			var str string
+			p.Lock()
+			for i := range p.toPing {
+				str += i.Mention()
+				p.toPing[i] -= 1
+				if p.toPing[i] <= 0 {
+					p.pendingDel = append(p.pendingDel, i)
+					delete(p.toPing, i)
+				}
+			}
+			p.Unlock()
+			p.hook.Execute(webhook.ExecuteData{
+				Content: str,
+			})
+			p.stat.Increment(1)
+			time.Sleep(config.Bot.Benbebots.Pinger.Frequency)
+		}
+		p.lock = false
+	}()
+	go func() {
+		for p.lock {
+			time.Sleep(time.Second * 5)
+			for i, v := range p.toPing {
+				lvldb.Put([]byte("pingsFor"+i.String()), binary.AppendUvarint(nil, v), nil)
+			}
+			for _, v := range p.pendingDel {
+				lvldb.Delete([]byte("pingsFor"+v.String()), nil)
+			}
+			p.pendingDel = make([]discord.UserID, 0)
+		}
+	}()
+}
+
+const pingerDatabasePrefix = "pingsFor"
+
+func pingerFunc(client *state.State, router *cmdroute.Router) {
+	ping := pinger{
+		stat: stats.Stat{
+			Name:      "Pings",
+			Value:     0,
+			Client:    client.Client,
+			LevelDB:   lvldb,
+			ChannelID: config.Bot.Benbebots.Pinger.StatChannel,
+			Delay:     time.Second * 5,
+		},
+	}
+	var err error
+	ping.hook, err = webhook.NewFromURL(config.Bot.Benbebots.Pinger.Webhook)
+	if err != nil {
+		logs.ErrorQuick(err)
+	}
+
+	iter := lvldb.NewIterator(nil, nil)
+	for iter.Next() {
+		k, v := iter.Key(), iter.Value()
+		if len(k) >= len(pingerDatabasePrefix) && string(k[:len(pingerDatabasePrefix)]) == "pingsFor" {
+			id, err := strconv.ParseUint(string(k[len("pingsFor"):]), 10, 64)
+			if err != nil {
+				logs.ErrorQuick(err)
+				continue
+			}
+			ping.toPing[discord.UserID(discord.Snowflake(id))], _ = binary.Uvarint(v)
+		}
+	}
+	iter.Release()
+
+	client.AddHandler(func(*gateway.ReadyEvent) {
+		ping.wake()
+	})
+
+	router.AddFunc("pingme", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+		var options = struct {
+			Times float64 `discord:"times"`
+		}{}
+		if err := data.Options.Unmarshal(&options); err != nil {
+			return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+		}
+		userId := data.Event.SenderID()
+		if userId <= 0 {
+			return nil
+		}
+
+		if options.Times == 0 {
+			return &api.InteractionResponseData{
+				Content: option.NewNullableString(fmt.Sprintf("you have %d pings remaining\nthis will be finished <t:%d:R> aproximately", ping.toPing[userId], time.Now().Add(config.Bot.Benbebots.Pinger.Frequency*time.Duration(ping.toPing[userId])).Unix())),
+			}
+		}
+
+		ping.Lock()
+		defer ping.Unlock()
+		val, ok := ping.toPing[userId]
+		if ok {
+			if math.Signbit(options.Times) {
+				abs := uint64(math.Abs(options.Times))
+				if abs <= val {
+					ping.toPing[userId] = val - abs
+				} else {
+					ping.pendingDel = append(ping.pendingDel, userId)
+					delete(ping.toPing, userId)
+				}
+			} else {
+				ping.toPing[userId] += uint64(math.Abs(options.Times))
+			}
+		} else {
+			ping.toPing[userId] = uint64(max(0, options.Times))
+		}
+
+		ping.wake()
+
+		if _, ok := ping.toPing[userId]; !ok {
+			return &api.InteractionResponseData{
+				Content: option.NewNullableString("set to no longer ping you"),
+			}
+		}
+
+		return &api.InteractionResponseData{
+			Content: option.NewNullableString(fmt.Sprintf("set to ping you %d times\nthis will be finished <t:%d:R> aproximately", ping.toPing[userId], time.Now().Add(config.Bot.Benbebots.Pinger.Frequency*time.Duration(ping.toPing[userId])).Unix())),
+		}
+	})
+}
+
+type permaroles struct {
 	DB *leveldb.DB
 }
 
-type UserRole struct {
+type userRole struct {
 	User discord.UserID `discord:"user?"`
 	Role discord.RoleID `discord:"role?"`
 }
 
-func (p *Permaroles) getKey(user discord.UserID) []byte {
+func (p *permaroles) getKey(user discord.UserID) []byte {
 	return binary.BigEndian.AppendUint64([]byte("permaroleProfile"), uint64(user))
 }
 
-func (p *Permaroles) find(ur UserRole) ([]byte, []byte, []byte, int, error) {
+func (p *permaroles) find(ur userRole) ([]byte, []byte, []byte, int, error) {
 	key := p.getKey(ur.User)
 	role := binary.BigEndian.AppendUint64([]byte(""), uint64(ur.Role))
 
@@ -660,7 +711,9 @@ func (p *Permaroles) find(ur UserRole) ([]byte, []byte, []byte, int, error) {
 	return key, role, val, -1, nil
 }
 
-func (p *Permaroles) Add(ur UserRole) error {
+var ErrAlreadyExists = errors.New("permarole already added")
+
+func (p *permaroles) Add(ur userRole) error {
 	key, role, val, index, err := p.find(ur)
 	if err != nil {
 		return err
@@ -675,7 +728,7 @@ func (p *Permaroles) Add(ur UserRole) error {
 
 var ErrNotExists = errors.New("role does not exist")
 
-func (p *Permaroles) Remove(ur UserRole) error {
+func (p *permaroles) Remove(ur userRole) error {
 	key, _, val, index, err := p.find(ur)
 	if err != nil {
 		return err
@@ -688,11 +741,11 @@ func (p *Permaroles) Remove(ur UserRole) error {
 	return ErrNotExists
 }
 
-func (p *Permaroles) RemoveAll(user discord.UserID) error {
+func (p *permaroles) RemoveAll(user discord.UserID) error {
 	return p.DB.Delete(p.getKey(user), nil)
 }
 
-func (p *Permaroles) Get(user discord.UserID) ([]discord.RoleID, error) {
+func (p *permaroles) Get(user discord.UserID) ([]discord.RoleID, error) {
 	val, err := p.DB.Get(p.getKey(user), nil)
 	if err != nil {
 		return nil, err
@@ -705,9 +758,618 @@ func (p *Permaroles) Get(user discord.UserID) ([]discord.RoleID, error) {
 	return roles, nil
 }
 
-func (Benbebots) BENBEBOT() *session.Session {
-	cfgSec := config.Section("bot.benbebot")
+func permarolesFunc(client *state.State, router *cmdroute.Router) {
+	pr := permaroles{
+		DB: lvldb,
+	}
 
+	router.Sub("managepermaroles", func(r *cmdroute.Router) {
+		r.AddFunc("add", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+			var options userRole
+
+			if err := data.Options.Unmarshal(&options); err != nil {
+				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+			}
+
+			if _, err := client.Member(data.Data.GuildID, options.User); err != nil {
+				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+			}
+
+			if err := pr.Add(options); err != nil {
+				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+			}
+			return &api.InteractionResponseData{
+				Content: option.NewNullableString(fmt.Sprintf("succesfully added role %d to user %d", options.Role, options.User)),
+			}
+		})
+		r.AddFunc("remove", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+			var options userRole
+
+			if err := data.Options.Unmarshal(&options); err != nil {
+				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+			}
+
+			if _, err := client.Member(data.Data.GuildID, options.User); err != nil {
+				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+			}
+
+			if err := pr.Remove(options); err != nil {
+				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+			}
+			return &api.InteractionResponseData{
+				Content: option.NewNullableString(fmt.Sprintf("succesfully removed role %d from user %d", options.Role, options.User)),
+			}
+		})
+		r.AddFunc("list", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+			var options userRole
+
+			if err := data.Options.Unmarshal(&options); err != nil {
+				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+			}
+
+			if _, err := client.Member(data.Data.GuildID, options.User); err != nil {
+				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+			}
+
+			roles, err := pr.Get(options.User)
+			if err != nil {
+				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+			}
+
+			var roleStr string
+			for _, role := range roles {
+				roleStr += role.Mention()
+			}
+
+			return &api.InteractionResponseData{
+				Content:         option.NewNullableString(roleStr),
+				AllowedMentions: &api.AllowedMentions{},
+			}
+		})
+	})
+	router.Sub("permarole", func(r *cmdroute.Router) {
+		r.AddFunc("add", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+			var options userRole
+
+			if err := data.Options.Unmarshal(&options); err != nil {
+				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+			}
+
+			options.User = data.Event.SenderID()
+
+			// see if user has role
+			member, err := client.Member(data.Data.GuildID, options.User)
+			if err != nil {
+				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+			}
+
+			var exists bool
+			for _, role := range member.RoleIDs {
+				if role == options.Role {
+					exists = true
+					break
+				}
+			}
+
+			if !exists {
+				return &api.InteractionResponseData{
+					Content: option.NewNullableString("you must already have a role to add it as a permarole"),
+				}
+			}
+
+			if err := pr.Add(options); err != nil {
+				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+			}
+			return &api.InteractionResponseData{
+				Content: option.NewNullableString(fmt.Sprintf("succesfully added role %d", options.Role)),
+			}
+		})
+		r.AddFunc("remove", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+			var options userRole
+
+			if err := data.Options.Unmarshal(&options); err != nil {
+				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+			}
+
+			options.User = data.Event.SenderID()
+
+			if err := pr.Remove(options); err != nil {
+				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+			}
+			return &api.InteractionResponseData{
+				Content: option.NewNullableString(fmt.Sprintf("succesfully removed role %d", options.Role)),
+			}
+		})
+		r.AddFunc("list", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+			roles, err := pr.Get(data.Event.SenderID())
+			if err != nil {
+				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+			}
+
+			var roleStr string
+			for _, role := range roles {
+				roleStr += role.Mention()
+			}
+
+			return &api.InteractionResponseData{
+				Content:         option.NewNullableString(roleStr),
+				AllowedMentions: &api.AllowedMentions{},
+			}
+		})
+	})
+
+	client.AddHandler(func(member *gateway.GuildMemberAddEvent) {
+		if member.GuildID != config.Servers.BreadBag {
+			return
+		}
+
+		roles, err := pr.Get(member.User.ID)
+		if err != nil {
+			logs.ErrorQuick(err)
+			return
+		}
+
+		for _, role := range roles {
+			client.AddRole(config.Servers.BreadBag, member.User.ID, role, api.AddRoleData{
+				AuditLogReason: api.AuditLogReason("Adding user permaroles"),
+			})
+		}
+	})
+}
+
+var matchEverything, _ = regexp.Compile("@everything")
+
+type pingEverythingConfig struct {
+	StatChannel discord.ChannelID `toml:"stat_channel"`
+}
+
+func pingEverything(client *state.State) {
+	eStat := stats.Stat{
+		Name:      "Everythings Pinged",
+		Value:     0,
+		Client:    client.Client,
+		LevelDB:   lvldb,
+		ChannelID: config.Bot.Benbebots.PingEverything.StatChannel,
+		Delay:     time.Second * 5,
+	}
+	eStat.Initialise()
+
+	mentionCache := struct {
+		mentions []string
+		gentime  time.Time
+	}{}
+
+	var lock sync.Mutex
+	client.AddHandler(func(message *gateway.MessageCreateEvent) {
+		if message.GuildID != config.Servers.BreadBag {
+			return
+		}
+
+		if message.Author.Bot {
+			return
+		}
+
+		if !matchEverything.MatchString(message.Content) {
+			return
+		}
+
+		lock.Lock()
+		defer lock.Unlock()
+
+		if time.Since(mentionCache.gentime) > 5*time.Minute {
+			roles, err := client.Roles(config.Servers.BreadBag)
+			if err != nil {
+				logs.ErrorQuick(err)
+				return
+			}
+			members, err := client.Members(config.Servers.BreadBag)
+			if err != nil {
+				logs.ErrorQuick(err)
+				return
+			}
+			channels, err := client.Channels(config.Servers.BreadBag)
+			if err != nil {
+				logs.ErrorQuick(err)
+				return
+			}
+
+			mentionCache.mentions = make([]string, 0, len(roles)+len(members)+len(channels))
+
+			for _, role := range roles {
+				mentionCache.mentions = append(mentionCache.mentions, role.Mention())
+			}
+
+			for _, member := range members {
+				mentionCache.mentions = append(mentionCache.mentions, member.Mention())
+			}
+
+			for _, channel := range channels {
+				mentionCache.mentions = append(mentionCache.mentions, channel.Mention())
+			}
+		}
+
+		mentions := mentionCache.mentions
+
+		for i := range mentions {
+			j := rand.Intn(i + 1)
+			mentions[i], mentions[j] = mentions[j], mentions[i]
+		}
+
+		var str string
+		for _, mention := range mentions {
+			if len(str)+len(mention) > discordMaxMessageSize {
+				_, err := client.SendMessage(message.ChannelID, str)
+				if err != nil {
+					logs.ErrorQuick(err)
+				}
+				str = ""
+			}
+
+			str += mention
+		}
+		if str != "" {
+			_, err := client.SendMessage(message.ChannelID, str)
+			if err != nil {
+				logs.ErrorQuick(err)
+			}
+		}
+
+		eStat.Increment(1)
+	})
+}
+
+type extraWebhooksConfig struct {
+	Category discord.ChannelID `toml:"category"`
+	Webhook  string            `toml:"webhook"`
+}
+
+func extraWebhooks(client *state.State) {
+	wh, err := webhook.NewFromURL(config.Bot.Benbebots.ExtraWebhooks.Webhook)
+	if err != nil {
+		logs.Fatal("%s", err)
+	}
+	var category struct {
+		channel discord.ChannelID
+		guild   discord.GuildID
+	}
+	category.channel = config.Bot.Benbebots.ExtraWebhooks.Category
+
+	var master discord.ChannelID
+	var proxies []discord.ChannelID
+
+	client.AddHandler(func(*gateway.ReadyEvent) {
+		channel, err := client.Channel(category.channel)
+		if err != nil {
+			logs.ErrorQuick(err)
+			return
+		}
+		category.guild = channel.GuildID
+
+		m, err := lvldb.Get([]byte("extwhMaster"), nil)
+		if errors.Is(err, leveldb.ErrNotFound) {
+			channel, err := client.CreateChannel(category.guild, api.CreateChannelData{
+				Name:       "extra-webhooks-master",
+				Type:       discord.GuildText,
+				CategoryID: category.channel,
+			})
+			if err != nil {
+				logs.ErrorQuick(err)
+				return
+			}
+			master = channel.ID
+			proxies = []discord.ChannelID{master}
+			lvldb.Put([]byte("extwhMaster"), binary.BigEndian.AppendUint64(nil, uint64(master)), nil)
+			lvldb.Put([]byte("extwhProxies"), binary.BigEndian.AppendUint64(nil, uint64(master)), nil)
+			return
+		} else if err != nil {
+			logs.ErrorQuick(err)
+			return
+		}
+		master = discord.ChannelID(binary.BigEndian.Uint64(m))
+
+		m, err = lvldb.Get([]byte("extwhProxies"), nil)
+		if err != nil {
+			logs.ErrorQuick(err)
+			return
+		}
+
+		for i := 0; i < len(m); i += 8 {
+			proxies = append(proxies, discord.ChannelID(binary.BigEndian.Uint64(m[i:i+8])))
+		}
+
+		m, err = lvldb.Get([]byte("extwhLastRecieved"), nil)
+		if false && !errors.Is(err, leveldb.ErrNotFound) { // disable this cause it doesnt seem to work
+			if err != nil {
+				logs.ErrorQuick(err)
+				return
+			}
+			nLR := discord.MessageID(binary.BigEndian.Uint64(m[:8]))
+			nLRT := nLR.Time()
+
+			for _, channel := range proxies {
+				msgs, err := client.MessagesAfter(channel, nLR, 0)
+				if err != nil {
+					logs.ErrorQuick(err)
+					continue
+				}
+				for _, message := range msgs {
+					if message.Type == discord.ChannelFollowAddMessage {
+						continue
+					}
+
+					files := "\n"
+					for _, file := range message.Attachments {
+						files += file.URL + "\n"
+					}
+
+					content := message.Content
+					if len(content)+len(files) <= 2000 {
+						content += files
+					}
+
+					wh.Execute(webhook.ExecuteData{
+						Content:         content,
+						Username:        message.Author.Username,
+						AvatarURL:       message.Author.AvatarURL(),
+						TTS:             message.TTS,
+						Embeds:          message.Embeds,
+						Components:      message.Components,
+						AllowedMentions: &api.AllowedMentions{},
+					})
+
+					if message.ID.Time().After(nLRT) {
+						nLR = message.ID
+						nLRT = message.ID.Time()
+					}
+				}
+			}
+			err = lvldb.Put([]byte("extwhLastRecieved"), binary.BigEndian.AppendUint64(nil, uint64(nLR)), nil)
+			if err != nil {
+				logs.ErrorQuick(err)
+				return
+			}
+		}
+	})
+
+	var followLock sync.Mutex
+
+	client.AddHandler(func(message *gateway.MessageCreateEvent) {
+		if message.GuildID != category.guild {
+			return
+		}
+
+		if message.Type == discord.ChannelFollowAddMessage {
+			followLock.Lock()
+			defer followLock.Unlock()
+
+			if message.ChannelID != master {
+				return
+			}
+
+			webhooks, err := client.ChannelWebhooks(message.ChannelID)
+			if err != nil {
+				logs.ErrorQuick(err)
+				return
+			}
+
+			if len(webhooks) < 15 {
+				return
+			}
+
+			logs.Assert(client.ModifyChannel(master, api.ModifyChannelData{
+				Name: fmt.Sprintf("extra-webhooks-%x", len(proxies)),
+			}))
+
+			channel, err := client.CreateChannel(category.guild, api.CreateChannelData{
+				Name:       "extra-webhooks-master",
+				Type:       discord.GuildText,
+				CategoryID: category.channel,
+			})
+			if err != nil {
+				logs.ErrorQuick(err)
+				return
+			}
+
+			master = channel.ID
+			proxies = append(proxies, master)
+			var proxStr []byte
+			for _, proxy := range proxies {
+				proxStr = binary.BigEndian.AppendUint64(proxStr, uint64(proxy))
+			}
+			lvldb.Put([]byte("extwhMaster"), binary.BigEndian.AppendUint64(nil, uint64(master)), nil)
+			lvldb.Put([]byte("extwhProxies"), proxStr, nil)
+			return
+		}
+
+		var valid bool
+		for _, channel := range proxies {
+			if message.ChannelID == channel {
+				valid = true
+				break
+			}
+		}
+
+		if !valid {
+			return
+		}
+
+		files := "\n"
+		for _, file := range message.Attachments {
+			files += file.URL + "\n"
+		}
+
+		content := message.Content
+		if len(content)+len(files) <= 2000 {
+			content += files
+		}
+
+		wh.Execute(webhook.ExecuteData{
+			Content:         content,
+			Username:        message.Author.Username,
+			AvatarURL:       message.Author.AvatarURL(),
+			TTS:             message.TTS,
+			Embeds:          message.Embeds,
+			Components:      message.Components,
+			AllowedMentions: &api.AllowedMentions{},
+		})
+		err = lvldb.Put([]byte("extwhLastRecieved"), binary.BigEndian.AppendUint64(nil, uint64(message.ID)), nil)
+		if err != nil {
+			logs.ErrorQuick(err)
+			return
+		}
+	})
+}
+
+type notificationsConfig struct {
+	Callback string `toml:"callback"`
+	Webhook  string `toml:"webhook"`
+}
+
+func notifications(client *state.State, router *cmdroute.Router) {
+	var atomParser atom.Parser
+	hub := pubsubhubbub.NewClient("https://pubsubhubbub.appspot.com/subscribe")
+	//channel := discord.ChannelID(cfgSec.Key("notifschannel").MustUint64(0))
+
+	web, err := webhook.NewFromURL(config.Bot.Benbebots.Notifs.Webhook)
+	if err != nil {
+		logs.Fatal("%s", err)
+	}
+
+	callbackUrl, err := url.Parse(config.Bot.Benbebots.Notifs.Callback)
+	if err != nil {
+		logs.Fatal("%s", err)
+	}
+
+	httpc.HandleFunc(callbackUrl.Path, hub.Handle)
+
+	hub.Handler = func(w http.ResponseWriter, r *http.Request) {
+		key, err := lvldb.Get([]byte("pubsubhubbubSecret"+r.URL.Query().Get("id")), nil)
+		if errors.Is(err, leveldb.ErrNotFound) {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		mac := hmac.New(sha1.New, key)
+		feed, err := atomParser.Parse(io.TeeReader(r.Body, mac))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if !hmac.Equal(mac.Sum(nil), []byte(r.Header.Get("X-Hub-Signature"))) {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		for _, entry := range feed.Entries {
+			m := webhook.ExecuteData{}
+			if len(entry.Links) >= 1 {
+				m.Content = entry.Links[0].Href
+			}
+			if len(entry.Authors) >= 1 {
+				m.Username = entry.Authors[0].Name
+			}
+			web.Execute(m)
+		}
+	}
+
+	router.AddFunc("subscribe", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+		options := struct {
+			Url   string `discord:"url"`
+			Unsub bool   `discord:"unsub?"`
+		}{}
+
+		if err := data.Options.Unmarshal(&options); err != nil {
+			return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+		}
+
+		u, err := url.Parse(options.Url)
+		if err != nil {
+			return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+		}
+
+		switch u.Hostname() {
+		case "www.youtube.com":
+			var form struct {
+				pubsubhubbub.SubscriptionRequest
+				Verify string `url:"hub.verify,omitempty"`
+				Token  string `url:"hub.verify_token,omitempty"`
+			}
+
+			var chanId string
+			ident := path.Base(u.Path)
+			if strings.HasPrefix(ident, "@") {
+
+			} else {
+				chanId = ident
+			}
+			form.Topic = "https://www.youtube.com/feeds/videos.xml?channel_id=" + chanId
+			newUrl := callbackUrl
+			newUrlValues := newUrl.Query()
+			newUrlValues.Set("id", chanId)
+			newUrl.RawQuery = newUrlValues.Encode()
+			form.Callback = newUrl.String()
+
+			if options.Unsub {
+				form.Mode = pubsubhubbub.ModeUnsubscribe
+				secret, err := lvldb.Get([]byte("pubsubhubbubSecret"+chanId), nil)
+				if err != nil {
+					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+				}
+				form.Secret = string(secret)
+			} else {
+				form.Mode = pubsubhubbub.ModeSubscribe
+				exist, err := lvldb.Has([]byte("pubsubhubbubSecret"+chanId), nil)
+				if err != nil {
+					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+				}
+				if exist {
+					return &api.InteractionResponseData{
+						Content: option.NewNullableString("already subscribed"),
+						Flags:   discord.EphemeralMessage,
+					}
+				}
+				secret := make([]byte, 40)
+				_, err = crand.Read(secret)
+				if err != nil {
+					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+				}
+				form.Secret = string(secret)
+			}
+
+			client.RespondInteraction(data.Event.ID, data.Event.Token, api.InteractionResponse{
+				Type: api.DeferredMessageInteractionWithSource,
+			})
+			serr := hub.Subscribe(form)
+			if !errors.Is(serr.Error, pubsubhubbub.ErrTimeout) {
+				return logs.InteractionResponse(logs.Error("pubsubhubbub: %s: %s", serr.Error.Error(), serr.Reason), serr.Reason)
+			} else if serr.Error != nil {
+				return logs.InteractionResponse(logs.ErrorQuick(serr.Error), serr.Error.Error())
+			}
+			err := lvldb.Put([]byte("pubsubhubbubSecret"+chanId), []byte(form.Secret), nil)
+			if err != nil {
+				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+			}
+			return &api.InteractionResponseData{
+				Content: option.NewNullableString("success"),
+				Flags:   discord.EphemeralMessage,
+			}
+		default:
+			return &api.InteractionResponseData{
+				Content: option.NewNullableString("website unsupported"),
+				Flags:   discord.EphemeralMessage,
+			}
+		}
+	})
+}
+
+type BenbebotConfig struct {
+	MOTD           motdConfig           `toml:"motd"`
+	AdExtractor    adExtractorConfig    `toml:"ad_extractor"`
+	Pinger         pingerConfig         `toml:"pinger"`
+	PingEverything pingEverythingConfig `toml:"ping_everything"`
+	ExtraWebhooks  extraWebhooksConfig  `toml:"extra_webhooks"`
+	Notifs         notificationsConfig  `toml:"notifications"`
+}
+
+func (Benbebots) BENBEBOT() *session.Session {
 	client := state.New("Bot " + tokens["benbebot"].Password)
 	client.AddIntents(gateway.IntentGuildPresences | gateway.IntentGuildMembers | gateway.IntentMessageContent) // privileged
 	client.AddIntents(gateway.IntentGuildMessages | gateway.IntentDirectMessages)
@@ -717,1096 +1379,40 @@ func (Benbebots) BENBEBOT() *session.Session {
 	client.AddHandler(heartbeater.Heartbeat)
 	router := cmdroute.NewRouter()
 
-	scClient := soundcloud.Client{
-		MaxRetries: 1,
-		LevelDB:    lvldb,
-	}
-	scClient.GetClientId()
-	if component.IsEnabled("motd") {
-		opts := struct {
-			Cron        string `ini:"motdcron"`
-			ChannelId   uint64 `ini:"motdchannel"`
-			Channel     discord.ChannelID
-			EndPoint    string `ini:"motdendpoint"`
-			StatChannel uint64 `ini:"motdstatchannel"`
-		}{}
-		cfgSec.MapTo(&opts)
-		opts.Channel = discord.ChannelID(discord.Snowflake(opts.ChannelId))
-
-		scStat := stats.Stat{
-			Name:      "Soundclowns",
-			Value:     0,
-			Client:    client.Client,
-			LevelDB:   lvldb,
-			ChannelID: discord.ChannelID(opts.StatChannel),
-			Delay:     time.Second * 5,
-		}
-		scStat.Initialise()
-
-		var recents [30]uint
-		var recentsIndex uint64
-		client.AddHandler(func(*gateway.ReadyEvent) {
-			validChannelsStr, err := lvldb.Get([]byte("recentSoundclowns"), nil)
-			if err != nil {
-				logs.ErrorQuick(err)
-				return
-			}
-
-			strs := strings.Fields(string(validChannelsStr))
-			recentsIndex, err = strconv.ParseUint(strs[0], 10, 64)
-			if err != nil {
-				logs.ErrorQuick(err)
-				return
-			}
-			strs = strs[1:]
-			for i, v := range strs {
-				id, err := strconv.ParseUint(v, 10, 64)
-				if err != nil {
-					logs.ErrorQuick(err)
-					return
-				}
-				recents[i] = uint(id)
-			}
-		})
-
-		sendNewSoundclown := func() {
-			// request soundcloud
-			vals, _ := query.Values(struct {
-				Limit      int    `url:"limit"`
-				Offset     int    `url:"offset"`
-				LinkedPart int    `url:"linked_partitioning"`
-				Version    uint64 `url:"app_version"`
-				Locale     string `url:"app_locale"`
-			}{
-				Limit:      20,
-				LinkedPart: 1,
-				Version:    1715268073,
-				Locale:     "en",
-			})
-			resp, err := scClient.Request("GET", "/recent-tracks/soundclown", vals, "")
-			if err != nil {
-				logs.ErrorQuick(err)
-				return
-			}
-			defer resp.Body.Close()
-			if resp.StatusCode != 200 {
-				logs.Error("couldnt get soundclouds: %s", resp.Status)
-				return
-			}
-
-			// get recent tracks
-			data, err := io.ReadAll(resp.Body)
-			if err != nil {
-				logs.ErrorQuick(err)
-				return
-			}
-			tracks := struct {
-				Collection []struct {
-					Artwork      string    `json:"artwork_url"`
-					Title        string    `json:"title"`
-					Description  string    `json:"description"`
-					Comments     int       `json:"comment_count"`
-					Likes        int       `json:"likes_count"`
-					Plays        int       `json:"playback_count"`
-					Reposts      int       `json:"reposts_count"`
-					CreatedAt    time.Time `json:"created_at"`
-					Duration     uint      `json:"duration"`
-					EmbeddableBy string    `json:"embeddable_by"`
-					Id           uint      `json:"id"`
-					Kind         string    `json:"kind"`
-					Permalink    string    `json:"permalink_url"`
-					Public       bool      `json:"public"`
-					Sharing      string    `json:"sharing"`
-				} `json:"collection"`
-				Next string `json:"next_href"`
-			}{}
-			err = json.Unmarshal(data, &tracks)
-			if err != nil {
-				logs.ErrorQuick(err)
-				return
-			}
-
-			// filter sent already
-			toSend, found := tracks.Collection[0], false
-			for _, track := range tracks.Collection {
-				sentAlready := false
-				for _, rec := range recents {
-					if track.Id == rec {
-						sentAlready = true
-						break
-					}
-				}
-				if !sentAlready {
-					toSend = track
-					found = true
-					break
-				}
-			}
-
-			if !found {
-				logs.Error("could not find a soundcloud within 20 tracks")
-				return
-			}
-
-			// add to recents
-			recents[recentsIndex] = toSend.Id
-			recentsIndex += 1
-			if recentsIndex >= 30 {
-				recentsIndex = 0
-			}
-			var str []byte
-			str = append(strconv.AppendUint(str, recentsIndex, 10), ' ')
-			for i := 0; i < 30; i++ {
-				str = append(strconv.AppendUint(str, uint64(recents[i]), 10), ' ')
-			}
-			lvldb.Put([]byte("recentSoundclowns"), str, nil)
-
-			// send
-			logs.Assert(client.SendMessage(opts.Channel, toSend.Permalink))
-			logs.Info("submitted new mashup: %s", toSend.Title)
-		}
-
-		client.AddHandler(func(*gateway.ReadyEvent) {
-			// get soundcloud token
-			cltId, err := lvldb.Get([]byte("soundcloudClientId"), nil)
-			if err != nil {
-				logs.ErrorQuick(err)
-				err = scClient.GetClientId()
-				if err != nil {
-					logs.ErrorQuick(err)
-				}
-			} else {
-				scClient.ClientId = string(cltId)
-			}
-
-			url := "https://soundcloud.com/"
-			urlLen := len(url)
-			var mut sync.Mutex
-			logs.Assert(cron.NewJob(gocron.CronJob(opts.Cron, true), gocron.NewTask(func() {
-				mut.Lock()
-				defer mut.Unlock()
-				messages, err := client.Messages(opts.Channel, 1)
-				if err != nil {
-					logs.ErrorQuick(err)
-					return
-				}
-				message := messages[0]
-				if len(message.Content) >= urlLen && message.Content[:urlLen] == url {
-					fail, _ := logs.Assert(client.CrosspostMessage(opts.Channel, messages[0].ID))
-					if !fail {
-						scStat.Increment(1)
-					}
-				}
-
-				sendNewSoundclown()
-			}), gocron.WithSingletonMode(gocron.LimitModeReschedule)))
-		})
-
-		client.AddHandler(func(message *gateway.MessageDeleteEvent) {
-			if message.ChannelID != opts.Channel {
-				return
-			}
-
-			sendNewSoundclown()
-		})
+	if config.Components.IsEnabled("motd") {
+		motd(client)
 	}
 
-	if component.IsEnabled("mashupradio") {
-		client.AddIntents(gateway.IntentGuildVoiceStates)
-		var radio MRadio
-		config.Section("programs").MapTo(&radio)
-		radio.Init(client.Session, &scClient, 60*time.Millisecond, 2880)
-
-		opts := struct {
-			ChannelId uint64 `ini:"mrchannel"`
-			Endpoint  string `ini:"mrendpoint"`
-		}{}
-		cfgSec.MapTo(&opts)
-		radio.Channel = discord.ChannelID(discord.Snowflake(opts.ChannelId))
-		go func() {
-			logs.Assert(radio.GetTracks(opts.Endpoint))
-		}()
-
-		client.AddHandler(func(state *gateway.VoiceStateUpdateEvent) {
-			if state.ChannelID != radio.Channel {
-				return
-			}
-			go func() {
-				logs.Assert(radio.Start())
-			}()
-		})
+	if config.Components.IsEnabled("logcommand") {
+		logCommand(router)
 	}
 
-	if component.IsEnabled("logcommand") {
-		errTooLong := errors.New("too long woops")
-
-		router.AddFunc("getlog", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
-			var options = struct {
-				Id string `discord:"id"`
-			}{}
-			if err := data.Options.Unmarshal(&options); err != nil {
-				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-			}
-
-			buffer, err := os.ReadFile(logs.Directory + options.Id + ".log")
-			if err != nil {
-				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-			}
-
-			if len(buffer) > 2000 {
-				return logs.InteractionResponse(logs.ErrorQuick(errTooLong), errTooLong.Error())
-			}
-
-			return &api.InteractionResponseData{
-				Content: option.NewNullableString(fmt.Sprintf("```\n%s\n```", string(buffer))),
-			}
-		})
+	if config.Components.IsEnabled("sexcommand") {
+		sexCommand(client, router)
 	}
 
-	if component.IsEnabled("sexcommand") {
-		errSenderNil := errors.New("sender is 0")
-
-		router.AddFunc("sex", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
-			sndr := data.Event.SenderID()
-			if sndr == 0 {
-				return logs.InteractionResponse(logs.ErrorQuick(errSenderNil), errSenderNil.Error())
-			}
-			err := client.Ban(data.Event.GuildID, sndr, api.BanData{
-				DeleteDays:     option.ZeroUint,
-				AuditLogReason: "sex command",
-			})
-			if err != nil {
-				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-			}
-			return &api.InteractionResponseData{
-				Content: option.NewNullableString("idk"),
-				Flags:   discord.EphemeralMessage,
-			}
-		})
+	if config.Components.IsEnabled("adextractor") {
+		adExtractor(client)
 	}
 
-	if component.IsEnabled("adextractor") {
-		opts := struct {
-			ChannelId uint64 `ini:"adextractorchannel"`
-			Channel   discord.ChannelID
-		}{}
-		cfgSec.MapTo(&opts)
-		opts.Channel = discord.ChannelID(discord.Snowflake(opts.ChannelId))
-
-		client.AddHandler(func(message *gateway.MessageCreateEvent) {
-			if message.ChannelID != opts.Channel {
-				return
-			}
-			if message.Author.Bot {
-				return
-			}
-
-			if len(message.Attachments) < 1 {
-				logs.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
-				return
-			}
-
-			toDownload := message.Attachments[0]
-			for _, attachemnt := range message.Attachments {
-				if attachemnt.Filename == "message.txt" {
-					toDownload = attachemnt
-					break
-				}
-			}
-
-			if toDownload.Size > 25000 {
-				logs.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
-				return
-			}
-
-			fileBuffer := make([]byte, toDownload.Size)
-			resp, err := http.Get(toDownload.URL)
-			if err != nil {
-				logs.ErrorQuick(err)
-				logs.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
-				return
-			}
-
-			if _, err := io.ReadFull(resp.Body, fileBuffer); err != nil {
-				logs.ErrorQuick(err)
-				logs.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
-				return
-			}
-
-			debugInfo := struct {
-				AdVideoId string `json:"addebug_videoId"`
-			}{}
-			fail, _ := logs.Assert(json.Unmarshal(fileBuffer, &debugInfo))
-			if fail {
-				logs.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
-				return
-			}
-
-			fail, _ = logs.Assert(client.SendMessageReply(opts.Channel, "https://www.youtube.com/watch?v="+debugInfo.AdVideoId, message.ID))
-			if fail {
-				logs.Assert(client.DeleteMessage(opts.Channel, message.ID, ""))
-			}
-		})
+	if config.Components.IsEnabled("pinger") {
+		pingerFunc(client, router)
 	}
 
-	if component.IsEnabled("pinger") {
-		opts := struct {
-			StatsId uint64        `ini:"pingstatchannel"`
-			Freq    time.Duration `ini:"pingfreq"`
-		}{}
-		cfgSec.MapTo(&opts)
-		k, err := config.Section("webhooks").GetKey("pinger")
-		if err != nil {
-			logs.ErrorQuick(err)
-		}
-		pinghook, err := webhook.NewFromURL(string(k.String()))
-		if err != nil {
-			logs.ErrorQuick(err)
-		}
-
-		var toPingMux sync.Mutex
-		toPing := map[discord.UserID]uint64{}
-		var toPingPendingDel []discord.UserID
-		var pingerLock bool
-
-		iter := lvldb.NewIterator(nil, nil)
-		for iter.Next() {
-			k, v := iter.Key(), iter.Value()
-			if string(k[:len("pingsFor")]) == "pingsFor" {
-				id, err := strconv.ParseUint(string(k[len("pingsFor"):]), 10, 64)
-				if err != nil {
-					logs.ErrorQuick(err)
-					continue
-				}
-				toPing[discord.UserID(discord.Snowflake(id))], _ = binary.Uvarint(v)
-			}
-		}
-		iter.Release()
-
-		pgStat := stats.Stat{
-			Name:      "Pings",
-			Value:     0,
-			Client:    client.Client,
-			LevelDB:   lvldb,
-			ChannelID: discord.ChannelID(opts.StatsId),
-			Delay:     time.Second * 5,
-		}
-		pgStat.Initialise()
-
-		wakePinger := func() {
-			if pingerLock {
-				return
-			}
-			pingerLock = true
-
-			go func() {
-				for {
-					if len(toPing) <= 0 {
-						break
-					}
-					var str string
-					toPingMux.Lock()
-					for i := range toPing {
-						str += i.Mention()
-						toPing[i] -= 1
-						if toPing[i] <= 0 {
-							toPingPendingDel = append(toPingPendingDel, i)
-							delete(toPing, i)
-						}
-					}
-					toPingMux.Unlock()
-					pinghook.Execute(webhook.ExecuteData{
-						Content: str,
-					})
-					pgStat.Increment(1)
-					time.Sleep(opts.Freq)
-				}
-				pingerLock = false
-			}()
-			go func() {
-				for pingerLock {
-					time.Sleep(time.Second * 5)
-					for i, v := range toPing {
-						lvldb.Put([]byte("pingsFor"+i.String()), binary.AppendUvarint(nil, v), nil)
-					}
-					for _, v := range toPingPendingDel {
-						lvldb.Delete([]byte("pingsFor"+v.String()), nil)
-					}
-					toPingPendingDel = make([]discord.UserID, 0)
-				}
-			}()
-		}
-
-		client.AddHandler(func(*gateway.ReadyEvent) {
-			wakePinger()
-		})
-
-		router.AddFunc("pingme", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
-			var options = struct {
-				Times float64 `discord:"times"`
-			}{}
-			if err := data.Options.Unmarshal(&options); err != nil {
-				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-			}
-			userId := data.Event.SenderID()
-			if userId <= 0 {
-				return nil
-			}
-
-			if options.Times == 0 {
-				return &api.InteractionResponseData{
-					Content: option.NewNullableString(fmt.Sprintf("you have %d pings remaining\nthis will be finished <t:%d:R> aproximately", toPing[userId], time.Now().Add(opts.Freq*time.Duration(toPing[userId])).Unix())),
-				}
-			}
-
-			toPingMux.Lock()
-			defer toPingMux.Unlock()
-			val, ok := toPing[userId]
-			if ok {
-				if math.Signbit(options.Times) {
-					abs := uint64(math.Abs(options.Times))
-					if abs <= val {
-						toPing[userId] = val - abs
-					} else {
-						toPingPendingDel = append(toPingPendingDel, userId)
-						delete(toPing, userId)
-					}
-				} else {
-					toPing[userId] += uint64(math.Abs(options.Times))
-				}
-			} else {
-				toPing[userId] = uint64(max(0, options.Times))
-			}
-
-			wakePinger()
-
-			if _, ok := toPing[userId]; !ok {
-				return &api.InteractionResponseData{
-					Content: option.NewNullableString("set to no longer ping you"),
-				}
-			}
-
-			return &api.InteractionResponseData{
-				Content: option.NewNullableString(fmt.Sprintf("set to ping you %d times\nthis will be finished <t:%d:R> aproximately", toPing[userId], time.Now().Add(opts.Freq*time.Duration(toPing[userId])).Unix())),
-			}
-		})
+	if config.Components.IsEnabled("permaroles") {
+		permarolesFunc(client, router)
 	}
 
-	if component.IsEnabled("outlasttrialsdiff") {
-		var otd OutlastTrialsDiff
-		cfgSec.MapTo(&otd)
-		config.Section("programs").MapTo(&otd)
-		otd.Username = tokens["steam"].Login
-		otd.Password = tokens["steam"].Password
-		otd.OutputDir = filepath.Join(dirs.data, "opp-decomp")
-
-		client.AddHandler(func(*gateway.ReadyEvent) {
-			logs.Assert(otd.Execute())
-		})
+	if config.Components.IsEnabled("pingeverything") {
+		pingEverything(client)
 	}
 
-	if component.IsEnabled("permaroles") {
-		pr := Permaroles{
-			DB: lvldb,
-		}
-
-		router.Sub("managepermaroles", func(r *cmdroute.Router) {
-			r.AddFunc("add", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
-				var options UserRole
-
-				if err := data.Options.Unmarshal(&options); err != nil {
-					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-				}
-
-				if _, err := client.Member(data.Data.GuildID, options.User); err != nil {
-					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-				}
-
-				if err := pr.Add(options); err != nil {
-					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-				}
-				return &api.InteractionResponseData{
-					Content: option.NewNullableString(fmt.Sprintf("succesfully added role %d to user %d", options.Role, options.User)),
-				}
-			})
-			r.AddFunc("remove", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
-				var options UserRole
-
-				if err := data.Options.Unmarshal(&options); err != nil {
-					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-				}
-
-				if _, err := client.Member(data.Data.GuildID, options.User); err != nil {
-					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-				}
-
-				if err := pr.Remove(options); err != nil {
-					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-				}
-				return &api.InteractionResponseData{
-					Content: option.NewNullableString(fmt.Sprintf("succesfully removed role %d from user %d", options.Role, options.User)),
-				}
-			})
-			r.AddFunc("list", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
-				var options UserRole
-
-				if err := data.Options.Unmarshal(&options); err != nil {
-					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-				}
-
-				if _, err := client.Member(data.Data.GuildID, options.User); err != nil {
-					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-				}
-
-				roles, err := pr.Get(options.User)
-				if err != nil {
-					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-				}
-
-				var roleStr string
-				for _, role := range roles {
-					roleStr += role.Mention()
-				}
-
-				return &api.InteractionResponseData{
-					Content:         option.NewNullableString(roleStr),
-					AllowedMentions: &api.AllowedMentions{},
-				}
-			})
-		})
-		router.Sub("permarole", func(r *cmdroute.Router) {
-			r.AddFunc("add", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
-				var options UserRole
-
-				if err := data.Options.Unmarshal(&options); err != nil {
-					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-				}
-
-				options.User = data.Event.SenderID()
-
-				// see if user has role
-				member, err := client.Member(data.Data.GuildID, options.User)
-				if err != nil {
-					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-				}
-
-				var exists bool
-				for _, role := range member.RoleIDs {
-					if role == options.Role {
-						exists = true
-						break
-					}
-				}
-
-				if !exists {
-					return &api.InteractionResponseData{
-						Content: option.NewNullableString("you must already have a role to add it as a permarole"),
-					}
-				}
-
-				if err := pr.Add(options); err != nil {
-					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-				}
-				return &api.InteractionResponseData{
-					Content: option.NewNullableString(fmt.Sprintf("succesfully added role %d", options.Role)),
-				}
-			})
-			r.AddFunc("remove", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
-				var options UserRole
-
-				if err := data.Options.Unmarshal(&options); err != nil {
-					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-				}
-
-				options.User = data.Event.SenderID()
-
-				if err := pr.Remove(options); err != nil {
-					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-				}
-				return &api.InteractionResponseData{
-					Content: option.NewNullableString(fmt.Sprintf("succesfully removed role %d", options.Role)),
-				}
-			})
-			r.AddFunc("list", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
-				roles, err := pr.Get(data.Event.SenderID())
-				if err != nil {
-					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-				}
-
-				var roleStr string
-				for _, role := range roles {
-					roleStr += role.Mention()
-				}
-
-				return &api.InteractionResponseData{
-					Content:         option.NewNullableString(roleStr),
-					AllowedMentions: &api.AllowedMentions{},
-				}
-			})
-		})
-
-		bb, err := config.Section("servers").Key("breadbag").Uint64()
-		if err != nil {
-			logs.Fatal("%s", err)
-		}
-		breadbag := discord.GuildID(bb)
-
-		client.AddHandler(func(member *gateway.GuildMemberAddEvent) {
-			if member.GuildID != breadbag {
-				return
-			}
-
-			roles, err := pr.Get(member.User.ID)
-			if err != nil {
-				logs.ErrorQuick(err)
-				return
-			}
-
-			for _, role := range roles {
-				client.AddRole(breadbag, member.User.ID, role, api.AddRoleData{
-					AuditLogReason: api.AuditLogReason("Adding user permaroles"),
-				})
-			}
-		})
+	if config.Components.IsEnabled("extrawebhooks") {
+		extraWebhooks(client)
 	}
 
-	if component.IsEnabled("pingeverything") {
-		bb, err := config.Section("servers").Key("breadbag").Uint64()
-		if err != nil {
-			logs.Fatal("%s", err)
-		}
-		breadbag := discord.GuildID(bb)
-
-		matchEverything, _ := regexp.Compile("@everything")
-
-		sc, err := cfgSec.Key("everythingstatchannel").Uint64()
-		if err != nil {
-			logs.Fatal("%s", err)
-		}
-		eStat := stats.Stat{
-			Name:      "Everythings Pinged",
-			Value:     0,
-			Client:    client.Client,
-			LevelDB:   lvldb,
-			ChannelID: discord.ChannelID(sc),
-			Delay:     time.Second * 5,
-		}
-		eStat.Initialise()
-
-		mentionCache := struct {
-			mentions []string
-			gentime  time.Time
-		}{}
-
-		var lock sync.Mutex
-		client.AddHandler(func(message *gateway.MessageCreateEvent) {
-			if message.GuildID != breadbag {
-				return
-			}
-
-			if message.Author.Bot {
-				return
-			}
-
-			if !matchEverything.MatchString(message.Content) {
-				return
-			}
-
-			lock.Lock()
-			defer lock.Unlock()
-
-			if time.Since(mentionCache.gentime) > 5*time.Minute {
-				roles, err := client.Roles(breadbag)
-				if err != nil {
-					logs.ErrorQuick(err)
-					return
-				}
-				members, err := client.Members(breadbag)
-				if err != nil {
-					logs.ErrorQuick(err)
-					return
-				}
-				channels, err := client.Channels(breadbag)
-				if err != nil {
-					logs.ErrorQuick(err)
-					return
-				}
-
-				mentionCache.mentions = make([]string, 0, len(roles)+len(members)+len(channels))
-
-				for _, role := range roles {
-					mentionCache.mentions = append(mentionCache.mentions, role.Mention())
-				}
-
-				for _, member := range members {
-					mentionCache.mentions = append(mentionCache.mentions, member.Mention())
-				}
-
-				for _, channel := range channels {
-					mentionCache.mentions = append(mentionCache.mentions, channel.Mention())
-				}
-			}
-
-			mentions := mentionCache.mentions
-
-			for i := range mentions {
-				j := rand.Intn(i + 1)
-				mentions[i], mentions[j] = mentions[j], mentions[i]
-			}
-
-			var str string
-			for _, mention := range mentions {
-				if len(str)+len(mention) > discordMaxMessageSize {
-					_, err = client.SendMessage(message.ChannelID, str)
-					if err != nil {
-						logs.ErrorQuick(err)
-					}
-					str = ""
-				}
-
-				str += mention
-			}
-			if str != "" {
-				_, err = client.SendMessage(message.ChannelID, str)
-				if err != nil {
-					logs.ErrorQuick(err)
-				}
-			}
-
-			eStat.Increment(1)
-		})
-	}
-
-	if component.IsEnabled("extrawebhooks") {
-		wh, err := webhook.NewFromURL(config.Section("webhooks").Key("extwh").String())
-		if err != nil {
-			logs.Fatal("%s", err)
-		}
-		var category struct {
-			channel discord.ChannelID
-			guild   discord.GuildID
-		}
-		category.channel = discord.ChannelID(cfgSec.Key("extwhcategory").MustUint64(0))
-
-		var master discord.ChannelID
-		var proxies []discord.ChannelID
-
-		client.AddHandler(func(*gateway.ReadyEvent) {
-			channel, err := client.Channel(category.channel)
-			if err != nil {
-				logs.ErrorQuick(err)
-				return
-			}
-			category.guild = channel.GuildID
-
-			m, err := lvldb.Get([]byte("extwhMaster"), nil)
-			if errors.Is(err, leveldb.ErrNotFound) {
-				channel, err := client.CreateChannel(category.guild, api.CreateChannelData{
-					Name:       "extra-webhooks-master",
-					Type:       discord.GuildText,
-					CategoryID: category.channel,
-				})
-				if err != nil {
-					logs.ErrorQuick(err)
-					return
-				}
-				master = channel.ID
-				proxies = []discord.ChannelID{master}
-				lvldb.Put([]byte("extwhMaster"), binary.BigEndian.AppendUint64(nil, uint64(master)), nil)
-				lvldb.Put([]byte("extwhProxies"), binary.BigEndian.AppendUint64(nil, uint64(master)), nil)
-				return
-			} else if err != nil {
-				logs.ErrorQuick(err)
-				return
-			}
-			master = discord.ChannelID(binary.BigEndian.Uint64(m))
-
-			m, err = lvldb.Get([]byte("extwhProxies"), nil)
-			if err != nil {
-				logs.ErrorQuick(err)
-				return
-			}
-
-			for i := 0; i < len(m); i += 8 {
-				proxies = append(proxies, discord.ChannelID(binary.BigEndian.Uint64(m[i:i+8])))
-			}
-
-			m, err = lvldb.Get([]byte("extwhLastRecieved"), nil)
-			if false && !errors.Is(err, leveldb.ErrNotFound) { // disable this cause it doesnt seem to work
-				if err != nil {
-					logs.ErrorQuick(err)
-					return
-				}
-				nLR := discord.MessageID(binary.BigEndian.Uint64(m[:8]))
-				nLRT := nLR.Time()
-
-				for _, channel := range proxies {
-					msgs, err := client.MessagesAfter(channel, nLR, 0)
-					if err != nil {
-						logs.ErrorQuick(err)
-						continue
-					}
-					for _, message := range msgs {
-						if message.Type == discord.ChannelFollowAddMessage {
-							continue
-						}
-
-						files := "\n"
-						for _, file := range message.Attachments {
-							files += file.URL + "\n"
-						}
-
-						content := message.Content
-						if len(content)+len(files) <= 2000 {
-							content += files
-						}
-
-						wh.Execute(webhook.ExecuteData{
-							Content:         content,
-							Username:        message.Author.Username,
-							AvatarURL:       message.Author.AvatarURL(),
-							TTS:             message.TTS,
-							Embeds:          message.Embeds,
-							Components:      message.Components,
-							AllowedMentions: &api.AllowedMentions{},
-						})
-
-						if message.ID.Time().After(nLRT) {
-							nLR = message.ID
-							nLRT = message.ID.Time()
-						}
-					}
-				}
-				err = lvldb.Put([]byte("extwhLastRecieved"), binary.BigEndian.AppendUint64(nil, uint64(nLR)), nil)
-				if err != nil {
-					logs.ErrorQuick(err)
-					return
-				}
-			}
-		})
-
-		var followLock sync.Mutex
-
-		client.AddHandler(func(message *gateway.MessageCreateEvent) {
-			if message.GuildID != category.guild {
-				return
-			}
-
-			if message.Type == discord.ChannelFollowAddMessage {
-				followLock.Lock()
-				defer followLock.Unlock()
-
-				if message.ChannelID != master {
-					return
-				}
-
-				webhooks, err := client.ChannelWebhooks(message.ChannelID)
-				if err != nil {
-					logs.ErrorQuick(err)
-					return
-				}
-
-				if len(webhooks) < 15 {
-					return
-				}
-
-				logs.Assert(client.ModifyChannel(master, api.ModifyChannelData{
-					Name: fmt.Sprintf("extra-webhooks-%x", len(proxies)),
-				}))
-
-				channel, err := client.CreateChannel(category.guild, api.CreateChannelData{
-					Name:       "extra-webhooks-master",
-					Type:       discord.GuildText,
-					CategoryID: category.channel,
-				})
-				if err != nil {
-					logs.ErrorQuick(err)
-					return
-				}
-
-				master = channel.ID
-				proxies = append(proxies, master)
-				var proxStr []byte
-				for _, proxy := range proxies {
-					proxStr = binary.BigEndian.AppendUint64(proxStr, uint64(proxy))
-				}
-				lvldb.Put([]byte("extwhMaster"), binary.BigEndian.AppendUint64(nil, uint64(master)), nil)
-				lvldb.Put([]byte("extwhProxies"), proxStr, nil)
-				return
-			}
-
-			var valid bool
-			for _, channel := range proxies {
-				if message.ChannelID == channel {
-					valid = true
-					break
-				}
-			}
-
-			if !valid {
-				return
-			}
-
-			files := "\n"
-			for _, file := range message.Attachments {
-				files += file.URL + "\n"
-			}
-
-			content := message.Content
-			if len(content)+len(files) <= 2000 {
-				content += files
-			}
-
-			wh.Execute(webhook.ExecuteData{
-				Content:         content,
-				Username:        message.Author.Username,
-				AvatarURL:       message.Author.AvatarURL(),
-				TTS:             message.TTS,
-				Embeds:          message.Embeds,
-				Components:      message.Components,
-				AllowedMentions: &api.AllowedMentions{},
-			})
-			err = lvldb.Put([]byte("extwhLastRecieved"), binary.BigEndian.AppendUint64(nil, uint64(message.ID)), nil)
-			if err != nil {
-				logs.ErrorQuick(err)
-				return
-			}
-		})
-	}
-
-	if component.IsEnabled("notifications") {
-		var atomParser atom.Parser
-		hub := pubsubhubbub.NewClient("https://pubsubhubbub.appspot.com/subscribe")
-		//channel := discord.ChannelID(cfgSec.Key("notifschannel").MustUint64(0))
-
-		web, err := webhook.NewFromURL(config.Section("webhooks").Key("notifs").MustString(""))
-		if err != nil {
-			logs.Fatal("%s", err)
-		}
-
-		callbackUrl, err := url.Parse(cfgSec.Key("notifsyoutubecallback").MustString(""))
-		if err != nil {
-			logs.Fatal("%s", err)
-		}
-
-		httpc.HandleFunc(callbackUrl.Path, hub.Handle)
-
-		hub.Handler = func(w http.ResponseWriter, r *http.Request) {
-			key, err := lvldb.Get([]byte("pubsubhubbubSecret"+r.URL.Query().Get("id")), nil)
-			if errors.Is(err, leveldb.ErrNotFound) {
-				w.WriteHeader(http.StatusNotFound)
-				return
-			}
-			mac := hmac.New(sha1.New, key)
-			feed, err := atomParser.Parse(io.TeeReader(r.Body, mac))
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				return
-			}
-			if !hmac.Equal(mac.Sum(nil), []byte(r.Header.Get("X-Hub-Signature"))) {
-				w.WriteHeader(http.StatusNoContent)
-				return
-			}
-			for _, entry := range feed.Entries {
-				m := webhook.ExecuteData{}
-				if len(entry.Links) >= 1 {
-					m.Content = entry.Links[0].Href
-				}
-				if len(entry.Authors) >= 1 {
-					m.Username = entry.Authors[0].Name
-				}
-				web.Execute(m)
-			}
-		}
-
-		router.AddFunc("subscribe", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
-			options := struct {
-				Url   string `discord:"url"`
-				Unsub bool   `discord:"unsub?"`
-			}{}
-
-			if err := data.Options.Unmarshal(&options); err != nil {
-				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-			}
-
-			u, err := url.Parse(options.Url)
-			if err != nil {
-				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-			}
-
-			switch u.Hostname() {
-			case "www.youtube.com":
-				var form struct {
-					pubsubhubbub.SubscriptionRequest
-					Verify string `url:"hub.verify,omitempty"`
-					Token  string `url:"hub.verify_token,omitempty"`
-				}
-
-				var chanId string
-				ident := path.Base(u.Path)
-				if strings.HasPrefix(ident, "@") {
-
-				} else {
-					chanId = ident
-				}
-				form.Topic = "https://www.youtube.com/feeds/videos.xml?channel_id=" + chanId
-				newUrl := callbackUrl
-				newUrlValues := newUrl.Query()
-				newUrlValues.Set("id", chanId)
-				newUrl.RawQuery = newUrlValues.Encode()
-				form.Callback = newUrl.String()
-
-				if options.Unsub {
-					form.Mode = pubsubhubbub.ModeUnsubscribe
-					secret, err := lvldb.Get([]byte("pubsubhubbubSecret"+chanId), nil)
-					if err != nil {
-						return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-					}
-					form.Secret = string(secret)
-				} else {
-					form.Mode = pubsubhubbub.ModeSubscribe
-					exist, err := lvldb.Has([]byte("pubsubhubbubSecret"+chanId), nil)
-					if err != nil {
-						return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-					}
-					if exist {
-						return &api.InteractionResponseData{
-							Content: option.NewNullableString("already subscribed"),
-							Flags:   discord.EphemeralMessage,
-						}
-					}
-					secret := make([]byte, 40)
-					_, err = crand.Read(secret)
-					if err != nil {
-						return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-					}
-					form.Secret = string(secret)
-				}
-
-				client.RespondInteraction(data.Event.ID, data.Event.Token, api.InteractionResponse{
-					Type: api.DeferredMessageInteractionWithSource,
-				})
-				serr := hub.Subscribe(form)
-				if !errors.Is(serr.Error, pubsubhubbub.ErrTimeout) {
-					return logs.InteractionResponse(logs.Error("pubsubhubbub: %s: %s", serr.Error.Error(), serr.Reason), serr.Reason)
-				} else if serr.Error != nil {
-					return logs.InteractionResponse(logs.ErrorQuick(serr.Error), serr.Error.Error())
-				}
-				err := lvldb.Put([]byte("pubsubhubbubSecret"+chanId), []byte(form.Secret), nil)
-				if err != nil {
-					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-				}
-				return &api.InteractionResponseData{
-					Content: option.NewNullableString("success"),
-					Flags:   discord.EphemeralMessage,
-				}
-			default:
-				return &api.InteractionResponseData{
-					Content: option.NewNullableString("website unsupported"),
-					Flags:   discord.EphemeralMessage,
-				}
-			}
-		})
+	if config.Components.IsEnabled("notifications") {
+		notifications(client, router)
 	}
 
 	client.AddInteractionHandler(router)

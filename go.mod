@@ -1,17 +1,18 @@
 module benbebop.net/benbebots
 
-go 1.22.0
+go 1.22.6
 
 require (
+	github.com/Benbebop/go-binary-encode v0.0.0-20240908091223-2b01bdcf7c7d
 	github.com/diamondburned/arikawa/v3 v3.3.6
 	github.com/diamondburned/oggreader v0.0.0-20201118014549-87df9534b647
 	github.com/fhs/go-netrc v1.0.0
 	github.com/go-co-op/gocron/v2 v2.4.0
 	github.com/google/go-querystring v1.1.0
 	github.com/mmcdole/gofeed v1.3.0
+	github.com/pelletier/go-toml/v2 v2.2.3
 	github.com/syndtr/goleveldb v1.0.0
 	golang.org/x/net v0.24.0
-	gopkg.in/ini.v1 v1.67.0
 )
 
 require (
@@ -30,3 +31,5 @@ require (
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 )
+
+replace github.com/pelletier/go-toml/v2 => github.com/Benbebop/go-toml/v2 v2.0.0-20241011025433-2ff7476b4ac4

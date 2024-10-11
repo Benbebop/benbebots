@@ -14,24 +14,18 @@ import (
 	"github.com/diamondburned/arikawa/v3/utils/json/option"
 )
 
+type FamilyGuyConfig struct {
+	CacheChannel  discord.ChannelID `toml:"cache_channel"`
+	PublicChannel discord.ChannelID `toml:"public_channel"`
+	StatChannel   discord.ChannelID `toml:"stat_channel"`
+	TestChannel   discord.ChannelID `toml:"test"`
+	Frequency     time.Duration     `toml:"frequency"`
+}
+
 func (Benbebots) FAMILYGUY() *session.Session {
-	if !component.IsEnabled("familyguy") {
+	if !config.Components.IsEnabled("familyguy") {
 		logs.Info("family guy component has been disabled")
 		return nil
-	}
-	opts := struct {
-		CacheChannelId uint64 `ini:"cachechannel"`
-		cacheChannel   discord.ChannelID
-		Frequency      time.Duration `ini:"frequency"`
-		StatChannel    uint64        `ini:"statchannel"`
-		PublicChannel  uint64        `ini:"publicchannel"`
-		TestId         uint64        `ini:"test"`
-		Test           discord.ChannelID
-	}{}
-	logs.Assert(config.Section("bot.familyguy").StrictMapTo(&opts))
-	opts.cacheChannel = discord.ChannelID(opts.CacheChannelId)
-	if opts.TestId != 0 {
-		opts.Test = discord.ChannelID(opts.TestId)
 	}
 
 	client := state.New("Bot " + tokens["familyGuy"].Password)
@@ -44,7 +38,7 @@ func (Benbebots) FAMILYGUY() *session.Session {
 		Name:      "Family Guys",
 		Value:     0,
 		Client:    client.Client,
-		ChannelID: discord.ChannelID(opts.StatChannel),
+		ChannelID: config.Bot.FamilyGuy.StatChannel,
 		LevelDB:   lvldb,
 		Delay:     time.Second * 5,
 	}
@@ -62,7 +56,7 @@ func (Benbebots) FAMILYGUY() *session.Session {
 			return
 		}
 
-		users = append(users, discord.ChannelID(opts.PublicChannel))
+		users = append(users, discord.ChannelID(config.Bot.FamilyGuy.PublicChannel))
 		index := 1
 		for _, guild := range guilds {
 			members, err := client.Members(guild.ID)
@@ -93,7 +87,7 @@ func (Benbebots) FAMILYGUY() *session.Session {
 		users = users[:index]
 
 		// get clips
-		messages, err := client.Messages(opts.cacheChannel, 1000)
+		messages, err := client.Messages(config.Bot.FamilyGuy.CacheChannel, 1000)
 		if err != nil {
 			logs.ErrorQuick(err)
 			return
@@ -115,14 +109,14 @@ func (Benbebots) FAMILYGUY() *session.Session {
 			}
 		}
 		clips = clips[:index]
-		client.ModifyChannel(opts.cacheChannel, api.ModifyChannelData{
+		client.ModifyChannel(config.Bot.FamilyGuy.CacheChannel, api.ModifyChannelData{
 			Topic: option.NewNullableString(fmt.Sprintf("current family guy clips in rotation: %d", len(clips))),
 		})
 
-		currentTicker = time.NewTicker(opts.Frequency / time.Duration(len(users)))
+		currentTicker = time.NewTicker(config.Bot.FamilyGuy.Frequency / time.Duration(len(users)))
 		for {
 			<-currentTicker.C
-			channel := opts.Test
+			channel := config.Bot.FamilyGuy.TestChannel
 			if channel <= 0 {
 				channel = users[rand.Intn(len(users))]
 			}
@@ -137,3 +131,41 @@ func (Benbebots) FAMILYGUY() *session.Session {
 	client.Open(client.Context())
 	return client.Session
 }
+
+/*func (Benbebots) BANKBEMER() *session.Session {
+	if !component.IsEnabled("bankbemer") {
+		logs.Info("bank bemer component has been disabled")
+		return nil
+	}
+
+	client := state.New("Bot " + tokens["bankbemer"].Password)
+
+	var wake <-chan time.Time
+	client.AddHandler(func(ready *gateway.ReadyEvent) {
+		for {
+			var users []discord.UserID
+
+			guilds, err := client.Guilds()
+			if err != nil {
+				logs.Fatal("%s", err)
+			}
+			for _, guild := range guilds {
+				members, err := client.Members(guild.ID)
+				if err != nil {
+					logs.Fatal("%s", err)
+				}
+				for _, member := range members {
+					users
+				}
+			}
+			wake = time.After()
+			time := <-wake
+			if time.IsZero() {
+				continue
+			}
+		}
+	})
+
+	return client.Session
+}
+*/

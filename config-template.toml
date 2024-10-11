@@ -1,0 +1,91 @@
+log_hook = ""
+status_hook = ""
+
+[components]
+outlast_trials_diff = true
+pinger = true
+ad_extractor = true
+sex_command = true
+log_command = true
+mashup_radio = true
+motd = true
+family_guy = true
+gnerb = true
+canned_food = true
+permaroles = true
+ping_everything = true
+extra_webhooks = true
+notifications = true
+don_cheatle = true
+
+[programs]
+ytdlp = ""
+ffmpeg = ""
+steam_cmd = "" # should point to ether the steamcmd executable or the steamcmd.sh bash script
+quick_bms = "" # should point to the regular quickbms executable without the exe extension if on windows (_4gb_files will be appended if required)
+
+[directories]
+cache = ""
+temp = ""
+
+[servers] # spesific servers targeted by benbebots
+benbebots = 0 # this is the bot's home server
+bread_bag = 0
+
+[bot.fnaf]
+pou_time = 00:00:00
+destination = 0
+stat_channel = 0
+
+[bot.canned_food]
+command_role = 0 # role that allows members to use commands
+stat_channel = 0 # voice channel that will be renamed to show the total number of canned food reactions
+ping_channel = 0 # text channel where user pings for canned food will be sent
+delay = [0,0] # range of ms that the bot should wait before reacting
+
+[bot.family_guy]
+cache_channel = 0 # channel where clips are stored (as attachments)
+public_channel = 0 # guild channel that acts like a user's dms and will have clips sent to just like any other user
+stat_channel = 0 # voice channel that will be renamed to show total number of clips sent
+frequency = 00:00:00 # how often a single user should expect to be sent a clip
+test = 0 # if present will send messages here instead of dms
+
+[bot.benbebot.motd]
+cron = "0 0 0 0 0 0" # cron string that states when a motd should be sent
+channel = 0 # channel that motds will be sent
+endpoint = "/tags/soundclown" # soundcloud api endpoint that is used to search for motd
+stat_channel = 0 # voice channel that will be renamed to show total number of motd sent
+
+[bot.benbebot.mashup_radio]
+channel = 0 # voice channel that the bot should join when another user joins to play soundcloud tracks
+endpoint = "" # soundcloud api endpoint that is used to get tracks to play (/users/<userid>/likes)
+
+[bot.benbebot.ad_extractor]
+channel = 0 # channel that will be used to extract ads from youtube
+
+[bot.benbebot.pinger]
+stat_channel = 0 # voice channel that will be renamed to show total number of pings sent
+frequency = 00:00:00 # frequency that pings should be sent
+webhook = ""
+
+[bot.benbebot.opp]
+check_interval = 00:00:00 # frequency at which outlast trials should be checked for updates
+
+[bot.benbebot.ping_everything]
+stat_channel = 0
+
+[bot.benbebot.extra_webhooks]
+category = 0 # catagory to store proxy channels
+webhook = ""
+
+[bot.benbebot.notifications]
+callback = "" # callback url that will be used in subs
+webhook = ""
+
+[bot.bank_bemer]
+frequency = 00:00:00
+mirror = 0
+
+[bot.don_cheadle]
+send_time = 00:00:00
+webhook = ""

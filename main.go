@@ -1,13 +1,9 @@
 package main
 
 import (
-	"context"
 	"encoding/binary"
 	"fmt"
-	"io"
 	"io/fs"
-	"log"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -21,12 +17,13 @@ import (
 	"benbebop.net/benbebots/internal/heartbeat"
 	"benbebop.net/benbebots/internal/logger"
 	"benbebop.net/benbebots/internal/platform"
+	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/session"
 	netrc "github.com/fhs/go-netrc/netrc"
 	"github.com/go-co-op/gocron/v2"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/syndtr/goleveldb/leveldb"
-	"gopkg.in/ini.v1"
 )
 
 func AnnounceReady(ready *gateway.ReadyEvent) {
@@ -38,29 +35,44 @@ type Benbebots struct{}
 var (
 	cron        gocron.Scheduler
 	logs        *logger.DiscordLogger
-	config      *ini.File
-	component   *components.Components
 	lvldb       *leveldb.DB
 	heartbeater heartbeat.Heartbeater
 	tokens      map[string]netrc.Machine
 	httpc       *http.ServeMux
-	dirs        struct {
-		data string
-		temp string
-		run  string
-	}
 )
+
+var config struct {
+	LogHook    string                `toml:"log_hook"`
+	StatusHook string                `toml:"status_hook"`
+	Components components.Components `toml:"components"`
+	Dirs       struct {
+		Cache string `toml:"cache"`
+		Temp  string `toml:"temp"`
+	} `toml:"directories"`
+	Servers struct {
+		Benbebots discord.GuildID `toml:"benbebots"`
+		BreadBag  discord.GuildID `toml:"bread_bag"`
+	} `toml:"servers"`
+	Bot struct {
+		Fnaf       FnafConfig       `toml:"fnaf"`
+		CannedFood CannedFoodConfig `toml:"canned_food"`
+		FamilyGuy  FamilyGuyConfig  `toml:"family_guy"`
+		Benbebots  BenbebotConfig   `toml:"benbebot"`
+		DonCheadle DonCheadleConfig `toml:"don_cheadle"`
+	} `toml:"bot"`
+}
 
 func main() {
 	var err error
 
 	{ // config
-		config, err = ini.LoadSources(ini.LoadOptions{
-			Loose:                     true,
-			Insensitive:               true,
-			UnescapeValueDoubleQuotes: true,
-			AllowShadows:              true,
-		}, "config.ini")
+		f, err := os.Open("config.toml")
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		err = toml.NewDecoder(f).Decode(&config)
+		f.Close()
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -68,37 +80,27 @@ func main() {
 	}
 
 	{ // directories
-		sec := config.Section("directories")
-
-		dir, err := platform.GetDataDir(fs.FileMode(0777))
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+		if config.Dirs.Cache == "" {
+			dir, err := platform.GetDataDir(fs.FileMode(0777))
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+			config.Dirs.Cache = dir
 		}
-		dirs.data = sec.Key("cache").MustString(dir)
 
-		dir, err = platform.GetTempDir(fs.FileMode(0777))
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+		if config.Dirs.Temp == "" {
+			dir, err := platform.GetTempDir(fs.FileMode(0777))
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+			config.Dirs.Temp = dir
 		}
-		dirs.temp = sec.Key("temp").MustString(dir)
-
-		dir, err = platform.GetRuntimeDir(fs.FileMode(0777))
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		dirs.run = sec.Key("run").MustString(dir)
 	}
 
 	{ // logger
-		k, err := config.Section("webhooks").GetKey("log")
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		logs, err = logger.NewDiscordLogger(2, filepath.Join(dirs.data, "logs"), k.String())
+		logs, err = logger.NewDiscordLogger(2, filepath.Join(config.Dirs.Cache, "logs"), config.LogHook)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -106,20 +108,9 @@ func main() {
 		logs.PrintLogLevel = 0
 	}
 
-	{ // components
-		component, err = components.NewComponents(config.Section("components"))
-		if err != nil {
-			logs.Fatal("%s", err)
-		}
-	}
-
 	{ // heartbeater
-		heartbeater.Filepath = dirs.temp + "heartbeat"
-		k, err := config.Section("webhooks").GetKey("status")
-		if err != nil {
-			logs.Fatal("%s", err)
-		}
-		heartbeater.Webhook = k.String()
+		heartbeater.Filepath = config.Dirs.Temp + "heartbeat"
+		heartbeater.Webhook = config.StatusHook
 	}
 
 	{ // cron
@@ -144,7 +135,7 @@ func main() {
 	}
 
 	{ // leveldb
-		lvldb, err = leveldb.OpenFile(filepath.Join(dirs.data, "leveldb"), nil)
+		lvldb, err = leveldb.OpenFile(filepath.Join(config.Dirs.Cache, "leveldb"), nil)
 		if err != nil {
 			logs.Fatal("%s", err)
 		}
@@ -197,7 +188,7 @@ func main() {
 		}
 	}
 
-	{ // http socket
+	/*{ // http socket
 		httpc = http.NewServeMux()
 
 		httpc.HandleFunc("/discord/test/echo", func(w http.ResponseWriter, r *http.Request) {
@@ -211,12 +202,12 @@ func main() {
 		}
 		defer client.Shutdown(context.Background())
 
-		l, err := net.Listen("unix", filepath.Join(dirs.run, "http.sock"))
+		l, err := net.Listen("unix", filepath.Join(config.Dirs.Temp, "http.sock"))
 		if err != nil {
 			logs.Fatal("%s", err)
 		}
 		go client.Serve(l)
-	}
+	}*/
 
 	bots := reflect.ValueOf(&Benbebots{})
 	var clients struct {
