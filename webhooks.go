@@ -32,7 +32,12 @@ func (Benbebots) DONCHEADLE() *session.Session {
 	}
 
 	go func() {
+		var release io.Closer
 		for {
+			if release != nil {
+				release.Close()
+				release = nil
+			}
 			wait := time.Until(time.Now().Add(-config.Bot.DonCheadle.SendTime).Round(time.Hour * 24).Add(config.Bot.DonCheadle.SendTime))
 			if wait <= DON_CHEADLE_MIN_TIME {
 				time.Sleep(DON_CHEADLE_MIN_TIME)
@@ -46,6 +51,7 @@ func (Benbebots) DONCHEADLE() *session.Session {
 				logs.ErrorQuick(err)
 				continue
 			}
+			release = resp.Body
 
 			var raw bytes.Buffer
 			var words []string
