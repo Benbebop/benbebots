@@ -6,6 +6,8 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -144,6 +146,14 @@ func (l *DiscordLogger) Dump(data []byte, level int, msg string, args ...any) ui
 	}
 	file.Close()
 	return id
+}
+
+func (l *DiscordLogger) DumpResponse(resp *http.Response, body bool, level int, msg string, args ...any) (uint32, error) {
+	b, err := httputil.DumpResponse(resp, body)
+	if err != nil {
+		return 0, err
+	}
+	return l.Dump(b, level, msg, args...), nil
 }
 
 func (l *DiscordLogger) Fatal(msg string, args ...any) {

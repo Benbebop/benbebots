@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -45,12 +47,14 @@ func (Benbebots) DONCHEADLE() *session.Session {
 				continue
 			}
 
+			var raw bytes.Buffer
 			var words []string
-			s, _ := logs.Assert(json.NewDecoder(resp.Body).Decode(&words))
+			s, _ := logs.Assert(json.NewDecoder(io.TeeReader(resp.Body, &raw)).Decode(&words))
 			if s {
 				continue
 			} else if len(words) <= 0 {
-				logs.Error("no words returned")
+				resp.Body = io.NopCloser(bytes.NewReader(raw.Bytes()))
+				logs.DumpResponse(resp, true, 2, "no words returned")
 				continue
 			}
 
