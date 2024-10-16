@@ -4,9 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"crypto/hmac"
-	crand "crypto/rand"
-	"crypto/sha1"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -18,7 +15,6 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"path"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -26,7 +22,6 @@ import (
 	"sync"
 	"time"
 
-	"benbebop.net/benbebots/internal/pubsubhubbub"
 	"benbebop.net/benbebots/internal/soundcloud"
 	"benbebop.net/benbebots/internal/stats"
 	"github.com/diamondburned/arikawa/v3/api"
@@ -43,7 +38,6 @@ import (
 	"github.com/diamondburned/oggreader"
 	"github.com/go-co-op/gocron/v2"
 	"github.com/google/go-querystring/query"
-	"github.com/mmcdole/gofeed/atom"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
@@ -1223,153 +1217,12 @@ func (benbebot) EXTRA_WEBHOOKS(client *state.State) {
 	})
 }
 
-type notificationsConfig struct {
-	Callback string `toml:"callback"`
-	Webhook  string `toml:"webhook"`
-}
-
-func (benbebot) NOTIFICATIONS(client *state.State, router *cmdroute.Router) {
-	var atomParser atom.Parser
-	hub := pubsubhubbub.NewClient("https://pubsubhubbub.appspot.com/subscribe")
-	//channel := discord.ChannelID(cfgSec.Key("notifschannel").MustUint64(0))
-
-	web, err := webhook.NewFromURL(config.Bot.Benbebots.Notifs.Webhook)
-	if err != nil {
-		logs.Fatal("%s", err)
-	}
-
-	callbackUrl, err := url.Parse(config.Bot.Benbebots.Notifs.Callback)
-	if err != nil {
-		logs.Fatal("%s", err)
-	}
-
-	httpc.HandleFunc(callbackUrl.Path, hub.Handle)
-
-	hub.Handler = func(w http.ResponseWriter, r *http.Request) {
-		key, err := lvldb.Get([]byte("pubsubhubbubSecret"+r.URL.Query().Get("id")), nil)
-		if errors.Is(err, leveldb.ErrNotFound) {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		mac := hmac.New(sha1.New, key)
-		feed, err := atomParser.Parse(io.TeeReader(r.Body, mac))
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		if !hmac.Equal(mac.Sum(nil), []byte(r.Header.Get("X-Hub-Signature"))) {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-		for _, entry := range feed.Entries {
-			m := webhook.ExecuteData{}
-			if len(entry.Links) >= 1 {
-				m.Content = entry.Links[0].Href
-			}
-			if len(entry.Authors) >= 1 {
-				m.Username = entry.Authors[0].Name
-			}
-			web.Execute(m)
-		}
-	}
-
-	router.AddFunc("subscribe", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
-		options := struct {
-			Url   string `discord:"url"`
-			Unsub bool   `discord:"unsub?"`
-		}{}
-
-		if err := data.Options.Unmarshal(&options); err != nil {
-			return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-		}
-
-		u, err := url.Parse(options.Url)
-		if err != nil {
-			return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-		}
-
-		switch u.Hostname() {
-		case "www.youtube.com":
-			var form struct {
-				pubsubhubbub.SubscriptionRequest
-				Verify string `url:"hub.verify,omitempty"`
-				Token  string `url:"hub.verify_token,omitempty"`
-			}
-
-			var chanId string
-			ident := path.Base(u.Path)
-			if strings.HasPrefix(ident, "@") {
-
-			} else {
-				chanId = ident
-			}
-			form.Topic = "https://www.youtube.com/feeds/videos.xml?channel_id=" + chanId
-			newUrl := callbackUrl
-			newUrlValues := newUrl.Query()
-			newUrlValues.Set("id", chanId)
-			newUrl.RawQuery = newUrlValues.Encode()
-			form.Callback = newUrl.String()
-
-			if options.Unsub {
-				form.Mode = pubsubhubbub.ModeUnsubscribe
-				secret, err := lvldb.Get([]byte("pubsubhubbubSecret"+chanId), nil)
-				if err != nil {
-					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-				}
-				form.Secret = string(secret)
-			} else {
-				form.Mode = pubsubhubbub.ModeSubscribe
-				exist, err := lvldb.Has([]byte("pubsubhubbubSecret"+chanId), nil)
-				if err != nil {
-					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-				}
-				if exist {
-					return &api.InteractionResponseData{
-						Content: option.NewNullableString("already subscribed"),
-						Flags:   discord.EphemeralMessage,
-					}
-				}
-				secret := make([]byte, 40)
-				_, err = crand.Read(secret)
-				if err != nil {
-					return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-				}
-				form.Secret = string(secret)
-			}
-
-			client.RespondInteraction(data.Event.ID, data.Event.Token, api.InteractionResponse{
-				Type: api.DeferredMessageInteractionWithSource,
-			})
-			serr := hub.Subscribe(form)
-			if !errors.Is(serr.Error, pubsubhubbub.ErrTimeout) {
-				return logs.InteractionResponse(logs.Error("pubsubhubbub: %s: %s", serr.Error.Error(), serr.Reason), serr.Reason)
-			} else if serr.Error != nil {
-				return logs.InteractionResponse(logs.ErrorQuick(serr.Error), serr.Error.Error())
-			}
-			err := lvldb.Put([]byte("pubsubhubbubSecret"+chanId), []byte(form.Secret), nil)
-			if err != nil {
-				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
-			}
-			return &api.InteractionResponseData{
-				Content: option.NewNullableString("success"),
-				Flags:   discord.EphemeralMessage,
-			}
-		default:
-			return &api.InteractionResponseData{
-				Content: option.NewNullableString("website unsupported"),
-				Flags:   discord.EphemeralMessage,
-			}
-		}
-	})
-}
-
 type BenbebotConfig struct {
 	MOTD           motdConfig           `toml:"motd"`
 	AdExtractor    adExtractorConfig    `toml:"ad_extractor"`
 	Pinger         pingerConfig         `toml:"pinger"`
 	PingEverything pingEverythingConfig `toml:"ping_everything"`
 	ExtraWebhooks  extraWebhooksConfig  `toml:"extra_webhooks"`
-	Notifs         notificationsConfig  `toml:"notifications"`
 }
 
 func (Benbebots) BENBEBOT() *session.Session {

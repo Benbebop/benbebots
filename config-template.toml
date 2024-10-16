@@ -15,7 +15,6 @@ canned_food = true
 permaroles = true
 ping_everything = true
 extra_webhooks = true
-notifications = true
 don_cheatle = true
 
 [programs]

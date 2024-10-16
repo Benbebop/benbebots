@@ -190,27 +190,6 @@ func main() {
 		}
 	}
 
-	/*{ // http socket
-		httpc = http.NewServeMux()
-
-		httpc.HandleFunc("/discord/test/echo", func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusOK)
-			io.Copy(w, r.Body)
-		})
-
-		client := &http.Server{
-			Handler:  httpc,
-			ErrorLog: log.New(log.Writer(), "[ERR] ", 0),
-		}
-		defer client.Shutdown(context.Background())
-
-		l, err := net.Listen("unix", filepath.Join(config.Dirs.Temp, "http.sock"))
-		if err != nil {
-			logs.Fatal("%s", err)
-		}
-		go client.Serve(l)
-	}*/
-
 	bots := reflect.ValueOf(&Benbebots{})
 	var clients struct {
 		sync.Mutex
