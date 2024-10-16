@@ -11,7 +11,6 @@ import (
 	"reflect"
 	"strings"
 	"sync"
-	"syscall"
 
 	"benbebop.net/benbebots/internal/components"
 	"benbebop.net/benbebots/internal/heartbeat"
@@ -20,6 +19,7 @@ import (
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/session"
+	"github.com/diamondburned/arikawa/v3/state"
 	netrc "github.com/fhs/go-netrc/netrc"
 	"github.com/go-co-op/gocron/v2"
 	"github.com/pelletier/go-toml/v2"
@@ -190,23 +190,25 @@ func main() {
 		}
 	}
 
-	bots := reflect.ValueOf(&Benbebots{})
+	bots := reflect.TypeFor[Benbebots]()
 	var clients struct {
 		sync.Mutex
 		sessions []*session.Session
 	}
 
 	var waitGroup sync.WaitGroup
-	values := []reflect.Value{}
+	values := []reflect.Value{
+		reflect.ValueOf(Benbebots{}),
+	}
 	if argLen > 2 && os.Args[1] == "test" {
-		bot := bots.MethodByName(strings.ToUpper(os.Args[2]))
-		if !bot.IsValid() || bot.IsZero() {
+		bot, found := bots.MethodByName(strings.ToUpper(os.Args[2]))
+		if !found {
 			fmt.Printf("bot %s does not exist\n", os.Args[2])
 			return
 		}
 		waitGroup.Add(1)
 		go func() {
-			client := bot.Call(values)[0].Interface().(*session.Session)
+			client := bot.Func.Call(values)[0].Interface().(*session.Session)
 			waitGroup.Done()
 			if client == nil {
 				return
@@ -222,15 +224,18 @@ func main() {
 			bot := bots.Method(i)
 			waitGroup.Add(1)
 			go func() {
-				client := bot.Call(values)[0].Interface().(*session.Session)
-				waitGroup.Done()
-				if client == nil {
-					return
+				rs := bot.Func.Call(values)
+				if len(rs) > 0 {
+					r := rs[0].Interface()
+					clients.Lock()
+					switch r.(type) {
+					case *state.State:
+						clients.sessions = append(clients.sessions, r.(*state.State).Session)
+					case *session.Session:
+						clients.sessions = append(clients.sessions, r.(*session.Session))
+					}
+					clients.Unlock()
 				}
-
-				clients.Lock()
-				clients.sessions = append(clients.sessions, client)
-				clients.Unlock()
 			}()
 		}
 	}
@@ -239,7 +244,7 @@ func main() {
 	cron.Start()
 
 	exit := make(chan os.Signal, 1)
-	signal.Notify(exit, syscall.SIGTERM, syscall.SIGINT)
+	signal.Notify(exit, os.Interrupt, os.Kill)
 
 	<-exit
 
