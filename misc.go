@@ -2,9 +2,7 @@ package main
 
 import (
 	"context"
-	"embed"
 	"errors"
-	"io"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -15,86 +13,8 @@ import (
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/session"
-	"github.com/diamondburned/arikawa/v3/utils/sendpart"
 	"github.com/syndtr/goleveldb/leveldb"
 )
-
-func getWaitTime(now time.Time, gnerbtime time.Duration, dayAdd int) (time.Duration, time.Time) {
-	year, month, day := now.Date()
-	postTime := time.Date(year, month, day+dayAdd, 0, 0, 0, 0, now.Location()).Add(time.Duration(gnerbtime))
-	waitTime := postTime.Sub(now)
-	if waitTime < 0 {
-		return getWaitTime(now, gnerbtime, dayAdd+1)
-	}
-	return waitTime, postTime
-}
-
-//go:embed resource/pou.png
-var gnerbFS embed.FS
-var gnerbReader io.Reader
-var gnerbTimer *time.Timer
-
-type FnafConfig struct {
-	Time        time.Duration     `toml:"pou_time"`
-	Destination discord.ChannelID `toml:"destination"`
-	StatChannel discord.ChannelID `toml:"stat_channel"`
-}
-
-func (Benbebots) FNAF() *session.Session { // gnerb
-	if !config.Components.IsEnabled("gnerb") {
-		logs.Info("gnerb component has been disabled")
-		return nil
-	}
-
-	client := api.NewClient("Bot " + tokens["fnaf"].Password)
-
-	fnafStat := stats.Stat{
-		Name:      "Gnerbs",
-		Value:     0,
-		Client:    client,
-		ChannelID: config.Bot.Fnaf.StatChannel,
-		LevelDB:   lvldb,
-		Delay:     time.Second * 5,
-	}
-	fnafStat.Initialise()
-
-	defer func() {
-		go func() {
-			sleep, _ := getWaitTime(time.Now().UTC(), config.Bot.Fnaf.Time, 0)
-			logs.Info("sending next pou in %dm.", sleep/time.Minute)
-			for {
-				gnerbTimer = time.NewTimer(sleep)
-				<-gnerbTimer.C
-
-				var err error
-				gnerbReader, err = gnerbFS.Open("resource/pou.png")
-				if err != nil {
-					logs.Fatal("%s", err)
-				}
-				_, err = client.SendMessageComplex(config.Bot.Fnaf.Destination, api.SendMessageData{
-					Files: []sendpart.File{{
-						Name:   "pou.png",
-						Reader: gnerbReader,
-					}},
-				})
-				if err != nil {
-					logs.ErrorQuick(err)
-					continue
-				}
-
-				fnafStat.Increment(1)
-			}
-		}()
-	}()
-
-	me, err := client.Me()
-	if err == nil {
-		AnnounceReady(&gateway.ReadyEvent{
-			User: *me,
-		})
-	}
-	return nil
-}
 
 func LoginCannedFood() (*session.Session, error) {
 	var err error

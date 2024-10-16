@@ -32,6 +32,7 @@ benbebots = 0 # this is the bot's home server
 bread_bag = 0
 
 [bot.fnaf]
+source = ""
 pou_time = 00:00:00
 destination = 0
 stat_channel = 0

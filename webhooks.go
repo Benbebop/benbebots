@@ -8,7 +8,10 @@ import (
 	"net/http"
 	"time"
 
+	"benbebop.net/benbebots/internal/scheduler"
 	"github.com/diamondburned/arikawa/v3/api/webhook"
+	"github.com/diamondburned/arikawa/v3/discord"
+	"github.com/diamondburned/arikawa/v3/gateway"
 )
 
 const DON_CHEADLE_MIN_TIME = time.Minute * 5
@@ -36,11 +39,7 @@ func (Benbebots) DONCHEADLE() {
 				release.Close()
 				release = nil
 			}
-			wait := time.Until(time.Now().Add(-config.Bot.DonCheadle.SendTime).Round(time.Hour * 24).Add(config.Bot.DonCheadle.SendTime))
-			if wait <= DON_CHEADLE_MIN_TIME {
-				time.Sleep(DON_CHEADLE_MIN_TIME)
-				continue
-			}
+			wait := scheduler.TimeToDaily(config.Bot.DonCheadle.SendTime)
 			logs.Info("sending next don cheadle wotd in %fh", wait.Hours())
 			time.Sleep(wait)
 
@@ -67,5 +66,10 @@ func (Benbebots) DONCHEADLE() {
 			}))
 		}
 	}()
-	return
+
+	AnnounceReady(&gateway.ReadyEvent{
+		User: discord.User{
+			Username: "Don Cheadle",
+		},
+	})
 }
