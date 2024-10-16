@@ -1227,6 +1227,9 @@ type BenbebotConfig struct {
 
 func (Benbebots) BENBEBOT() *session.Session {
 	client := state.New("Bot " + tokens["benbebot"].Password)
+	client.AddIntents(gateway.IntentGuildPresences | gateway.IntentGuildMembers | gateway.IntentMessageContent) // privileged
+	client.AddIntents(gateway.IntentGuildMessages | gateway.IntentDirectMessages)
+	client.AddIntents(gateway.IntentGuilds)
 	client.AddHandler(AnnounceReady)
 	client.AddHandler(heartbeater.Init)
 	client.AddHandler(heartbeater.Heartbeat)
