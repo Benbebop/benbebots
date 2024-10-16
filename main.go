@@ -225,17 +225,17 @@ func main() {
 			waitGroup.Add(1)
 			go func() {
 				rs := bot.Func.Call(values)
-				if len(rs) > 0 {
-					r := rs[0].Interface()
-					clients.Lock()
+				clients.Lock()
+				for _, r := range rs {
+					r := r.Interface()
 					switch r.(type) {
 					case *state.State:
 						clients.sessions = append(clients.sessions, r.(*state.State).Session)
 					case *session.Session:
 						clients.sessions = append(clients.sessions, r.(*session.Session))
 					}
-					clients.Unlock()
 				}
+				clients.Unlock()
 			}()
 		}
 	}

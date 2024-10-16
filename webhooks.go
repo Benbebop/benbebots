@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/diamondburned/arikawa/v3/api/webhook"
-	"github.com/diamondburned/arikawa/v3/session"
 )
 
 const DON_CHEADLE_MIN_TIME = time.Minute * 5
@@ -20,10 +19,10 @@ type DonCheadleConfig struct {
 	Webhook  string        `toml:"webhook"`
 }
 
-func (Benbebots) DONCHEADLE() *session.Session {
+func (Benbebots) DONCHEADLE() {
 	if !config.Components.IsEnabled("doncheatle") {
 		logs.Info("don cheadle component has been disabled")
-		return nil
+		return
 	}
 	client, err := webhook.NewFromURL(config.Bot.DonCheadle.Webhook)
 	if err != nil {
@@ -68,5 +67,5 @@ func (Benbebots) DONCHEADLE() *session.Session {
 			}))
 		}
 	}()
-	return nil
+	return
 }
