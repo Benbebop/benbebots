@@ -600,6 +600,7 @@ func (benbebot) PINGER(client *state.State, router *cmdroute.Router) {
 			ChannelID: config.Bot.Benbebots.Pinger.StatChannel,
 			Delay:     time.Second * 5,
 		},
+		toPing: make(map[discord.UserID]uint64),
 	}
 	var err error
 	ping.hook, err = webhook.NewFromURL(config.Bot.Benbebots.Pinger.Webhook)
