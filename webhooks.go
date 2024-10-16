@@ -25,7 +25,6 @@ func (Benbebots) DONCHEADLE() *session.Session {
 		logs.Info("don cheadle component has been disabled")
 		return nil
 	}
-	fmt.Println(config.Bot.DonCheadle.Webhook)
 	client, err := webhook.NewFromURL(config.Bot.DonCheadle.Webhook)
 	if err != nil {
 		logs.Fatal("%s", err)
