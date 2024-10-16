@@ -1,6 +1,6 @@
 module benbebop.net/benbebots
 
-go 1.22.6
+go 1.23.0
 
 require (
 	github.com/Benbebop/go-binary-encode v0.0.0-20240908091223-2b01bdcf7c7d
