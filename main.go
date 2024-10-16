@@ -4,13 +4,13 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io/fs"
-	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
+	"syscall"
 
 	"benbebop.net/benbebots/internal/components"
 	"benbebop.net/benbebots/internal/heartbeat"
@@ -38,7 +38,6 @@ var (
 	lvldb       *leveldb.DB
 	heartbeater heartbeat.Heartbeater
 	tokens      map[string]netrc.Machine
-	httpc       *http.ServeMux
 )
 
 var config struct {
@@ -228,11 +227,11 @@ func main() {
 				clients.Lock()
 				for _, r := range rs {
 					r := r.Interface()
-					switch r.(type) {
+					switch r := r.(type) {
 					case *state.State:
-						clients.sessions = append(clients.sessions, r.(*state.State).Session)
+						clients.sessions = append(clients.sessions, r.Session)
 					case *session.Session:
-						clients.sessions = append(clients.sessions, r.(*session.Session))
+						clients.sessions = append(clients.sessions, r)
 					}
 				}
 				clients.Unlock()
@@ -244,7 +243,7 @@ func main() {
 	cron.Start()
 
 	exit := make(chan os.Signal, 1)
-	signal.Notify(exit, os.Interrupt, os.Kill)
+	signal.Notify(exit, os.Interrupt, syscall.SIGTERM)
 
 	<-exit
 
