@@ -19,6 +19,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -232,6 +233,8 @@ func (mr *MRadio) Stop() {
 	mr.Unlock()
 }
 
+type benbebot struct{}
+
 type motdConfig struct {
 	Cron        string            `toml:"cron"`
 	Channel     discord.ChannelID `toml:"channel"`
@@ -239,7 +242,7 @@ type motdConfig struct {
 	StatChannel discord.ChannelID `toml:"stat_channel"`
 }
 
-func motd(client *state.State) {
+func (benbebot) MOTD(client *state.State) {
 	scClient := soundcloud.Client{
 		MaxRetries: 1,
 		LevelDB:    lvldb,
@@ -425,7 +428,7 @@ func motd(client *state.State) {
 
 var errTooLong = errors.New("too long woops")
 
-func logCommand(router *cmdroute.Router) {
+func (benbebot) LOG_COMMAND(_ *state.State, router *cmdroute.Router) {
 	router.AddFunc("getlog", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
 		var options = struct {
 			Id string `discord:"id"`
@@ -451,7 +454,7 @@ func logCommand(router *cmdroute.Router) {
 
 var errSenderNil = errors.New("sender is 0")
 
-func sexCommand(client *state.State, router *cmdroute.Router) {
+func (benbebot) SEX_COMMAND(client *state.State, router *cmdroute.Router) {
 	router.AddFunc("sex", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
 		sndr := data.Event.SenderID()
 		if sndr == 0 {
@@ -475,7 +478,7 @@ type adExtractorConfig struct {
 	Channel discord.ChannelID `toml:"channel"`
 }
 
-func adExtractor(client *state.State) {
+func (benbebot) AD_EXTRACTOR(client *state.State) {
 	client.AddHandler(func(message *gateway.MessageCreateEvent) {
 		if message.ChannelID != config.Bot.Benbebots.AdExtractor.Channel {
 			return
@@ -593,7 +596,7 @@ func (p *pinger) wake() {
 
 const pingerDatabasePrefix = "pingsFor"
 
-func pingerFunc(client *state.State, router *cmdroute.Router) {
+func (benbebot) PINGER(client *state.State, router *cmdroute.Router) {
 	ping := pinger{
 		stat: stats.Stat{
 			Name:      "Pings",
@@ -758,7 +761,7 @@ func (p *permaroles) Get(user discord.UserID) ([]discord.RoleID, error) {
 	return roles, nil
 }
 
-func permarolesFunc(client *state.State, router *cmdroute.Router) {
+func (benbebot) PERMAROLES(client *state.State, router *cmdroute.Router) {
 	pr := permaroles{
 		DB: lvldb,
 	}
@@ -923,7 +926,7 @@ type pingEverythingConfig struct {
 	StatChannel discord.ChannelID `toml:"stat_channel"`
 }
 
-func pingEverything(client *state.State) {
+func (benbebot) PING_EVERYTHING(client *state.State) {
 	eStat := stats.Stat{
 		Name:      "Everythings Pinged",
 		Value:     0,
@@ -1023,7 +1026,7 @@ type extraWebhooksConfig struct {
 	Webhook  string            `toml:"webhook"`
 }
 
-func extraWebhooks(client *state.State) {
+func (benbebot) EXTRA_WEBHOOKS(client *state.State) {
 	wh, err := webhook.NewFromURL(config.Bot.Benbebots.ExtraWebhooks.Webhook)
 	if err != nil {
 		logs.Fatal("%s", err)
@@ -1225,7 +1228,7 @@ type notificationsConfig struct {
 	Webhook  string `toml:"webhook"`
 }
 
-func notifications(client *state.State, router *cmdroute.Router) {
+func (benbebot) NOTIFICATIONS(client *state.State, router *cmdroute.Router) {
 	var atomParser atom.Parser
 	hub := pubsubhubbub.NewClient("https://pubsubhubbub.appspot.com/subscribe")
 	//channel := discord.ChannelID(cfgSec.Key("notifschannel").MustUint64(0))
@@ -1371,48 +1374,24 @@ type BenbebotConfig struct {
 
 func (Benbebots) BENBEBOT() *session.Session {
 	client := state.New("Bot " + tokens["benbebot"].Password)
-	client.AddIntents(gateway.IntentGuildPresences | gateway.IntentGuildMembers | gateway.IntentMessageContent) // privileged
-	client.AddIntents(gateway.IntentGuildMessages | gateway.IntentDirectMessages)
-	client.AddIntents(gateway.IntentGuilds)
 	client.AddHandler(AnnounceReady)
 	client.AddHandler(heartbeater.Init)
 	client.AddHandler(heartbeater.Heartbeat)
 	router := cmdroute.NewRouter()
 
-	if config.Components.IsEnabled("motd") {
-		motd(client)
+	args := []reflect.Value{
+		reflect.ValueOf(benbebot{}),
+		reflect.ValueOf(client),
+		reflect.ValueOf(router),
 	}
 
-	if config.Components.IsEnabled("logcommand") {
-		logCommand(router)
-	}
+	b := reflect.TypeFor[benbebot]()
+	for i := 0; i < b.NumMethod(); i++ {
+		m := b.Method(i)
 
-	if config.Components.IsEnabled("sexcommand") {
-		sexCommand(client, router)
-	}
-
-	if config.Components.IsEnabled("adextractor") {
-		adExtractor(client)
-	}
-
-	if config.Components.IsEnabled("pinger") {
-		pingerFunc(client, router)
-	}
-
-	if config.Components.IsEnabled("permaroles") {
-		permarolesFunc(client, router)
-	}
-
-	if config.Components.IsEnabled("pingeverything") {
-		pingEverything(client)
-	}
-
-	if config.Components.IsEnabled("extrawebhooks") {
-		extraWebhooks(client)
-	}
-
-	if config.Components.IsEnabled("notifications") {
-		notifications(client, router)
+		if config.Components.IsEnabled(strings.ToLower(m.Name)) {
+			m.Func.Call(args[:m.Type.NumIn()])
+		}
 	}
 
 	client.AddInteractionHandler(router)
