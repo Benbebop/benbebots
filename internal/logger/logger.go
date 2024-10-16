@@ -247,6 +247,7 @@ func (l *DiscordLogger) CatchCrash() error {
 	if !errors.Is(err, os.ErrNotExist) && err != nil {
 		return err
 	}
+	os.Remove(fp)
 
 	if len(b) > 0 {
 		short := string(b[:bytes.IndexByte(b, '\n')])
