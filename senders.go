@@ -13,7 +13,6 @@ import (
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/gateway"
-	"github.com/diamondburned/arikawa/v3/session"
 	"github.com/diamondburned/arikawa/v3/state"
 	"github.com/diamondburned/arikawa/v3/utils/json/option"
 	"github.com/diamondburned/arikawa/v3/utils/sendpart"
@@ -27,7 +26,7 @@ type FamilyGuyConfig struct {
 	Frequency     time.Duration     `toml:"frequency"`
 }
 
-func (Benbebots) FAMILYGUY() *session.Session {
+func (Benbebots) FAMILYGUY() *state.State {
 	if !config.Components.IsEnabled("familyguy") {
 		logs.Info("family guy component has been disabled")
 		return nil
@@ -134,7 +133,7 @@ func (Benbebots) FAMILYGUY() *session.Session {
 	})
 
 	client.Open(client.Context())
-	return client.Session
+	return client
 }
 
 type FnafConfig struct {
@@ -144,7 +143,7 @@ type FnafConfig struct {
 	StatChannel discord.ChannelID `toml:"stat_channel"`
 }
 
-func (Benbebots) FNAF() *session.Session { // gnerb
+func (Benbebots) FNAF() *api.Client { // gnerb
 	if !config.Components.IsEnabled("gnerb") {
 		logs.Info("gnerb component has been disabled")
 		return nil
@@ -195,7 +194,7 @@ func (Benbebots) FNAF() *session.Session { // gnerb
 			User: *me,
 		})
 	}
-	return nil
+	return client
 }
 
 /*func (Benbebots) BANKBEMER() *session.Session {
