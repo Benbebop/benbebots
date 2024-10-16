@@ -106,6 +106,8 @@ func main() {
 			os.Exit(1)
 		}
 		logs.PrintLogLevel = 0
+
+		logs.Assert(logs.CatchCrash())
 	}
 
 	{ // heartbeater
