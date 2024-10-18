@@ -23,7 +23,7 @@ type DonCheadleConfig struct {
 }
 
 func (Benbebots) DONCHEADLE() *webhook.Client {
-	if !config.Components.IsEnabled("doncheatle") {
+	if !config.Components.IsEnabled("don_cheadle") {
 		logs.Info("don cheadle component has been disabled")
 		return nil
 	}
@@ -67,7 +67,7 @@ func (Benbebots) DONCHEADLE() *webhook.Client {
 		}
 	}()
 
-	me, err := client.Get()
+	me, _ := client.Get()
 	AnnounceReady(&gateway.ReadyEvent{
 		User: discord.User{
 			Username: me.Name,
