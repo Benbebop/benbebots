@@ -43,6 +43,7 @@ var (
 var config struct {
 	LogHook    string                `toml:"log_hook"`
 	StatusHook string                `toml:"status_hook"`
+	LogLevel   int                   `toml:"log_level"`
 	Components components.Components `toml:"components"`
 	Dirs       struct {
 		Cache string `toml:"cache"`
@@ -104,7 +105,7 @@ func main() {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		logs.PrintLogLevel = 0
+		logs.PrintLogLevel = config.LogLevel
 
 		logs.Assert(logs.CatchCrash())
 	}

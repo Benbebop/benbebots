@@ -1,5 +1,6 @@
 log_hook = ""
 status_hook = ""
+log_level = 0
 
 [components]
 outlast_trials_diff = true
