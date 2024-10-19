@@ -302,8 +302,8 @@ type FnafConfig struct {
 }
 
 func (Benbebots) FNAF() *api.Client { // gnerb
-	if !config.Components.IsEnabled("gnerb") {
-		logs.Info("gnerb component has been disabled")
+	if !config.Components.IsEnabled("fnaf") {
+		logs.Info("fnaf component has been disabled")
 		return nil
 	}
 

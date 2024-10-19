@@ -3,7 +3,6 @@ status_hook = ""
 log_level = 0
 
 [components]
-outlast_trials_diff = true
 pinger = true
 ad_extractor = true
 sex_command = true
@@ -11,7 +10,7 @@ log_command = true
 mashup_radio = true
 motd = true
 family_guy = true
-gnerb = true
+fnaf = true
 canned_food = true
 permaroles = true
 ping_everything = true
