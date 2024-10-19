@@ -14,7 +14,6 @@ import (
 	"github.com/diamondburned/arikawa/v3/gateway"
 )
 
-const DON_CHEADLE_MIN_TIME = time.Minute * 5
 const RANDOM_WORD_URL = "https://random-word-api.herokuapp.com/word"
 
 type DonCheadleConfig struct {

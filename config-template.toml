@@ -21,8 +21,6 @@ don_cheatle = true
 [programs]
 ytdlp = ""
 ffmpeg = ""
-steam_cmd = "" # should point to ether the steamcmd executable or the steamcmd.sh bash script
-quick_bms = "" # should point to the regular quickbms executable without the exe extension if on windows (_4gb_files will be appended if required)
 
 [directories]
 cache = ""
