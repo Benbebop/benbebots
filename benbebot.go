@@ -810,7 +810,12 @@ func (benbebot) PERMAROLES(client *state.State, router *cmdroute.Router) {
 			}
 
 			roles, err := pr.Get(options.User)
-			if err != nil {
+			if errors.Is(err, leveldb.ErrNotFound) {
+				return &api.InteractionResponseData{
+					Content:         option.NewNullableString("user has no permaroles"),
+					AllowedMentions: &api.AllowedMentions{},
+				}
+			} else if err != nil {
 				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
 			}
 
@@ -880,7 +885,12 @@ func (benbebot) PERMAROLES(client *state.State, router *cmdroute.Router) {
 		})
 		r.AddFunc("list", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
 			roles, err := pr.Get(data.Event.SenderID())
-			if err != nil {
+			if errors.Is(err, leveldb.ErrNotFound) {
+				return &api.InteractionResponseData{
+					Content:         option.NewNullableString("you have no permaroles"),
+					AllowedMentions: &api.AllowedMentions{},
+				}
+			} else if err != nil {
 				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
 			}
 
