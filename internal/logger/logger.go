@@ -3,7 +3,6 @@ package logger
 import (
 	"bytes"
 	"crypto/sha1"
-	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
@@ -220,7 +219,7 @@ func (l *DiscordLogger) InteractionResponse(id uint32, title string) *api.Intera
 		}
 		stk += fmt.Sprintf("%s:%d 0x%x", file, line, pc)
 	}
-	idStr := base64.URLEncoding.EncodeToString(binary.BigEndian.AppendUint32(nil, id))
+	idStr := hex.EncodeToString(binary.BigEndian.AppendUint32(nil, id))
 
 	return &api.InteractionResponseData{
 		Flags: discord.EphemeralMessage,
