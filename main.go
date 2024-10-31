@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io/fs"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -11,11 +12,13 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"benbebop.net/benbebots/internal/components"
 	"benbebop.net/benbebots/internal/heartbeat"
 	"benbebop.net/benbebots/internal/logger"
 	"benbebop.net/benbebots/internal/platform"
+	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/session"
@@ -23,6 +26,7 @@ import (
 	netrc "github.com/fhs/go-netrc/netrc"
 	"github.com/go-co-op/gocron/v2"
 	"github.com/pelletier/go-toml/v2"
+	probing "github.com/prometheus-community/pro-bing"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
@@ -190,6 +194,38 @@ func main() {
 		}
 	}
 
+	// connectivity check
+	const cc = "%s, skipping connectivity check"
+	if !func() bool {
+		endpoint, err := url.Parse(api.BaseEndpoint)
+		if err != nil {
+			logs.Warn(cc, err)
+			return true
+		}
+
+		pinger, err := probing.NewPinger(endpoint.Hostname())
+		if err != nil {
+			logs.Warn(cc, err)
+			return true
+		}
+
+		pinger.SetPrivileged(true)
+
+		pinger.Timeout = time.Second * 5
+		pinger.Count = 1
+		err = pinger.Run()
+		if err != nil {
+			logs.Warn(cc, err)
+			return true
+		}
+
+		stats := pinger.Statistics()
+		return stats.PacketsRecv >= 1
+	}() {
+		logs.Error("cant connect to discord")
+		return
+	}
+
 	bots := reflect.TypeFor[Benbebots]()
 	var clients struct {
 		sync.Mutex
@@ -236,6 +272,7 @@ func main() {
 					}
 				}
 				clients.Unlock()
+				waitGroup.Done()
 			}()
 		}
 	}
