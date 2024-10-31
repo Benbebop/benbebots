@@ -23,6 +23,7 @@ import (
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/session"
 	"github.com/diamondburned/arikawa/v3/state"
+	"github.com/diamondburned/arikawa/v3/utils/ws"
 	netrc "github.com/fhs/go-netrc/netrc"
 	"github.com/go-co-op/gocron/v2"
 	"github.com/pelletier/go-toml/v2"
@@ -112,6 +113,13 @@ func main() {
 		logs.PrintLogLevel = config.LogLevel
 
 		logs.Assert(logs.CatchCrash())
+
+		ws.WSError = func(err error) {
+			logs.ErrorQuick(err)
+		}
+		ws.WSDebug = func(v ...interface{}) {
+			logs.Debug("%s", fmt.Sprint(v...))
+		}
 	}
 
 	{ // heartbeater
