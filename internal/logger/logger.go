@@ -60,6 +60,7 @@ const (
 	LevelError
 	LevelFatal
 	LevelPanic
+	LevelNone
 )
 
 func (l *DiscordLogger) out(level int, msg string, args []any) uint32 {
