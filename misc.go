@@ -40,7 +40,7 @@ type CannedFoodConfig struct {
 }
 
 func (Benbebots) CANNEDFOOD() *session.Session {
-	if !config.Components.IsEnabled("cannedfood") {
+	if !config.Components.IsEnabled("canned_food") {
 		logs.Info("canned food component has been disabled")
 		return nil
 	}

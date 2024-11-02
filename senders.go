@@ -22,7 +22,7 @@ type FamilyGuyConfig struct {
 }
 
 func (Benbebots) FAMILYGUY() *state.State {
-	if !config.Components.IsEnabled("familyguy") {
+	if !config.Components.IsEnabled("family_guy") {
 		logs.Info("family guy component has been disabled")
 		return nil
 	}
