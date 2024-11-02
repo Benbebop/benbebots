@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io/fs"
@@ -33,6 +34,23 @@ import (
 
 func AnnounceReady(ready *gateway.ReadyEvent) {
 	logs.Info("%s is ready", ready.User.Username)
+}
+
+func Start(client *session.Session) {
+	ready := make(chan *gateway.ReadyEvent)
+
+	rm := client.AddHandler(ready)
+
+	go func() {
+		err := client.Connect(context.Background())
+		if err != nil {
+			logs.Fatal("%s", err)
+		}
+	}()
+
+	<-ready
+	rm()
+	close(ready)
 }
 
 type Benbebots struct{}
@@ -240,62 +258,82 @@ func main() {
 		sessions []*session.Session
 	}
 
-	var waitGroup sync.WaitGroup
-	values := []reflect.Value{
-		reflect.ValueOf(Benbebots{}),
-	}
-	if argLen > 2 && os.Args[1] == "test" {
-		bot, found := bots.MethodByName(strings.ToUpper(os.Args[2]))
-		if !found {
-			fmt.Printf("bot %s does not exist\n", os.Args[2])
-			return
-		}
-		waitGroup.Add(1)
-		go func() {
-			client := bot.Func.Call(values)[0].Interface().(*session.Session)
-			waitGroup.Done()
-			if client == nil {
-				return
-			}
+	exit := make(chan os.Signal, 1)
 
-			clients.Lock()
-			clients.sessions = []*session.Session{client}
-			clients.Unlock()
-		}()
-	} else {
-		clients.sessions = make([]*session.Session, 0, bots.NumMethod())
-		for i := 0; i < bots.NumMethod(); i++ {
-			bot := bots.Method(i)
+	logs.OnFatal = func() {
+		exit <- os.Interrupt
+		select {}
+	}
+
+	go func() {
+		var waitGroup sync.WaitGroup
+		values := []reflect.Value{
+			reflect.ValueOf(Benbebots{}),
+		}
+		if argLen > 2 && os.Args[1] == "test" {
+			bot, found := bots.MethodByName(strings.ToUpper(os.Args[2]))
+			if !found {
+				logs.Fatal("bot %s does not exist", os.Args[2])
+			}
 			waitGroup.Add(1)
 			go func() {
-				rs := bot.Func.Call(values)
-				clients.Lock()
-				for _, r := range rs {
-					r := r.Interface()
-					switch r := r.(type) {
-					case *state.State:
-						clients.sessions = append(clients.sessions, r.Session)
-					case *session.Session:
-						clients.sessions = append(clients.sessions, r)
-					}
-				}
-				clients.Unlock()
+				client := bot.Func.Call(values)[0].Interface().(*session.Session)
 				waitGroup.Done()
+				if client == nil {
+					return
+				}
+
+				clients.Lock()
+				clients.sessions = []*session.Session{client}
+				clients.Unlock()
 			}()
+		} else {
+			clients.sessions = make([]*session.Session, 0, bots.NumMethod())
+			for i := 0; i < bots.NumMethod(); i++ {
+				bot := bots.Method(i)
+				waitGroup.Add(1)
+				go func() {
+					rs := bot.Func.Call(values)
+					clients.Lock()
+					for _, r := range rs {
+						r := r.Interface()
+						switch r := r.(type) {
+						case *state.State:
+							if r != nil {
+								clients.sessions = append(clients.sessions, r.Session)
+							}
+						case *session.Session:
+							if r != nil {
+								clients.sessions = append(clients.sessions, r)
+							}
+						case error:
+							if r != nil {
+								logs.Fatal("%s", r)
+							}
+						}
+					}
+					clients.Unlock()
+					waitGroup.Done()
+				}()
+			}
 		}
-	}
-	waitGroup.Wait()
+		waitGroup.Wait()
 
-	cron.Start()
+		cron.Start()
+	}()
 
-	exit := make(chan os.Signal, 1)
 	signal.Notify(exit, os.Interrupt, syscall.SIGTERM)
 
 	<-exit
 
 	clients.Lock()
+	var notSuccess bool
 	for _, session := range clients.sessions {
-		logs.Assert(session.Close())
+		s, _ := logs.Assert(session.Close())
+		notSuccess = notSuccess || s
 	}
-	logs.Info("successfully terminated discord clients")
+	if !notSuccess {
+		logs.Info("successfully terminated discord clients")
+	}
+	os.Exit(0)
 }

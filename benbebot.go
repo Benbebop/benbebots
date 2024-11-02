@@ -1262,6 +1262,6 @@ func (Benbebots) BENBEBOT() *session.Session {
 	}
 
 	client.AddInteractionHandler(router)
-	client.Open(client.Context())
+	Start(client.Session)
 	return client.Session
 }

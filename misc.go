@@ -22,14 +22,10 @@ import (
 )
 
 func LoginCannedFood() (*session.Session, error) {
-	var err error
-	for i := 1; i < 3; i++ {
-		client, err := session.Login(context.Background(), tokens["cannedFood"].Login, tokens["cannedFood"].Password, "")
-		if err == nil {
-			lvldb.Put([]byte("cannedFoodToken"), []byte(client.Token), nil)
-			return client, nil
-		}
-		logs.ErrorQuick(err)
+	client, err := session.Login(context.Background(), tokens["cannedFood"].Login, tokens["cannedFood"].Password, "")
+	if err == nil {
+		lvldb.Put([]byte("cannedFoodToken"), []byte(client.Token), nil)
+		return client, nil
 	}
 	return nil, err
 }
@@ -290,7 +286,7 @@ func (Benbebots) CANNEDFOOD() *session.Session {
 		}
 	})
 
-	logs.Assert(client.Open(client.Context()))
+	Start(client)
 	return client
 }
 

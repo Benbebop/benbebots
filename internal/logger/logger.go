@@ -36,6 +36,9 @@ func NewDiscordLogger(loglevel int, dir string, wh string) (*DiscordLogger, erro
 		WebLogLevel:   loglevel,
 		Directory:     dir,
 		Webhook:       cl,
+		OnFatal: func() {
+			os.Exit(1)
+		},
 	}, nil
 }
 
@@ -45,6 +48,7 @@ type DiscordLogger struct {
 	WebLogLevel   int
 	Directory     string
 	Webhook       *webhook.Client
+	OnFatal       func()
 }
 
 var traceSterliser *regexp.Regexp = regexp.MustCompile("0[xX][0-9a-fA-F]+|goroutine [0-9]+")
@@ -153,7 +157,7 @@ func (l *DiscordLogger) DumpResponse(resp *http.Response, body bool, level int, 
 
 func (l *DiscordLogger) Fatal(msg string, args ...any) {
 	l.out(LevelFatal, msg, args)
-	os.Exit(1)
+	l.OnFatal()
 }
 
 func (l *DiscordLogger) Error(msg string, args ...any) uint32 {

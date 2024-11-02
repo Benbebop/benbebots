@@ -127,7 +127,7 @@ func (Benbebots) FAMILYGUY() *state.State {
 		}
 	})
 
-	client.Open(client.Context())
+	Start(client.Session)
 	return client
 }
 
