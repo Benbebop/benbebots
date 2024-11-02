@@ -36,15 +36,33 @@ func AnnounceReady(ready *gateway.ReadyEvent) {
 	logs.Info("%s is ready", ready.User.Username)
 }
 
-func Start(client *session.Session) {
+func Start(s *session.Session) {
 	ready := make(chan *gateway.ReadyEvent)
 
-	rm := client.AddHandler(ready)
+	rm := s.AddHandler(ready)
 
 	go func() {
-		err := client.Connect(context.Background())
-		if err != nil {
-			logs.Fatal("%s", err)
+		ctx := context.Background()
+		opts := s.GatewayOpts()
+
+		for {
+			if err := s.Open(ctx); err != nil {
+				if opts.ErrorIsFatalClose(err) || ctx.Err() != nil {
+					logs.Fatal("%s", err)
+				}
+				logs.Warn("%s", err)
+				continue
+			}
+
+			if err := s.Wait(ctx); err != nil {
+				if opts.ErrorIsFatalClose(err) {
+					logs.Fatal("%s", err)
+				}
+				if ctx.Err() != nil {
+					break
+				}
+				logs.Warn("%s", err)
+			}
 		}
 	}()
 
@@ -261,7 +279,7 @@ func main() {
 	exit := make(chan os.Signal, 1)
 
 	logs.OnFatal = func() {
-		exit <- os.Interrupt
+		exit <- syscall.SIGABRT
 		select {}
 	}
 
@@ -324,7 +342,15 @@ func main() {
 
 	signal.Notify(exit, os.Interrupt, syscall.SIGTERM)
 
-	<-exit
+	sig := <-exit
+	var code int
+	switch sig {
+	case syscall.SIGABRT:
+		code = 1
+	default:
+		code = 0
+		logs.Info("interrupt recieved, closing")
+	}
 
 	clients.Lock()
 	var notSuccess bool
@@ -335,5 +361,5 @@ func main() {
 	if !notSuccess {
 		logs.Info("successfully terminated discord clients")
 	}
-	os.Exit(0)
+	os.Exit(code)
 }
