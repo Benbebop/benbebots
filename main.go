@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io/fs"
 	"net/url"
@@ -337,7 +338,7 @@ func main() {
 		}
 		waitGroup.Wait()
 
-		if hash, err := lvldb.Get([]byte("currentVersion"), nil); err == nil && string(hash) != versionHash {
+		if hash, err := lvldb.Get([]byte("currentVersion"), nil); (err == nil || errors.Is(err, leveldb.ErrNotFound)) && string(hash) != versionHash {
 			if f, _ := logs.Assert(lvldb.Put([]byte("currentVersion"), []byte(versionHash), nil)); !f {
 				heartbeater.Output(fmt.Sprintf("running new version `%s`.", versionHash[0:9]))
 			}
