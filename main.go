@@ -338,9 +338,11 @@ func main() {
 		}
 		waitGroup.Wait()
 
-		if hash, err := lvldb.Get([]byte("currentVersion"), nil); (err == nil || errors.Is(err, leveldb.ErrNotFound)) && string(hash) != versionHash {
-			if f, _ := logs.Assert(lvldb.Put([]byte("currentVersion"), []byte(versionHash), nil)); !f {
-				heartbeater.Output(fmt.Sprintf("running new version `%s`.", versionHash[0:6]))
+		if versionHash != "unknown version" {
+			if hash, err := lvldb.Get([]byte("currentVersion"), nil); (err == nil || errors.Is(err, leveldb.ErrNotFound)) && string(hash) != versionHash {
+				if f, _ := logs.Assert(lvldb.Put([]byte("currentVersion"), []byte(versionHash), nil)); !f {
+					heartbeater.Output(fmt.Sprintf("running new version `%s`.", versionHashShort))
+				}
 			}
 		}
 

@@ -1,3 +1,6 @@
 package main
 
-const versionHash = "unknown version"
+const (
+	versionHash      = "unknown version"
+	versionHashShort = "unknown"
+)
