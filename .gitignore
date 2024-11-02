@@ -17,3 +17,5 @@ resource/commands_old.json
 resource/outlast-trials.bms
 
 !config-template.toml
+
+!version-gen.sh
