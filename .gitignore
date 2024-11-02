@@ -3,6 +3,7 @@
 !/.gitignore
 
 !*.go
+version.go
 !go.mod
 
 !README.md

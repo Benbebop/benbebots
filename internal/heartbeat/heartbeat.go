@@ -20,7 +20,7 @@ type Heartbeater struct {
 	interval time.Duration
 }
 
-func (h *Heartbeater) output(str string) {
+func (h *Heartbeater) Output(str string) {
 	data, err := json.Marshal(struct {
 		Content string `json:"content"`
 	}{
@@ -44,10 +44,10 @@ func (h *Heartbeater) Heartbeat(*gateway.HeartbeatAckEvent) {
 	if err == nil {
 		out := timestamp.Sub(time.UnixMilli(int64(binary.LittleEndian.Uint64(bytes))))
 		if out > h.interval {
-			h.output(fmt.Sprintf("back online, out for %dm.", int(out.Minutes())))
+			h.Output(fmt.Sprintf("back online, out for %dm.", int(out.Minutes())))
 		}
 	} else {
-		h.output("back online")
+		h.Output("back online.")
 	}
 	bytes = make([]byte, 8)
 	binary.LittleEndian.PutUint64(bytes, uint64(timestamp.UnixMilli()))
