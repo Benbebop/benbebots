@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"benbebop.net/benbebots/internal/components"
+	"benbebop.net/benbebots/internal/generated/version"
 	"benbebop.net/benbebots/internal/heartbeat"
 	"benbebop.net/benbebots/internal/logger"
 	"benbebop.net/benbebots/internal/platform"
@@ -338,10 +339,10 @@ func main() {
 		}
 		waitGroup.Wait()
 
-		if versionHash != "unknown version" {
-			if hash, err := lvldb.Get([]byte("currentVersion"), nil); (err == nil || errors.Is(err, leveldb.ErrNotFound)) && string(hash) != versionHash {
-				if f, _ := logs.Assert(lvldb.Put([]byte("currentVersion"), []byte(versionHash), nil)); !f {
-					heartbeater.Output(fmt.Sprintf("running new version `%s`.", versionHashShort))
+		if version.Hash != "unknown version" {
+			if hash, err := lvldb.Get([]byte("currentVersion"), nil); (err == nil || errors.Is(err, leveldb.ErrNotFound)) && string(hash) != version.Hash {
+				if f, _ := logs.Assert(lvldb.Put([]byte("currentVersion"), []byte(version.Hash), nil)); !f {
+					heartbeater.Output(fmt.Sprintf("running new version `%s`.", version.HashShort))
 				}
 			}
 		}
