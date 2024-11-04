@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -133,14 +134,14 @@ func (l *DiscordLogger) out(level int, msg string, args []any) uint32 {
 	return 0
 }
 
-func (l *DiscordLogger) Dump(data []byte, level int, msg string, args ...any) uint32 {
+func (l *DiscordLogger) Dump(r io.Reader, level int, msg string, args ...any) uint32 {
 	id := l.out(level, msg, args)
 
 	file, err := os.OpenFile(filepath.Join(l.Directory, hex.EncodeToString(binary.BigEndian.AppendUint32(nil, id))+".dmp"), os.O_CREATE|os.O_WRONLY, 0777)
 	if err != nil {
 		return 0
 	}
-	_, err = file.Write(data)
+	_, err = io.Copy(file, r)
 	if err != nil {
 		return 0
 	}
@@ -153,7 +154,7 @@ func (l *DiscordLogger) DumpResponse(resp *http.Response, body bool, level int, 
 	if err != nil {
 		return 0, err
 	}
-	return l.Dump(b, level, msg, args...), nil
+	return l.Dump(bytes.NewReader(b), level, msg, args...), nil
 }
 
 func (l *DiscordLogger) Fatal(msg string, args ...any) {
