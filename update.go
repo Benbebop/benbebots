@@ -2,12 +2,13 @@ package main
 
 import (
 	"encoding/binary"
-	"encoding/json"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
 
 	"benbebop.net/benbebots/internal/stats"
+	"benbebop.net/benbebots/resource"
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
 )
@@ -31,80 +32,86 @@ func createCommandsToCommands(inputs []api.CreateCommandData) []discord.Command 
 	return output
 }
 
-const commandFile = "resource/commands.json"
-const commandFileOld = "resource/commands_old.json"
+const (
+	commandFile    = "internal/generated/commands/commands.go"
+	commandFileOld = commandFile + "_old"
+)
 
-func updateCommands(reset bool) error {
-	var toUnmarshal map[string]map[discord.GuildID][]api.CreateCommandData
-	toMarshal := make(map[string]map[discord.GuildID][]discord.Command)
-
-	inData, err := os.ReadFile(commandFile)
-	if err != nil {
-		return err
+func updateCommands() {
+	logs.OnFatal = func() {
+		os.Rename(commandFileOld, commandFile)
+		os.Exit(1)
 	}
-	err = json.Unmarshal(inData, &toUnmarshal)
+	os.Rename(commandFile, commandFileOld)
+
+	f, err := os.OpenFile(commandFile, os.O_WRONLY|os.O_CREATE, os.ModePerm)
 	if err != nil {
-		return err
+		logs.FatalQuick(err)
 	}
 
-	for index, profile := range toUnmarshal {
-		client := api.NewClient("Bot " + tokens[index].Password)
-		myUser, err := client.Me()
-		if err != nil {
-			return err
-		}
+	_, err = f.WriteString(`package commands
 
+import "github.com/diamondburned/arikawa/v3/discord"
+
+`)
+	if err != nil {
+		logs.FatalQuick(err)
+	}
+
+	for name, data := range resource.GetCommandData() {
+		client := api.NewClient("Bot " + tokens[name].Password)
 		app, err := client.CurrentApplication()
 		if err != nil {
-			return err
+			logs.FatalQuick(err)
 		}
-		for guildID, cmds := range profile {
-			guildName := "all guilds"
-			var commands []discord.Command
 
-			if guildID == 0 {
-				commands, err = client.BulkOverwriteCommands(app.ID, cmds)
-			} else {
-				guild, err := client.Guild(guildID)
+		f.WriteString("// " + name + "\n\n")
+
+		for guildId, constNames := range data {
+			createData := make([]api.CreateCommandData, 0, len(constNames))
+			for _, v := range constNames {
+				createData = append(createData, v)
+			}
+
+			guildName := "global"
+			var commands []discord.Command
+			if guildId == 0 {
+				commands, err = client.BulkOverwriteCommands(app.ID, createData)
 				if err != nil {
-					return err
+					logs.FatalQuick(err)
+				}
+			} else {
+				guild, err := client.Guild(guildId)
+				if err != nil {
+					logs.FatalQuick(err)
 				}
 				guildName = guild.Name
-				commands, err = client.BulkOverwriteGuildCommands(app.ID, guildID, cmds)
+				commands, err = client.BulkOverwriteGuildCommands(app.ID, guildId, createData)
 				if err != nil {
-					return err
+					logs.FatalQuick(err)
 				}
 			}
-			if _, ok := toMarshal[index]; !ok {
-				toMarshal[index] = make(map[discord.GuildID][]discord.Command)
-			}
 
-			if err != nil {
-				toMarshal[index][guildID] = createCommandsToCommands(cmds)
-				logs.Error("Failed to update commands for %s in %s: %s.", myUser.Username, guildName, err)
-			} else {
-				toMarshal[index][guildID] = commands
-				logs.Info("Updated %d commands for %s in %s.", len(commands), myUser.Username, guildName)
+			f.WriteString("const ( // " + guildName + "\n")
+
+			for constName, createe := range constNames {
+				var found bool
+				for _, created := range commands {
+					if created.Name == createe.Name {
+						found = true
+						f.WriteString(fmt.Sprintf("\t%s discord.CommandID = %d\n", constName, created.ID))
+						break
+					}
+				}
+				if !found {
+					f.WriteString(fmt.Sprintf("\t%s discord.CommandID = %d\n", constName, createe.ID))
+				}
 			}
+			f.WriteString(")\n\n")
+
+			logs.Info("Updated %d commands for %s in %s.", len(commands), app.Name, guildName)
 		}
 	}
-
-	outData, err := json.MarshalIndent(toMarshal, "", "\t")
-	if err != nil {
-		return err
-	}
-
-	if _, err = os.Stat(commandFileOld); err != nil {
-		err = os.Rename(commandFile, commandFileOld)
-		if err != nil {
-			return err
-		}
-	}
-	err = os.WriteFile(commandFile, outData, 0777)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func resetStats() error {

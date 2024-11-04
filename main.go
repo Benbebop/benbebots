@@ -200,10 +200,7 @@ func main() {
 	if argLen > 1 {
 		switch os.Args[1] {
 		case "update-commands":
-			err := updateCommands(argLen > 2 && os.Args[2] == "reset")
-			if err != nil {
-				logs.Fatal("%s", err)
-			}
+			updateCommands() //argLen > 2 && os.Args[2] == "reset"
 			return
 		case "dump-leveldb":
 			toParse := argLen > 2 && os.Args[2] == "parse"
