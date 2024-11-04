@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"benbebop.net/benbebots/internal/generated/commands"
 	"benbebop.net/benbebots/internal/soundcloud"
 	"benbebop.net/benbebots/internal/stats"
 	"github.com/diamondburned/arikawa/v3/api"
@@ -449,7 +450,7 @@ func (benbebot) LOG_COMMAND(_ *state.State, router *cmdroute.Router) {
 var errSenderNil = errors.New("sender is 0")
 
 func (benbebot) SEX_COMMAND(client *state.State, router *cmdroute.Router) {
-	router.AddFunc("sex", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+	router.AddFunc(commands.SexName, func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
 		sndr := data.Event.SenderID()
 		if sndr == 0 {
 			return logs.InteractionResponse(logs.ErrorQuick(errSenderNil), errSenderNil.Error())
@@ -626,7 +627,7 @@ func (benbebot) PINGER(client *state.State, router *cmdroute.Router) {
 		ping.wake()
 	})
 
-	router.AddFunc("pingme", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+	router.AddFunc(commands.PingMeName, func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
 		var options = struct {
 			Times float64 `discord:"times"`
 		}{}
@@ -761,7 +762,7 @@ func (benbebot) PERMAROLES(client *state.State, router *cmdroute.Router) {
 		DB: lvldb,
 	}
 
-	router.Sub("managepermaroles", func(r *cmdroute.Router) {
+	router.Sub(commands.ManagePermarolesName, func(r *cmdroute.Router) {
 		r.AddFunc("add", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
 			var options userRole
 
@@ -830,7 +831,7 @@ func (benbebot) PERMAROLES(client *state.State, router *cmdroute.Router) {
 			}
 		})
 	})
-	router.Sub("permarole", func(r *cmdroute.Router) {
+	router.Sub(commands.PermaroleName, func(r *cmdroute.Router) {
 		r.AddFunc("add", func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
 			var options userRole
 

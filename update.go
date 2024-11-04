@@ -13,29 +13,14 @@ import (
 	"github.com/diamondburned/arikawa/v3/discord"
 )
 
-func createCommandsToCommands(inputs []api.CreateCommandData) []discord.Command {
-	output := make([]discord.Command, len(inputs))
-	for index, input := range inputs {
-		output[index] = discord.Command{
-			ID:                       input.ID,
-			Type:                     input.Type,
-			Name:                     input.Name,
-			NameLocalizations:        input.NameLocalizations,
-			Description:              input.Description,
-			DescriptionLocalizations: input.DescriptionLocalizations,
-			Options:                  input.Options,
-			DefaultMemberPermissions: input.DefaultMemberPermissions,
-			NoDMPermission:           input.NoDMPermission,
-			NoDefaultPermission:      input.NoDefaultPermission,
-		}
-	}
-	return output
-}
-
 const (
 	commandFile    = "internal/generated/commands/commands.go"
 	commandFileOld = commandFile + "_old"
 )
+
+const constEntry = `	%s discord.CommandID = %d
+	%s string = "%s"
+`
 
 func updateCommands() {
 	logs.OnFatal = func() {
@@ -99,12 +84,12 @@ import "github.com/diamondburned/arikawa/v3/discord"
 				for _, created := range commands {
 					if created.Name == createe.Name {
 						found = true
-						f.WriteString(fmt.Sprintf("\t%s discord.CommandID = %d\n", constName, created.ID))
+						f.WriteString(fmt.Sprintf(constEntry, constName, created.ID, constName+"Name", created.Name))
 						break
 					}
 				}
 				if !found {
-					f.WriteString(fmt.Sprintf("\t%s discord.CommandID = %d\n", constName, createe.ID))
+					f.WriteString(fmt.Sprintf(constEntry, constName, createe.ID, constName+"Name", createe.Name))
 				}
 			}
 			f.WriteString(")\n\n")

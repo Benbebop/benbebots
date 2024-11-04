@@ -8,11 +8,6 @@ import (
 
 type constNames map[string]api.CreateCommandData
 
-type guildCommands struct {
-	Guild discord.GuildID
-	Data  constNames
-}
-
 func GetCommandData() map[string]map[discord.GuildID]constNames { // just so it isnt loaded into memory during regular execution
 	return map[string]map[discord.GuildID]constNames{
 		"benbebot": {
@@ -160,6 +155,13 @@ func GetCommandData() map[string]map[discord.GuildID]constNames { // just so it 
 							},
 						},
 					},
+				},
+				"Sex": {
+					ID:          commands.Sex,
+					Type:        discord.ChatInputCommand,
+					Name:        "sex",
+					Description: "fuckyou",
+					Options:     []discord.CommandOption{},
 				},
 			},
 		},
