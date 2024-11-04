@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/binary"
 	"encoding/json"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -82,10 +81,10 @@ func updateCommands(reset bool) error {
 
 			if err != nil {
 				toMarshal[index][guildID] = createCommandsToCommands(cmds)
-				log.Printf("Failed to update commands for %s in %s: %s.\n", myUser.Username, guildName, err)
+				logs.Error("Failed to update commands for %s in %s: %s.", myUser.Username, guildName, err)
 			} else {
 				toMarshal[index][guildID] = commands
-				log.Printf("Updated %d commands for %s in %s.\n", len(commands), myUser.Username, guildName)
+				logs.Info("Updated %d commands for %s in %s.", len(commands), myUser.Username, guildName)
 			}
 		}
 	}
@@ -112,14 +111,14 @@ func resetStats() error {
 	// canned foods
 	token, err := lvldb.Get([]byte("cannedFoodToken"), nil)
 	if err != nil {
-		log.Panicln(err)
+		logs.FatalQuick(err)
 		return err
 	}
 	client := api.NewClient(string(token))
 
 	validChannelsStr, err := lvldb.Get([]byte("cannedFoodValidChannels"), nil)
 	if err != nil {
-		log.Panicln(err)
+		logs.FatalQuick(err)
 		return err
 	}
 
@@ -139,11 +138,11 @@ func resetStats() error {
 		if err != nil {
 			continue
 		}
-		log.Printf("scanning %s in %s", channel.Name, guild.Name)
+		logs.Info("scanning %s in %s", channel.Name, guild.Name)
 
 		messages, err := client.Messages(channel.ID, 0)
 		if err != nil {
-			log.Panicln(err)
+			logs.FatalQuick(err)
 			return err
 		}
 
@@ -161,28 +160,28 @@ func resetStats() error {
 				current += uint(reaction.CountDetails.Normal)
 			}
 		}
-		log.Printf("found %d canned foods\n", current)
+		logs.Info("found %d canned foods", current)
 		total += int64(current)
 	}
 
 	err = lvldb.Put(stats.GetKey("Canned Foods"), binary.AppendVarint(nil, total), nil)
 	if err != nil {
-		log.Panicln(err)
+		logs.FatalQuick(err)
 		return err
 	}
-	log.Printf("found %d canned foods in all channels", total)
+	logs.Info("found %d canned foods in all channels", total)
 
 	// family guys
 	client = api.NewClient("Bot " + tokens["familyGuy"].Password)
 	me, err := client.Me()
 	if err != nil {
-		log.Panicln(err)
+		logs.FatalQuick(err)
 		return err
 	}
 
 	guilds, err := client.Guilds(0)
 	if err != nil {
-		log.Panicln(err)
+		logs.FatalQuick(err)
 		return err
 	}
 
@@ -190,10 +189,10 @@ func resetStats() error {
 	users := []discord.UserID{} //opts.PublicChannel
 	index := 1
 	for _, guild := range guilds {
-		log.Printf("scanning members from %s\n", guild.Name)
+		logs.Info("scanning members from %s", guild.Name)
 		members, err := client.Members(guild.ID, 0)
 		if err != nil {
-			log.Panicln(err)
+			logs.FatalQuick(err)
 			return err
 		}
 		users = append(users, make([]discord.UserID, len(members)+1)...)
@@ -216,10 +215,10 @@ func resetStats() error {
 				continue
 			}
 
-			log.Printf("scanning %s\n", member.User.Username)
+			logs.Info("scanning %s", member.User.Username)
 			messages, err := client.Messages(priv.ID, 0)
 			if err != nil {
-				log.Panicln(err)
+				logs.FatalQuick(err)
 				return err
 			}
 
@@ -231,17 +230,17 @@ func resetStats() error {
 
 				current += 1
 			}
-			log.Printf("found %d/%d family guy clips\n", current, len(messages))
+			logs.Info("found %d/%d family guy clips", current, len(messages))
 			total += int64(current)
 		}
 	}
 
 	err = lvldb.Put(stats.GetKey("Family Guys"), binary.AppendVarint(nil, total), nil)
 	if err != nil {
-		log.Panicln(err)
+		logs.FatalQuick(err)
 		return err
 	}
-	log.Printf("found %d family guy clips sent", total)
+	logs.Info("found %d family guy clips sent", total)
 
 	return nil
 }

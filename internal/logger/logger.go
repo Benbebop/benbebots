@@ -161,6 +161,10 @@ func (l *DiscordLogger) Fatal(msg string, args ...any) {
 	l.OnFatal()
 }
 
+func (l *DiscordLogger) FatalQuick(err error) {
+	l.Fatal("%s", err)
+}
+
 func (l *DiscordLogger) Error(msg string, args ...any) uint32 {
 	return l.out(LevelError, msg, args)
 }
