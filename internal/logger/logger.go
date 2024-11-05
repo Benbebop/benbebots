@@ -86,9 +86,7 @@ func (l *DiscordLogger) out(level int, msg string, args []any) uint32 {
 	}
 	if level >= l.FileLogLevel {
 		// add traceback
-		trc := make([]byte, 2048)
-		n := runtime.Stack(trc, false)
-		long += "\n\n" + string(trc[:n])
+		long += "\n\n" + string(debug.Stack())
 
 		// generate id
 		hasher := sha1.New()
