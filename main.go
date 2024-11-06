@@ -143,6 +143,8 @@ func main() {
 	}
 
 	{ // logger
+		dir := filepath.Join(config.Dirs.Cache, "logs")
+		os.MkdirAll(dir, os.ModePerm)
 		logs, err = logger.NewDiscordLogger(2, filepath.Join(config.Dirs.Cache, "logs"), config.LogHook)
 		if err != nil {
 			fmt.Println(err)
@@ -200,7 +202,7 @@ func main() {
 	if argLen > 1 {
 		switch os.Args[1] {
 		case "update-commands":
-			updateCommands() //argLen > 2 && os.Args[2] == "reset"
+			updateCommands(true) //argLen > 2 && os.Args[2] == "remove")
 			return
 		case "dump-leveldb":
 			toParse := argLen > 2 && os.Args[2] == "parse"

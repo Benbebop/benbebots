@@ -52,7 +52,10 @@ type DiscordLogger struct {
 	OnFatal       func()
 }
 
-var traceSterliser *regexp.Regexp = regexp.MustCompile("0[xX][0-9a-fA-F]+|goroutine [0-9]+")
+var (
+	traceSterliser   *regexp.Regexp = regexp.MustCompile("0[xX][0-9a-fA-F]+|goroutine [0-9]+")
+	traceSelfRemover *regexp.Regexp = regexp.MustCompile(regexp.QuoteMeta(reflect.TypeFor[DiscordLogger]().PkgPath()) + ".+[\n\r]+.+[\n\r]+")
+)
 
 const (
 	LevelDebug = iota - 1
@@ -111,7 +114,7 @@ func (l *DiscordLogger) out(level int, msg string, args []any) uint32 {
 			return 0
 		}
 		defer file.Close()
-		_, err = file.Write([]byte(long))
+		_, err = file.Write(traceSelfRemover.ReplaceAll([]byte(long), []byte("")))
 		if err != nil {
 			return 0
 		}
