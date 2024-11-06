@@ -22,7 +22,7 @@ const constEntry = `	%s discord.CommandID = %d
 	%s string = "%s"
 `
 
-func updateCommands() {
+func updateCommands(removeUnused bool) {
 	logs.OnFatal = func() {
 		os.Rename(commandFileOld, commandFile)
 		os.Exit(1)
@@ -59,11 +59,36 @@ import "github.com/diamondburned/arikawa/v3/discord"
 			}
 
 			guildName := "global"
-			var commands []discord.Command
+			var newCommands, oldCommands []discord.Command
+			var deleted int
 			if guildId == 0 {
-				commands, err = client.BulkOverwriteCommands(app.ID, createData)
+				oldCommands, err = client.Commands(app.ID)
 				if err != nil {
 					logs.FatalQuick(err)
+				}
+
+				newCommands, err = client.BulkOverwriteCommands(app.ID, createData)
+				if err != nil {
+					logs.FatalQuick(err)
+				}
+
+				if removeUnused {
+					for _, v := range oldCommands {
+						var found bool
+						for _, k := range newCommands {
+							if v.ID == k.ID {
+								found = true
+								break
+							}
+						}
+						if !found {
+							err := client.DeleteCommand(app.ID, v.ID)
+							if err != nil {
+								logs.FatalQuick(err)
+							}
+							deleted += 1
+						}
+					}
 				}
 			} else {
 				guild, err := client.Guild(guildId)
@@ -71,9 +96,35 @@ import "github.com/diamondburned/arikawa/v3/discord"
 					logs.FatalQuick(err)
 				}
 				guildName = guild.Name
-				commands, err = client.BulkOverwriteGuildCommands(app.ID, guildId, createData)
+
+				oldCommands, err = client.GuildCommands(app.ID, guild.ID)
 				if err != nil {
 					logs.FatalQuick(err)
+				}
+
+				newCommands, err = client.BulkOverwriteGuildCommands(app.ID, guild.ID, createData)
+				if err != nil {
+					logs.FatalQuick(err)
+				}
+
+				if removeUnused {
+					for _, v := range oldCommands {
+						var found bool
+						for _, k := range newCommands {
+							if v.ID == k.ID {
+								found = true
+								break
+							}
+						}
+						if !found {
+							err := client.DeleteGuildCommand(app.ID, guild.ID, v.ID)
+							if err != nil {
+								logs.ErrorQuick(err)
+							} else {
+								deleted += 1
+							}
+						}
+					}
 				}
 			}
 
@@ -81,7 +132,7 @@ import "github.com/diamondburned/arikawa/v3/discord"
 
 			for constName, createe := range constNames {
 				var found bool
-				for _, created := range commands {
+				for _, created := range newCommands {
 					if created.Name == createe.Name {
 						found = true
 						f.WriteString(fmt.Sprintf(constEntry, constName, created.ID, constName+"Name", created.Name))
@@ -94,7 +145,21 @@ import "github.com/diamondburned/arikawa/v3/discord"
 			}
 			f.WriteString(")\n\n")
 
-			logs.Info("Updated %d commands for %s in %s.", len(commands), app.Name, guildName)
+			var added int
+			for _, v := range newCommands {
+				var found bool
+				for _, k := range oldCommands {
+					if v.ID == k.ID {
+						found = true
+						break
+					}
+				}
+				if !found {
+					added += 1
+				}
+			}
+
+			logs.Info("Added %d, removed %d, and modified %d commands in guild %s.", added, deleted, len(newCommands)-added, guildName)
 		}
 	}
 }
