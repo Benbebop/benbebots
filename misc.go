@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"benbebop.net/benbebots/internal/log"
 	"benbebop.net/benbebots/internal/scheduler"
 	"benbebop.net/benbebots/internal/stats"
 	"github.com/diamondburned/arikawa/v3/api"
@@ -41,7 +42,7 @@ type CannedFoodConfig struct {
 
 func (Benbebots) CANNEDFOOD() *session.Session {
 	if !config.Components.IsEnabled("canned_food") {
-		logs.Info("canned food component has been disabled")
+		log.Info("canned food component has been disabled")
 		return nil
 	}
 
@@ -51,23 +52,23 @@ func (Benbebots) CANNEDFOOD() *session.Session {
 		tmpClient := api.NewClient(token)
 		_, err := tmpClient.Me()
 		if err != nil {
-			logs.Warn("CannedFood token errored, logging in")
+			log.Warn("CannedFood token errored, logging in")
 			client, err = LoginCannedFood()
 			if err != nil {
-				logs.Fatal("%s", err)
+				log.Fatal("%s", err)
 			}
 		} else {
 			client = session.New(token)
 		}
 	} else {
 		if !errors.Is(err, leveldb.ErrNotFound) {
-			logs.Error("%s", err)
+			log.Error("%s", err)
 		} else {
-			logs.Debug("CannedFood token missing, logging in")
+			log.Debug("CannedFood token missing, logging in")
 		}
 		client, err = LoginCannedFood()
 		if err != nil {
-			logs.Fatal("%s", err)
+			log.Fatal("%s", err)
 		}
 	}
 	client.AddHandler(AnnounceReady)
@@ -77,7 +78,7 @@ func (Benbebots) CANNEDFOOD() *session.Session {
 	var validChannels []discord.ChannelID
 	validChannelsStr, err := lvldb.Get([]byte("cannedFoodValidChannels"), nil)
 	if err != nil && !errors.Is(err, leveldb.ErrNotFound) {
-		logs.Fatal("%s", err)
+		log.Fatal("%s", err)
 	}
 
 	strs := strings.Fields(string(validChannelsStr))
@@ -85,7 +86,7 @@ func (Benbebots) CANNEDFOOD() *session.Session {
 	for i, v := range strs {
 		id, err := strconv.ParseUint(v, 10, 64)
 		if err != nil {
-			logs.Fatal("%s", err)
+			log.Fatal("%s", err)
 		}
 		validChannels[i] = discord.ChannelID(id)
 	}
@@ -96,7 +97,7 @@ func (Benbebots) CANNEDFOOD() *session.Session {
 		}
 		me, err := client.Me()
 		if err != nil {
-			logs.ErrorQuick(err)
+			log.ErrorQuick(err)
 			return
 		}
 		// check if pinging canned food
@@ -126,7 +127,7 @@ func (Benbebots) CANNEDFOOD() *session.Session {
 				// check if pinging any of canned food's roles
 				member, err := client.Member(message.GuildID, me.ID)
 				if err != nil {
-					logs.ErrorQuick(err)
+					log.ErrorQuick(err)
 					return
 				}
 				var rolePinged bool
@@ -145,15 +146,15 @@ func (Benbebots) CANNEDFOOD() *session.Session {
 				}
 			}
 		} else {
-			logs.Assert(client.SendMessage(config.Bot.CannedFood.PingChannel, message.URL()))
+			log.Assert(client.SendMessage(config.Bot.CannedFood.PingChannel, message.URL()))
 		}
 
 		delay := time.Duration(config.Bot.CannedFood.Delay[0]+rand.Int63n(config.Bot.CannedFood.Delay[1]-config.Bot.CannedFood.Delay[0])) * time.Millisecond
 		time.Sleep(delay)
 
-		logs.Assert(client.React(message.ChannelID, message.ID, cannedFoodEmoji))
+		log.Assert(client.React(message.ChannelID, message.ID, cannedFoodEmoji))
 
-		logs.Info("CannedFood reacted to a message after %dms\n", delay.Milliseconds())
+		log.Info("CannedFood reacted to a message after %dms\n", delay.Milliseconds())
 	})
 
 	reactionStat := stats.Stat{
@@ -244,13 +245,13 @@ func (Benbebots) CANNEDFOOD() *session.Session {
 		case "add":
 			channelId, err := strconv.ParseUint(items[2][2:len(items[2])-1], 10, 64)
 			if err != nil {
-				logs.ErrorQuick(err)
+				log.ErrorQuick(err)
 				client.SendMessageReply(message.ChannelID, "error: "+err.Error(), message.ID)
 				return
 			}
 			channel, err := client.Channel(discord.ChannelID(discord.Snowflake(channelId)))
 			if err != nil {
-				logs.ErrorQuick(err)
+				log.ErrorQuick(err)
 				client.SendMessageReply(message.ChannelID, "error: "+err.Error(), message.ID)
 				return
 			}
@@ -272,7 +273,7 @@ func (Benbebots) CANNEDFOOD() *session.Session {
 
 			err = lvldb.Put([]byte("cannedFoodValidChannels"), validChannelsStrNew, nil)
 			if err != nil {
-				logs.ErrorQuick(err)
+				log.ErrorQuick(err)
 				client.SendMessageReply(message.ChannelID, "error: "+err.Error(), message.ID)
 				return
 			}
@@ -299,7 +300,7 @@ type FnafConfig struct {
 
 func (Benbebots) FNAF() *api.Client { // gnerb
 	if !config.Components.IsEnabled("fnaf") {
-		logs.Info("fnaf component has been disabled")
+		log.Info("fnaf component has been disabled")
 		return nil
 	}
 
@@ -317,18 +318,18 @@ func (Benbebots) FNAF() *api.Client { // gnerb
 
 	ext := filepath.Ext(config.Bot.Fnaf.Source)
 	if ext != ".png" && ext != ".jpg" && ext != ".webp" {
-		logs.Fatal("invalid gnerb format")
+		log.Fatal("invalid gnerb format")
 	}
 
 	content, err := os.ReadFile(config.Bot.Fnaf.Source)
 	if err != nil {
-		logs.Fatal("%s", err)
+		log.Fatal("%s", err)
 	}
 
 	go func() {
 		for {
 			wait := scheduler.TimeToDaily(config.Bot.Fnaf.Time)
-			logs.Info("sending next pou image in %fh", wait.Hours())
+			log.Info("sending next pou image in %fh", wait.Hours())
 			time.Sleep(wait)
 
 			client.SendMessageComplex(config.Bot.Fnaf.Destination, api.SendMessageData{

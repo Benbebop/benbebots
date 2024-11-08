@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"benbebop.net/benbebots/internal/log"
 	"benbebop.net/benbebots/internal/scheduler"
 	"github.com/diamondburned/arikawa/v3/api/webhook"
 	"github.com/diamondburned/arikawa/v3/discord"
@@ -23,12 +24,12 @@ type DonCheadleConfig struct {
 
 func (Benbebots) DONCHEADLE() *webhook.Client {
 	if !config.Components.IsEnabled("don_cheadle") {
-		logs.Info("don cheadle component has been disabled")
+		log.Info("don cheadle component has been disabled")
 		return nil
 	}
 	client, err := webhook.NewFromURL(config.Bot.DonCheadle.Webhook)
 	if err != nil {
-		logs.Fatal("%s", err)
+		log.Fatal("%s", err)
 	}
 
 	go func() {
@@ -39,28 +40,28 @@ func (Benbebots) DONCHEADLE() *webhook.Client {
 				release = nil
 			}
 			wait := scheduler.TimeToDaily(config.Bot.DonCheadle.SendTime)
-			logs.Info("sending next don cheadle wotd in %fh", wait.Hours())
+			log.Info("sending next don cheadle wotd in %fh", wait.Hours())
 			time.Sleep(wait)
 
 			resp, err := http.Get(RANDOM_WORD_URL)
 			if err != nil {
-				logs.ErrorQuick(err)
+				log.ErrorQuick(err)
 				continue
 			}
 			release = resp.Body
 
 			var raw bytes.Buffer
 			var words []string
-			s, _ := logs.Assert(json.NewDecoder(io.TeeReader(resp.Body, &raw)).Decode(&words))
+			s, _ := log.Assert(json.NewDecoder(io.TeeReader(resp.Body, &raw)).Decode(&words))
 			if s {
 				continue
 			} else if len(words) <= 0 {
 				resp.Body = io.NopCloser(bytes.NewReader(raw.Bytes()))
-				logs.DumpResponse(resp, true, 2, "no words returned")
+				log.DumpResponse(resp, true, 2, "no words returned")
 				continue
 			}
 
-			logs.Assert(client.Execute(webhook.ExecuteData{
+			log.Assert(client.Execute(webhook.ExecuteData{
 				Content: fmt.Sprintf("Don Cheadle word of the day: %s", words[0]),
 			}))
 		}

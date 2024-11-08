@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"benbebop.net/benbebots/internal/generated/commands"
+	"benbebop.net/benbebots/internal/log"
 	"benbebop.net/benbebots/internal/soundcloud"
 	"benbebop.net/benbebots/internal/stats"
 	"github.com/diamondburned/arikawa/v3/api"
@@ -111,7 +112,7 @@ func (mr *MRadio) GetTracks(endpoint string) error {
 		}
 		if resp.StatusCode != 200 {
 			resp.Body.Close()
-			logs.Warn("%d: %s", resp.StatusCode, resp.Status)
+			log.Warn("%d: %s", resp.StatusCode, resp.Status)
 			return nil
 		}
 		data, err := io.ReadAll(resp.Body)
@@ -132,7 +133,7 @@ func (mr *MRadio) GetTracks(endpoint string) error {
 			mr.tracks = append(mr.tracks, v.Track.Id)
 		}
 	}
-	logs.Info("got soundcloud radio tracks")
+	log.Info("got soundcloud radio tracks")
 	return nil
 }
 
@@ -180,7 +181,7 @@ func (mr *MRadio) Start() error {
 		// link yt-dlp and ffmpeg
 		r, err := mr.ffmpeg.StdinPipe()
 		if err != nil {
-			logs.ErrorQuick(err)
+			log.ErrorQuick(err)
 			break
 		}
 		mr.ytdlp.Stdout = bufio.NewWriter(r)
@@ -188,16 +189,16 @@ func (mr *MRadio) Start() error {
 		// link ffmpeg to discord
 		o, err := mr.ffmpeg.StdoutPipe()
 		if err != nil {
-			logs.ErrorQuick(err)
+			log.ErrorQuick(err)
 			break
 		}
 
 		if err := mr.ffmpeg.Start(); err != nil {
-			logs.ErrorQuick(err)
+			log.ErrorQuick(err)
 			break
 		}
 		if err := mr.ytdlp.Start(); err != nil {
-			logs.ErrorQuick(err)
+			log.ErrorQuick(err)
 			break
 		}
 
@@ -209,7 +210,7 @@ func (mr *MRadio) Start() error {
 
 		mr.session.Speaking(context.Background(), voicegateway.Microphone)
 		if err := oggreader.DecodeBuffered(mr.session, o); err != nil {
-			logs.ErrorQuick(err)
+			log.ErrorQuick(err)
 			break
 		}
 		mr.session.Speaking(context.Background(), voicegateway.NotSpeaking)
@@ -258,21 +259,21 @@ func (benbebot) MOTD(client *state.State) {
 	client.AddHandler(func(*gateway.ReadyEvent) {
 		validChannelsStr, err := lvldb.Get([]byte("recentSoundclowns"), nil)
 		if err != nil {
-			logs.ErrorQuick(err)
+			log.ErrorQuick(err)
 			return
 		}
 
 		strs := strings.Fields(string(validChannelsStr))
 		recentsIndex, err = strconv.ParseUint(strs[0], 10, 64)
 		if err != nil {
-			logs.ErrorQuick(err)
+			log.ErrorQuick(err)
 			return
 		}
 		strs = strs[1:]
 		for i, v := range strs {
 			id, err := strconv.ParseUint(v, 10, 64)
 			if err != nil {
-				logs.ErrorQuick(err)
+				log.ErrorQuick(err)
 				return
 			}
 			recents[i] = uint(id)
@@ -295,19 +296,19 @@ func (benbebot) MOTD(client *state.State) {
 		})
 		resp, err := scClient.Request("GET", "/recent-tracks/soundclown", vals, "")
 		if err != nil {
-			logs.ErrorQuick(err)
+			log.ErrorQuick(err)
 			return
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != 200 {
-			logs.Error("couldnt get soundclouds: %s", resp.Status)
+			log.Error("couldnt get soundclouds: %s", resp.Status)
 			return
 		}
 
 		// get recent tracks
 		data, err := io.ReadAll(resp.Body)
 		if err != nil {
-			logs.ErrorQuick(err)
+			log.ErrorQuick(err)
 			return
 		}
 		tracks := struct {
@@ -332,7 +333,7 @@ func (benbebot) MOTD(client *state.State) {
 		}{}
 		err = json.Unmarshal(data, &tracks)
 		if err != nil {
-			logs.ErrorQuick(err)
+			log.ErrorQuick(err)
 			return
 		}
 
@@ -354,7 +355,7 @@ func (benbebot) MOTD(client *state.State) {
 		}
 
 		if !found {
-			logs.Error("could not find a soundcloud within 20 tracks")
+			log.Error("could not find a soundcloud within 20 tracks")
 			return
 		}
 
@@ -372,18 +373,18 @@ func (benbebot) MOTD(client *state.State) {
 		lvldb.Put([]byte("recentSoundclowns"), str, nil)
 
 		// send
-		logs.Assert(client.SendMessage(config.Bot.Benbebots.MOTD.Channel, toSend.Permalink))
-		logs.Info("submitted new mashup: %s", toSend.Title)
+		log.Assert(client.SendMessage(config.Bot.Benbebots.MOTD.Channel, toSend.Permalink))
+		log.Info("submitted new mashup: %s", toSend.Title)
 	}
 
 	client.AddHandler(func(*gateway.ReadyEvent) {
 		// get soundcloud token
 		cltId, err := lvldb.Get([]byte("soundcloudClientId"), nil)
 		if err != nil {
-			logs.ErrorQuick(err)
+			log.ErrorQuick(err)
 			err = scClient.GetClientId()
 			if err != nil {
-				logs.ErrorQuick(err)
+				log.ErrorQuick(err)
 			}
 		} else {
 			scClient.ClientId = string(cltId)
@@ -392,17 +393,17 @@ func (benbebot) MOTD(client *state.State) {
 		url := "https://soundcloud.com/"
 		urlLen := len(url)
 		var mut sync.Mutex
-		logs.Assert(cron.NewJob(gocron.CronJob(config.Bot.Benbebots.MOTD.Cron, true), gocron.NewTask(func() {
+		log.Assert(cron.NewJob(gocron.CronJob(config.Bot.Benbebots.MOTD.Cron, true), gocron.NewTask(func() {
 			mut.Lock()
 			defer mut.Unlock()
 			messages, err := client.Messages(config.Bot.Benbebots.MOTD.Channel, 1)
 			if err != nil {
-				logs.ErrorQuick(err)
+				log.ErrorQuick(err)
 				return
 			}
 			message := messages[0]
 			if len(message.Content) >= urlLen && message.Content[:urlLen] == url {
-				fail, _ := logs.Assert(client.CrosspostMessage(config.Bot.Benbebots.MOTD.Channel, messages[0].ID))
+				fail, _ := log.Assert(client.CrosspostMessage(config.Bot.Benbebots.MOTD.Channel, messages[0].ID))
 				if !fail {
 					scStat.Increment(1)
 				}
@@ -429,16 +430,16 @@ func (benbebot) LOG_COMMAND(_ *state.State, router *cmdroute.Router) {
 			Id string `discord:"id"`
 		}{}
 		if err := data.Options.Unmarshal(&options); err != nil {
-			return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+			return log.InteractionResponse(log.ErrorQuick(err), err.Error())
 		}
 
-		buffer, err := os.ReadFile(logs.Directory + options.Id + ".log")
+		buffer, err := os.ReadFile(log.Directory + options.Id + ".log")
 		if err != nil {
-			return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+			return log.InteractionResponse(log.ErrorQuick(err), err.Error())
 		}
 
 		if len(buffer) > 2000 {
-			return logs.InteractionResponse(logs.ErrorQuick(errTooLong), errTooLong.Error())
+			return log.InteractionResponse(log.ErrorQuick(errTooLong), errTooLong.Error())
 		}
 
 		return &api.InteractionResponseData{
@@ -453,14 +454,14 @@ func (benbebot) SEX_COMMAND(client *state.State, router *cmdroute.Router) {
 	router.AddFunc(commands.SexName, func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
 		sndr := data.Event.SenderID()
 		if sndr == 0 {
-			return logs.InteractionResponse(logs.ErrorQuick(errSenderNil), errSenderNil.Error())
+			return log.InteractionResponse(log.ErrorQuick(errSenderNil), errSenderNil.Error())
 		}
 		err := client.Ban(data.Event.GuildID, sndr, api.BanData{
 			DeleteDays:     option.ZeroUint,
 			AuditLogReason: "sex command",
 		})
 		if err != nil {
-			return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+			return log.InteractionResponse(log.ErrorQuick(err), err.Error())
 		}
 		return &api.InteractionResponseData{
 			Content: option.NewNullableString("idk"),
@@ -483,7 +484,7 @@ func (benbebot) AD_EXTRACTOR(client *state.State) {
 		}
 
 		if len(message.Attachments) < 1 {
-			logs.Assert(client.DeleteMessage(config.Bot.Benbebots.AdExtractor.Channel, message.ID, ""))
+			log.Assert(client.DeleteMessage(config.Bot.Benbebots.AdExtractor.Channel, message.ID, ""))
 			return
 		}
 
@@ -496,36 +497,36 @@ func (benbebot) AD_EXTRACTOR(client *state.State) {
 		}
 
 		if toDownload.Size > 25000 {
-			logs.Assert(client.DeleteMessage(config.Bot.Benbebots.AdExtractor.Channel, message.ID, ""))
+			log.Assert(client.DeleteMessage(config.Bot.Benbebots.AdExtractor.Channel, message.ID, ""))
 			return
 		}
 
 		fileBuffer := make([]byte, toDownload.Size)
 		resp, err := http.Get(toDownload.URL)
 		if err != nil {
-			logs.ErrorQuick(err)
-			logs.Assert(client.DeleteMessage(config.Bot.Benbebots.AdExtractor.Channel, message.ID, ""))
+			log.ErrorQuick(err)
+			log.Assert(client.DeleteMessage(config.Bot.Benbebots.AdExtractor.Channel, message.ID, ""))
 			return
 		}
 
 		if _, err := io.ReadFull(resp.Body, fileBuffer); err != nil {
-			logs.ErrorQuick(err)
-			logs.Assert(client.DeleteMessage(config.Bot.Benbebots.AdExtractor.Channel, message.ID, ""))
+			log.ErrorQuick(err)
+			log.Assert(client.DeleteMessage(config.Bot.Benbebots.AdExtractor.Channel, message.ID, ""))
 			return
 		}
 
 		debugInfo := struct {
 			AdVideoId string `json:"addebug_videoId"`
 		}{}
-		fail, _ := logs.Assert(json.Unmarshal(fileBuffer, &debugInfo))
+		fail, _ := log.Assert(json.Unmarshal(fileBuffer, &debugInfo))
 		if fail {
-			logs.Assert(client.DeleteMessage(config.Bot.Benbebots.AdExtractor.Channel, message.ID, ""))
+			log.Assert(client.DeleteMessage(config.Bot.Benbebots.AdExtractor.Channel, message.ID, ""))
 			return
 		}
 
-		fail, _ = logs.Assert(client.SendMessageReply(config.Bot.Benbebots.AdExtractor.Channel, "https://www.youtube.com/watch?v="+debugInfo.AdVideoId, message.ID))
+		fail, _ = log.Assert(client.SendMessageReply(config.Bot.Benbebots.AdExtractor.Channel, "https://www.youtube.com/watch?v="+debugInfo.AdVideoId, message.ID))
 		if fail {
-			logs.Assert(client.DeleteMessage(config.Bot.Benbebots.AdExtractor.Channel, message.ID, ""))
+			log.Assert(client.DeleteMessage(config.Bot.Benbebots.AdExtractor.Channel, message.ID, ""))
 		}
 	})
 }
@@ -606,7 +607,7 @@ func (benbebot) PINGER(client *state.State, router *cmdroute.Router) {
 	var err error
 	ping.hook, err = webhook.NewFromURL(config.Bot.Benbebots.Pinger.Webhook)
 	if err != nil {
-		logs.ErrorQuick(err)
+		log.ErrorQuick(err)
 	}
 
 	iter := lvldb.NewIterator(nil, nil)
@@ -615,7 +616,7 @@ func (benbebot) PINGER(client *state.State, router *cmdroute.Router) {
 		if len(k) >= len(pingerDatabasePrefix) && string(k[:len(pingerDatabasePrefix)]) == "pingsFor" {
 			id, err := strconv.ParseUint(string(k[len("pingsFor"):]), 10, 64)
 			if err != nil {
-				logs.ErrorQuick(err)
+				log.ErrorQuick(err)
 				continue
 			}
 			ping.toPing[discord.UserID(discord.Snowflake(id))], _ = binary.Uvarint(v)
@@ -632,7 +633,7 @@ func (benbebot) PINGER(client *state.State, router *cmdroute.Router) {
 			Times float64 `discord:"times"`
 		}{}
 		if err := data.Options.Unmarshal(&options); err != nil {
-			return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+			return log.InteractionResponse(log.ErrorQuick(err), err.Error())
 		}
 		userId := data.Event.SenderID()
 		if userId <= 0 {
@@ -767,15 +768,15 @@ func (benbebot) PERMAROLES(client *state.State, router *cmdroute.Router) {
 			var options userRole
 
 			if err := data.Options.Unmarshal(&options); err != nil {
-				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+				return log.InteractionResponse(log.ErrorQuick(err), err.Error())
 			}
 
 			if _, err := client.Member(data.Data.GuildID, options.User); err != nil {
-				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+				return log.InteractionResponse(log.ErrorQuick(err), err.Error())
 			}
 
 			if err := pr.Add(options); err != nil {
-				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+				return log.InteractionResponse(log.ErrorQuick(err), err.Error())
 			}
 			return &api.InteractionResponseData{
 				Content: option.NewNullableString(fmt.Sprintf("succesfully added role %d to user %d", options.Role, options.User)),
@@ -785,15 +786,15 @@ func (benbebot) PERMAROLES(client *state.State, router *cmdroute.Router) {
 			var options userRole
 
 			if err := data.Options.Unmarshal(&options); err != nil {
-				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+				return log.InteractionResponse(log.ErrorQuick(err), err.Error())
 			}
 
 			if _, err := client.Member(data.Data.GuildID, options.User); err != nil {
-				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+				return log.InteractionResponse(log.ErrorQuick(err), err.Error())
 			}
 
 			if err := pr.Remove(options); err != nil {
-				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+				return log.InteractionResponse(log.ErrorQuick(err), err.Error())
 			}
 			return &api.InteractionResponseData{
 				Content: option.NewNullableString(fmt.Sprintf("succesfully removed role %d from user %d", options.Role, options.User)),
@@ -803,11 +804,11 @@ func (benbebot) PERMAROLES(client *state.State, router *cmdroute.Router) {
 			var options userRole
 
 			if err := data.Options.Unmarshal(&options); err != nil {
-				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+				return log.InteractionResponse(log.ErrorQuick(err), err.Error())
 			}
 
 			if _, err := client.Member(data.Data.GuildID, options.User); err != nil {
-				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+				return log.InteractionResponse(log.ErrorQuick(err), err.Error())
 			}
 
 			roles, err := pr.Get(options.User)
@@ -817,7 +818,7 @@ func (benbebot) PERMAROLES(client *state.State, router *cmdroute.Router) {
 					AllowedMentions: &api.AllowedMentions{},
 				}
 			} else if err != nil {
-				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+				return log.InteractionResponse(log.ErrorQuick(err), err.Error())
 			}
 
 			var roleStr string
@@ -836,7 +837,7 @@ func (benbebot) PERMAROLES(client *state.State, router *cmdroute.Router) {
 			var options userRole
 
 			if err := data.Options.Unmarshal(&options); err != nil {
-				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+				return log.InteractionResponse(log.ErrorQuick(err), err.Error())
 			}
 
 			options.User = data.Event.SenderID()
@@ -844,7 +845,7 @@ func (benbebot) PERMAROLES(client *state.State, router *cmdroute.Router) {
 			// see if user has role
 			member, err := client.Member(data.Data.GuildID, options.User)
 			if err != nil {
-				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+				return log.InteractionResponse(log.ErrorQuick(err), err.Error())
 			}
 
 			var exists bool
@@ -862,7 +863,7 @@ func (benbebot) PERMAROLES(client *state.State, router *cmdroute.Router) {
 			}
 
 			if err := pr.Add(options); err != nil {
-				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+				return log.InteractionResponse(log.ErrorQuick(err), err.Error())
 			}
 			return &api.InteractionResponseData{
 				Content: option.NewNullableString(fmt.Sprintf("succesfully added role %d", options.Role)),
@@ -872,13 +873,13 @@ func (benbebot) PERMAROLES(client *state.State, router *cmdroute.Router) {
 			var options userRole
 
 			if err := data.Options.Unmarshal(&options); err != nil {
-				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+				return log.InteractionResponse(log.ErrorQuick(err), err.Error())
 			}
 
 			options.User = data.Event.SenderID()
 
 			if err := pr.Remove(options); err != nil {
-				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+				return log.InteractionResponse(log.ErrorQuick(err), err.Error())
 			}
 			return &api.InteractionResponseData{
 				Content: option.NewNullableString(fmt.Sprintf("succesfully removed role %d", options.Role)),
@@ -892,7 +893,7 @@ func (benbebot) PERMAROLES(client *state.State, router *cmdroute.Router) {
 					AllowedMentions: &api.AllowedMentions{},
 				}
 			} else if err != nil {
-				return logs.InteractionResponse(logs.ErrorQuick(err), err.Error())
+				return log.InteractionResponse(log.ErrorQuick(err), err.Error())
 			}
 
 			var roleStr string
@@ -914,7 +915,7 @@ func (benbebot) PERMAROLES(client *state.State, router *cmdroute.Router) {
 
 		roles, err := pr.Get(member.User.ID)
 		if err != nil {
-			logs.ErrorQuick(err)
+			log.ErrorQuick(err)
 			return
 		}
 
@@ -968,17 +969,17 @@ func (benbebot) PING_EVERYTHING(client *state.State) {
 		if time.Since(mentionCache.gentime) > 5*time.Minute {
 			roles, err := client.Roles(config.Servers.BreadBag)
 			if err != nil {
-				logs.ErrorQuick(err)
+				log.ErrorQuick(err)
 				return
 			}
 			members, err := client.Members(config.Servers.BreadBag)
 			if err != nil {
-				logs.ErrorQuick(err)
+				log.ErrorQuick(err)
 				return
 			}
 			channels, err := client.Channels(config.Servers.BreadBag)
 			if err != nil {
-				logs.ErrorQuick(err)
+				log.ErrorQuick(err)
 				return
 			}
 
@@ -1009,7 +1010,7 @@ func (benbebot) PING_EVERYTHING(client *state.State) {
 			if len(str)+len(mention) > discordMaxMessageSize {
 				_, err := client.SendMessage(message.ChannelID, str)
 				if err != nil {
-					logs.ErrorQuick(err)
+					log.ErrorQuick(err)
 				}
 				str = ""
 			}
@@ -1019,7 +1020,7 @@ func (benbebot) PING_EVERYTHING(client *state.State) {
 		if str != "" {
 			_, err := client.SendMessage(message.ChannelID, str)
 			if err != nil {
-				logs.ErrorQuick(err)
+				log.ErrorQuick(err)
 			}
 		}
 
@@ -1035,7 +1036,7 @@ type extraWebhooksConfig struct {
 func (benbebot) EXTRA_WEBHOOKS(client *state.State) {
 	wh, err := webhook.NewFromURL(config.Bot.Benbebots.ExtraWebhooks.Webhook)
 	if err != nil {
-		logs.Fatal("%s", err)
+		log.Fatal("%s", err)
 	}
 	var category struct {
 		channel discord.ChannelID
@@ -1049,7 +1050,7 @@ func (benbebot) EXTRA_WEBHOOKS(client *state.State) {
 	client.AddHandler(func(*gateway.ReadyEvent) {
 		channel, err := client.Channel(category.channel)
 		if err != nil {
-			logs.ErrorQuick(err)
+			log.ErrorQuick(err)
 			return
 		}
 		category.guild = channel.GuildID
@@ -1062,7 +1063,7 @@ func (benbebot) EXTRA_WEBHOOKS(client *state.State) {
 				CategoryID: category.channel,
 			})
 			if err != nil {
-				logs.ErrorQuick(err)
+				log.ErrorQuick(err)
 				return
 			}
 			master = channel.ID
@@ -1071,14 +1072,14 @@ func (benbebot) EXTRA_WEBHOOKS(client *state.State) {
 			lvldb.Put([]byte("extwhProxies"), binary.BigEndian.AppendUint64(nil, uint64(master)), nil)
 			return
 		} else if err != nil {
-			logs.ErrorQuick(err)
+			log.ErrorQuick(err)
 			return
 		}
 		master = discord.ChannelID(binary.BigEndian.Uint64(m))
 
 		m, err = lvldb.Get([]byte("extwhProxies"), nil)
 		if err != nil {
-			logs.ErrorQuick(err)
+			log.ErrorQuick(err)
 			return
 		}
 
@@ -1089,7 +1090,7 @@ func (benbebot) EXTRA_WEBHOOKS(client *state.State) {
 		m, err = lvldb.Get([]byte("extwhLastRecieved"), nil)
 		if false && !errors.Is(err, leveldb.ErrNotFound) { // disable this cause it doesnt seem to work
 			if err != nil {
-				logs.ErrorQuick(err)
+				log.ErrorQuick(err)
 				return
 			}
 			nLR := discord.MessageID(binary.BigEndian.Uint64(m[:8]))
@@ -1098,7 +1099,7 @@ func (benbebot) EXTRA_WEBHOOKS(client *state.State) {
 			for _, channel := range proxies {
 				msgs, err := client.MessagesAfter(channel, nLR, 0)
 				if err != nil {
-					logs.ErrorQuick(err)
+					log.ErrorQuick(err)
 					continue
 				}
 				for _, message := range msgs {
@@ -1134,7 +1135,7 @@ func (benbebot) EXTRA_WEBHOOKS(client *state.State) {
 			}
 			err = lvldb.Put([]byte("extwhLastRecieved"), binary.BigEndian.AppendUint64(nil, uint64(nLR)), nil)
 			if err != nil {
-				logs.ErrorQuick(err)
+				log.ErrorQuick(err)
 				return
 			}
 		}
@@ -1157,7 +1158,7 @@ func (benbebot) EXTRA_WEBHOOKS(client *state.State) {
 
 			webhooks, err := client.ChannelWebhooks(message.ChannelID)
 			if err != nil {
-				logs.ErrorQuick(err)
+				log.ErrorQuick(err)
 				return
 			}
 
@@ -1165,7 +1166,7 @@ func (benbebot) EXTRA_WEBHOOKS(client *state.State) {
 				return
 			}
 
-			logs.Assert(client.ModifyChannel(master, api.ModifyChannelData{
+			log.Assert(client.ModifyChannel(master, api.ModifyChannelData{
 				Name: fmt.Sprintf("extra-webhooks-%x", len(proxies)),
 			}))
 
@@ -1175,7 +1176,7 @@ func (benbebot) EXTRA_WEBHOOKS(client *state.State) {
 				CategoryID: category.channel,
 			})
 			if err != nil {
-				logs.ErrorQuick(err)
+				log.ErrorQuick(err)
 				return
 			}
 
@@ -1223,7 +1224,7 @@ func (benbebot) EXTRA_WEBHOOKS(client *state.State) {
 		})
 		err = lvldb.Put([]byte("extwhLastRecieved"), binary.BigEndian.AppendUint64(nil, uint64(message.ID)), nil)
 		if err != nil {
-			logs.ErrorQuick(err)
+			log.ErrorQuick(err)
 			return
 		}
 	})

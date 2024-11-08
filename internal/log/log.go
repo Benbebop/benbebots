@@ -1,4 +1,4 @@
-package logger
+package log
 
 import (
 	"bytes"
@@ -25,38 +25,6 @@ import (
 
 const logPerms = 0777
 
-func NewDiscordLogger(loglevel int, dir string, wh string) (*DiscordLogger, error) {
-	cl, err := webhook.NewFromURL(wh)
-	if err != nil {
-		return nil, err
-	}
-
-	return &DiscordLogger{
-		FileLogLevel:  loglevel,
-		PrintLogLevel: loglevel,
-		WebLogLevel:   loglevel,
-		Directory:     dir,
-		Webhook:       cl,
-		OnFatal: func() {
-			os.Exit(1)
-		},
-	}, nil
-}
-
-type DiscordLogger struct {
-	FileLogLevel  int
-	PrintLogLevel int
-	WebLogLevel   int
-	Directory     string
-	Webhook       *webhook.Client
-	OnFatal       func()
-}
-
-var (
-	traceSterliser   *regexp.Regexp = regexp.MustCompile("0[xX][0-9a-fA-F]+|goroutine [0-9]+")
-	traceSelfRemover *regexp.Regexp = regexp.MustCompile(regexp.QuoteMeta(reflect.TypeFor[DiscordLogger]().PkgPath()) + ".+[\n\r]+.+[\n\r]+")
-)
-
 const (
 	LevelDebug = iota - 1
 	LevelInfo
@@ -67,8 +35,21 @@ const (
 	LevelNone
 )
 
-func (l *DiscordLogger) out(level int, msg string, args []any) uint32 {
-	short := fmt.Sprintf(msg, args...)
+var (
+	FileLogLevel  int
+	PrintLogLevel int
+	WebLogLevel   int
+	Directory     string
+	Webhook       *webhook.Client
+	OnFatal       func()
+)
+
+var (
+	traceSterliser   *regexp.Regexp = regexp.MustCompile("0[xX][0-9a-fA-F]+|goroutine [0-9]+")
+	traceSelfRemover *regexp.Regexp = regexp.MustCompile(regexp.QuoteMeta(reflect.TypeFor[struct{}]().PkgPath()) + ".+[\n\r]+.+[\n\r]+")
+)
+
+func out(level int, short string) uint32 {
 	long := short
 
 	// short outputs
@@ -87,7 +68,7 @@ func (l *DiscordLogger) out(level int, msg string, args []any) uint32 {
 	case LevelDebug:
 		label = "DBG"
 	}
-	if level >= l.FileLogLevel {
+	if level >= FileLogLevel {
 		// add traceback
 		long += "\n\n" + string(debug.Stack())
 
@@ -98,18 +79,18 @@ func (l *DiscordLogger) out(level int, msg string, args []any) uint32 {
 
 		idStr := hex.EncodeToString(binary.BigEndian.AppendUint32(nil, id))
 
-		if level >= l.PrintLogLevel {
+		if level >= PrintLogLevel {
 			fmt.Printf("[%s] (%s) %s\n", label, idStr, short)
 		}
 
-		if level >= l.WebLogLevel {
-			l.Webhook.Execute(webhook.ExecuteData{
+		if level >= WebLogLevel {
+			Webhook.Execute(webhook.ExecuteData{
 				Content: fmt.Sprintf("`%s` %s", idStr, short),
 			})
 		}
 
 		// create log file
-		file, err := os.OpenFile(filepath.Join(l.Directory, idStr+".log"), os.O_CREATE|os.O_WRONLY, logPerms)
+		file, err := os.OpenFile(filepath.Join(Directory, idStr+".log"), os.O_CREATE|os.O_WRONLY, logPerms)
 		if err != nil {
 			return 0
 		}
@@ -122,12 +103,12 @@ func (l *DiscordLogger) out(level int, msg string, args []any) uint32 {
 		return id
 	}
 
-	if level >= l.PrintLogLevel {
+	if level >= PrintLogLevel {
 		fmt.Printf("[%s] %s\n", label, short)
 	}
 
-	if level >= l.WebLogLevel {
-		l.Webhook.Execute(webhook.ExecuteData{
+	if level >= WebLogLevel {
+		Webhook.Execute(webhook.ExecuteData{
 			Content: short,
 		})
 	}
@@ -135,10 +116,10 @@ func (l *DiscordLogger) out(level int, msg string, args []any) uint32 {
 	return 0
 }
 
-func (l *DiscordLogger) Dump(r io.Reader, level int, msg string, args ...any) uint32 {
-	id := l.out(level, msg, args)
+func Dump(r io.Reader, level int, msg string, args ...any) uint32 {
+	id := out(level, fmt.Sprintf(msg, args...))
 
-	file, err := os.OpenFile(filepath.Join(l.Directory, hex.EncodeToString(binary.BigEndian.AppendUint32(nil, id))+".dmp"), os.O_CREATE|os.O_WRONLY, 0777)
+	file, err := os.OpenFile(filepath.Join(Directory, hex.EncodeToString(binary.BigEndian.AppendUint32(nil, id))+".dmp"), os.O_CREATE|os.O_WRONLY, 0777)
 	if err != nil {
 		return 0
 	}
@@ -150,56 +131,56 @@ func (l *DiscordLogger) Dump(r io.Reader, level int, msg string, args ...any) ui
 	return id
 }
 
-func (l *DiscordLogger) DumpResponse(resp *http.Response, body bool, level int, msg string, args ...any) (uint32, error) {
+func DumpResponse(resp *http.Response, body bool, level int, msg string, args ...any) (uint32, error) {
 	b, err := httputil.DumpResponse(resp, body)
 	if err != nil {
 		return 0, err
 	}
-	return l.Dump(bytes.NewReader(b), level, msg, args...), nil
+	return Dump(bytes.NewReader(b), level, msg, args...), nil
 }
 
-func (l *DiscordLogger) Fatal(msg string, args ...any) {
-	l.out(LevelFatal, msg, args)
-	l.OnFatal()
+func Fatal(msg string, args ...any) {
+	out(LevelFatal, fmt.Sprintf(msg, args...))
+	OnFatal()
 }
 
-func (l *DiscordLogger) FatalQuick(err error) {
-	l.Fatal("%s", err)
+func FatalQuick(err error) {
+	out(LevelFatal, err.Error())
+	OnFatal()
 }
 
-func (l *DiscordLogger) Error(msg string, args ...any) uint32 {
-	return l.out(LevelError, msg, args)
+func Error(msg string, args ...any) uint32 {
+	return out(LevelError, fmt.Sprintf(msg, args...))
 }
 
-func (l *DiscordLogger) ErrorQuick(err error) uint32 {
-	return l.Error("%s", err)
+func ErrorQuick(err error) uint32 {
+	return out(LevelError, err.Error())
 }
 
-func (l *DiscordLogger) Warn(msg string, args ...any) uint32 {
-	return l.out(LevelWarn, msg, args)
+func Warn(msg string, args ...any) uint32 {
+	return out(LevelWarn, fmt.Sprintf(msg, args...))
 }
 
-func (l *DiscordLogger) Info(msg string, args ...any) uint32 {
-	return l.out(LevelInfo, msg, args)
+func Info(msg string, args ...any) uint32 {
+	return out(LevelInfo, fmt.Sprintf(msg, args...))
 }
 
-func (l *DiscordLogger) Debug(msg string, args ...any) uint32 {
-	return l.out(LevelDebug, msg, args)
+func Debug(msg string, args ...any) uint32 {
+	return out(LevelDebug, fmt.Sprintf(msg, args...))
 }
 
-var errType = reflect.TypeFor[error]()
-
-func (l *DiscordLogger) Assert(returns ...any) (bool, uint32) {
+func Assert(returns ...any) (bool, uint32) {
 	for _, ret := range returns {
-		if reflect.TypeOf(ret) == errType {
-			return true, l.Error("%s", ret)
+		err, isErr := ret.(error)
+		if isErr {
+			return true, ErrorQuick(err)
 		}
 	}
 
 	return false, 0
 }
 
-func (l *DiscordLogger) InteractionResponse(id uint32, title string) *api.InteractionResponseData {
+func InteractionResponse(id uint32, title string) *api.InteractionResponseData {
 	var stk string
 	for i := 1; i < 6; i++ {
 		pc, file, line, ok := runtime.Caller(i)
@@ -230,9 +211,9 @@ func (l *DiscordLogger) InteractionResponse(id uint32, title string) *api.Intera
 	}
 }
 
-func (l *DiscordLogger) CatchCrash() error {
+func CatchCrash() error {
 	// emit last log
-	fp := filepath.Join(l.Directory, "crash.log")
+	fp := filepath.Join(Directory, "crash.log")
 	b, err := os.ReadFile(fp)
 	if !errors.Is(err, os.ErrNotExist) && err != nil {
 		return err
@@ -241,20 +222,20 @@ func (l *DiscordLogger) CatchCrash() error {
 
 	if len(b) > 0 {
 		short := string(b[:bytes.IndexByte(b, '\n')])
-		if LevelPanic >= l.FileLogLevel {
+		if LevelPanic >= FileLogLevel {
 			hasher := sha1.New()
 			hasher.Write(traceSterliser.ReplaceAll(b, []byte("")))
 			idStr := hex.EncodeToString(hasher.Sum(nil)[:4])
-			os.WriteFile(filepath.Join(l.Directory, idStr+".log"), b, logPerms)
+			os.WriteFile(filepath.Join(Directory, idStr+".log"), b, logPerms)
 
-			if LevelPanic >= l.WebLogLevel {
-				l.Webhook.Execute(webhook.ExecuteData{
+			if LevelPanic >= WebLogLevel {
+				Webhook.Execute(webhook.ExecuteData{
 					Content: fmt.Sprintf("`%s` %s", idStr, short),
 				})
 			}
 		} else {
-			if LevelPanic >= l.WebLogLevel {
-				l.Webhook.Execute(webhook.ExecuteData{
+			if LevelPanic >= WebLogLevel {
+				Webhook.Execute(webhook.ExecuteData{
 					Content: short,
 				})
 			}

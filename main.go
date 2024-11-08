@@ -19,7 +19,7 @@ import (
 	"benbebop.net/benbebots/internal/components"
 	"benbebop.net/benbebots/internal/generated/version"
 	"benbebop.net/benbebots/internal/heartbeat"
-	"benbebop.net/benbebots/internal/logger"
+	"benbebop.net/benbebots/internal/log"
 	"benbebop.net/benbebots/internal/platform"
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
@@ -35,7 +35,7 @@ import (
 )
 
 func AnnounceReady(ready *gateway.ReadyEvent) {
-	logs.Info("%s is ready", ready.User.Username)
+	log.Info("%s is ready", ready.User.Username)
 }
 
 func Start(s *session.Session) {
@@ -50,20 +50,20 @@ func Start(s *session.Session) {
 		for {
 			if err := s.Open(ctx); err != nil {
 				if opts.ErrorIsFatalClose(err) || ctx.Err() != nil {
-					logs.Fatal("%s", err)
+					log.Fatal("%s", err)
 				}
-				logs.Warn("%s", err)
+				log.Warn("%s", err)
 				continue
 			}
 
 			if err := s.Wait(ctx); err != nil {
 				if opts.ErrorIsFatalClose(err) {
-					logs.Fatal("%s", err)
+					log.Fatal("%s", err)
 				}
 				if ctx.Err() != nil {
 					break
 				}
-				logs.Warn("%s", err)
+				log.Warn("%s", err)
 			}
 		}
 	}()
@@ -77,7 +77,6 @@ type Benbebots struct{}
 
 var (
 	cron        gocron.Scheduler
-	logs        *logger.DiscordLogger
 	lvldb       *leveldb.DB
 	heartbeater heartbeat.Heartbeater
 	tokens      map[string]netrc.Machine
@@ -143,22 +142,19 @@ func main() {
 	}
 
 	{ // logger
-		dir := filepath.Join(config.Dirs.Cache, "logs")
-		os.MkdirAll(dir, os.ModePerm)
-		logs, err = logger.NewDiscordLogger(2, filepath.Join(config.Dirs.Cache, "logs"), config.LogHook)
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		logs.PrintLogLevel = config.LogLevel
+		log.Directory = filepath.Join(config.Dirs.Cache, "logs")
+		os.MkdirAll(log.Directory, os.ModePerm)
+		log.PrintLogLevel = config.LogLevel
+		log.FileLogLevel = 2
+		log.WebLogLevel = 2
 
-		logs.Assert(logs.CatchCrash())
+		log.Assert(log.CatchCrash())
 
 		ws.WSError = func(err error) {
-			logs.ErrorQuick(err)
+			log.ErrorQuick(err)
 		}
 		ws.WSDebug = func(v ...interface{}) {
-			logs.Debug("%s", fmt.Sprint(v...))
+			log.Debug("%s", fmt.Sprint(v...))
 		}
 	}
 
@@ -168,11 +164,9 @@ func main() {
 	}
 
 	{ // cron
-		cron, err = gocron.NewScheduler(gocron.WithLogger(&logger.SLogCompat{
-			DL: logs,
-		}))
+		cron, err = gocron.NewScheduler(gocron.WithLogger(&log.SLogCompat{}))
 		if err != nil {
-			logs.Fatal("%s", err)
+			log.Fatal("%s", err)
 		}
 	}
 
@@ -180,7 +174,7 @@ func main() {
 		tokens = map[string]netrc.Machine{}
 		mach, _, err := netrc.ParseFile("tokens.netrc")
 		if err != nil {
-			logs.Fatal("%s", err)
+			log.Fatal("%s", err)
 		}
 
 		for _, e := range mach {
@@ -191,7 +185,7 @@ func main() {
 	{ // leveldb
 		lvldb, err = leveldb.OpenFile(filepath.Join(config.Dirs.Cache, "leveldb"), nil)
 		if err != nil {
-			logs.Fatal("%s", err)
+			log.Fatal("%s", err)
 		}
 
 		defer lvldb.Close()
@@ -233,7 +227,7 @@ func main() {
 		case "reset-stats":
 			err := resetStats()
 			if err != nil {
-				logs.Fatal("%s", err)
+				log.Fatal("%s", err)
 			}
 			return
 		}
@@ -244,13 +238,13 @@ func main() {
 	if !func() bool {
 		endpoint, err := url.Parse(api.BaseEndpoint)
 		if err != nil {
-			logs.Warn(cc, err)
+			log.Warn(cc, err)
 			return true
 		}
 
 		pinger, err := probing.NewPinger(endpoint.Hostname())
 		if err != nil {
-			logs.Warn(cc, err)
+			log.Warn(cc, err)
 			return true
 		}
 
@@ -260,14 +254,14 @@ func main() {
 		pinger.Count = 1
 		err = pinger.Run()
 		if err != nil {
-			logs.Warn(cc, err)
+			log.Warn(cc, err)
 			return true
 		}
 
 		stats := pinger.Statistics()
 		return stats.PacketsRecv >= 1
 	}() {
-		logs.Error("cant connect to discord")
+		log.Error("cant connect to discord")
 		return
 	}
 
@@ -279,7 +273,7 @@ func main() {
 
 	exit := make(chan os.Signal, 1)
 
-	logs.OnFatal = func() {
+	log.OnFatal = func() {
 		exit <- syscall.SIGABRT
 		select {}
 	}
@@ -292,7 +286,7 @@ func main() {
 		if argLen > 2 && os.Args[1] == "test" {
 			bot, found := bots.MethodByName(strings.ToUpper(os.Args[2]))
 			if !found {
-				logs.Fatal("bot %s does not exist", os.Args[2])
+				log.Fatal("bot %s does not exist", os.Args[2])
 			}
 			waitGroup.Add(1)
 			go func() {
@@ -327,7 +321,7 @@ func main() {
 							}
 						case error:
 							if r != nil {
-								logs.Fatal("%s", r)
+								log.Fatal("%s", r)
 							}
 						}
 					}
@@ -340,7 +334,7 @@ func main() {
 
 		if version.Hash != "unknown version" {
 			if hash, err := lvldb.Get([]byte("currentVersion"), nil); (err == nil || errors.Is(err, leveldb.ErrNotFound)) && string(hash) != version.Hash {
-				if f, _ := logs.Assert(lvldb.Put([]byte("currentVersion"), []byte(version.Hash), nil)); !f {
+				if f, _ := log.Assert(lvldb.Put([]byte("currentVersion"), []byte(version.Hash), nil)); !f {
 					heartbeater.Output(fmt.Sprintf("running new version `%s`.", version.HashShort))
 				}
 			}
@@ -358,17 +352,17 @@ func main() {
 		code = 1
 	default:
 		code = 0
-		logs.Info("interrupt recieved, closing")
+		log.Info("interrupt recieved, closing")
 	}
 
 	clients.Lock()
 	var notSuccess bool
 	for _, session := range clients.sessions {
-		s, _ := logs.Assert(session.Close())
+		s, _ := log.Assert(session.Close())
 		notSuccess = notSuccess || s
 	}
 	if !notSuccess {
-		logs.Info("successfully terminated discord clients")
+		log.Info("successfully terminated discord clients")
 	}
 	os.Exit(code)
 }

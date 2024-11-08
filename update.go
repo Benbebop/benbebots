@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"benbebop.net/benbebots/internal/log"
 	"benbebop.net/benbebots/internal/stats"
 	"benbebop.net/benbebots/resource"
 	"github.com/diamondburned/arikawa/v3/api"
@@ -23,7 +24,7 @@ const constEntry = `	%s discord.CommandID = %d
 `
 
 func updateCommands(removeUnused bool) {
-	logs.OnFatal = func() {
+	log.OnFatal = func() {
 		os.Rename(commandFileOld, commandFile)
 		os.Exit(1)
 	}
@@ -31,7 +32,7 @@ func updateCommands(removeUnused bool) {
 
 	f, err := os.OpenFile(commandFile, os.O_WRONLY|os.O_CREATE, os.ModePerm)
 	if err != nil {
-		logs.FatalQuick(err)
+		log.FatalQuick(err)
 	}
 
 	_, err = f.WriteString(`package commands
@@ -40,14 +41,14 @@ import "github.com/diamondburned/arikawa/v3/discord"
 
 `)
 	if err != nil {
-		logs.FatalQuick(err)
+		log.FatalQuick(err)
 	}
 
 	for name, data := range resource.GetCommandData() {
 		client := api.NewClient("Bot " + tokens[name].Password)
 		app, err := client.CurrentApplication()
 		if err != nil {
-			logs.FatalQuick(err)
+			log.FatalQuick(err)
 		}
 
 		f.WriteString("// " + name + "\n\n")
@@ -64,12 +65,12 @@ import "github.com/diamondburned/arikawa/v3/discord"
 			if guildId == 0 {
 				oldCommands, err = client.Commands(app.ID)
 				if err != nil {
-					logs.FatalQuick(err)
+					log.FatalQuick(err)
 				}
 
 				newCommands, err = client.BulkOverwriteCommands(app.ID, createData)
 				if err != nil {
-					logs.FatalQuick(err)
+					log.FatalQuick(err)
 				}
 
 				if removeUnused {
@@ -84,7 +85,7 @@ import "github.com/diamondburned/arikawa/v3/discord"
 						if !found {
 							err := client.DeleteCommand(app.ID, v.ID)
 							if err != nil {
-								logs.FatalQuick(err)
+								log.FatalQuick(err)
 							}
 							deleted += 1
 						}
@@ -93,18 +94,18 @@ import "github.com/diamondburned/arikawa/v3/discord"
 			} else {
 				guild, err := client.Guild(guildId)
 				if err != nil {
-					logs.FatalQuick(err)
+					log.FatalQuick(err)
 				}
 				guildName = guild.Name
 
 				oldCommands, err = client.GuildCommands(app.ID, guild.ID)
 				if err != nil {
-					logs.FatalQuick(err)
+					log.FatalQuick(err)
 				}
 
 				newCommands, err = client.BulkOverwriteGuildCommands(app.ID, guild.ID, createData)
 				if err != nil {
-					logs.FatalQuick(err)
+					log.FatalQuick(err)
 				}
 
 				if removeUnused {
@@ -119,7 +120,7 @@ import "github.com/diamondburned/arikawa/v3/discord"
 						if !found {
 							err := client.DeleteGuildCommand(app.ID, guild.ID, v.ID)
 							if err != nil {
-								logs.ErrorQuick(err)
+								log.ErrorQuick(err)
 							} else {
 								deleted += 1
 							}
@@ -159,7 +160,7 @@ import "github.com/diamondburned/arikawa/v3/discord"
 				}
 			}
 
-			logs.Info("Added %d, removed %d, and modified %d commands in guild %s.", added, deleted, len(newCommands)-added, guildName)
+			log.Info("Added %d, removed %d, and modified %d commands in guild %s.", added, deleted, len(newCommands)-added, guildName)
 		}
 	}
 }
@@ -168,14 +169,14 @@ func resetStats() error {
 	// canned foods
 	token, err := lvldb.Get([]byte("cannedFoodToken"), nil)
 	if err != nil {
-		logs.FatalQuick(err)
+		log.FatalQuick(err)
 		return err
 	}
 	client := api.NewClient(string(token))
 
 	validChannelsStr, err := lvldb.Get([]byte("cannedFoodValidChannels"), nil)
 	if err != nil {
-		logs.FatalQuick(err)
+		log.FatalQuick(err)
 		return err
 	}
 
@@ -195,11 +196,11 @@ func resetStats() error {
 		if err != nil {
 			continue
 		}
-		logs.Info("scanning %s in %s", channel.Name, guild.Name)
+		log.Info("scanning %s in %s", channel.Name, guild.Name)
 
 		messages, err := client.Messages(channel.ID, 0)
 		if err != nil {
-			logs.FatalQuick(err)
+			log.FatalQuick(err)
 			return err
 		}
 
@@ -217,28 +218,28 @@ func resetStats() error {
 				current += uint(reaction.CountDetails.Normal)
 			}
 		}
-		logs.Info("found %d canned foods", current)
+		log.Info("found %d canned foods", current)
 		total += int64(current)
 	}
 
 	err = lvldb.Put(stats.GetKey("Canned Foods"), binary.AppendVarint(nil, total), nil)
 	if err != nil {
-		logs.FatalQuick(err)
+		log.FatalQuick(err)
 		return err
 	}
-	logs.Info("found %d canned foods in all channels", total)
+	log.Info("found %d canned foods in all channels", total)
 
 	// family guys
 	client = api.NewClient("Bot " + tokens["familyGuy"].Password)
 	me, err := client.Me()
 	if err != nil {
-		logs.FatalQuick(err)
+		log.FatalQuick(err)
 		return err
 	}
 
 	guilds, err := client.Guilds(0)
 	if err != nil {
-		logs.FatalQuick(err)
+		log.FatalQuick(err)
 		return err
 	}
 
@@ -246,10 +247,10 @@ func resetStats() error {
 	users := []discord.UserID{} //opts.PublicChannel
 	index := 1
 	for _, guild := range guilds {
-		logs.Info("scanning members from %s", guild.Name)
+		log.Info("scanning members from %s", guild.Name)
 		members, err := client.Members(guild.ID, 0)
 		if err != nil {
-			logs.FatalQuick(err)
+			log.FatalQuick(err)
 			return err
 		}
 		users = append(users, make([]discord.UserID, len(members)+1)...)
@@ -272,10 +273,10 @@ func resetStats() error {
 				continue
 			}
 
-			logs.Info("scanning %s", member.User.Username)
+			log.Info("scanning %s", member.User.Username)
 			messages, err := client.Messages(priv.ID, 0)
 			if err != nil {
-				logs.FatalQuick(err)
+				log.FatalQuick(err)
 				return err
 			}
 
@@ -287,17 +288,17 @@ func resetStats() error {
 
 				current += 1
 			}
-			logs.Info("found %d/%d family guy clips", current, len(messages))
+			log.Info("found %d/%d family guy clips", current, len(messages))
 			total += int64(current)
 		}
 	}
 
 	err = lvldb.Put(stats.GetKey("Family Guys"), binary.AppendVarint(nil, total), nil)
 	if err != nil {
-		logs.FatalQuick(err)
+		log.FatalQuick(err)
 		return err
 	}
-	logs.Info("found %d family guy clips sent", total)
+	log.Info("found %d family guy clips sent", total)
 
 	return nil
 }

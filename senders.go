@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"time"
 
+	"benbebop.net/benbebots/internal/log"
 	"benbebop.net/benbebots/internal/stats"
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
@@ -23,7 +24,7 @@ type FamilyGuyConfig struct {
 
 func (Benbebots) FAMILYGUY() *state.State {
 	if !config.Components.IsEnabled("family_guy") {
-		logs.Info("family guy component has been disabled")
+		log.Info("family guy component has been disabled")
 		return nil
 	}
 
@@ -51,7 +52,7 @@ func (Benbebots) FAMILYGUY() *state.State {
 		// get users
 		guilds, err := client.Guilds()
 		if err != nil {
-			logs.ErrorQuick(err)
+			log.ErrorQuick(err)
 			return
 		}
 
@@ -60,7 +61,7 @@ func (Benbebots) FAMILYGUY() *state.State {
 		for _, guild := range guilds {
 			members, err := client.Members(guild.ID)
 			if err != nil {
-				logs.ErrorQuick(err)
+				log.ErrorQuick(err)
 				continue
 			}
 			users = append(users, make([]discord.ChannelID, len(members))...)
@@ -88,7 +89,7 @@ func (Benbebots) FAMILYGUY() *state.State {
 		// get clips
 		messages, err := client.Messages(config.Bot.FamilyGuy.CacheChannel, 1000)
 		if err != nil {
-			logs.ErrorQuick(err)
+			log.ErrorQuick(err)
 			return
 		}
 
@@ -133,7 +134,7 @@ func (Benbebots) FAMILYGUY() *state.State {
 
 /*func (Benbebots) BANKBEMER() *session.Session {
 	if !component.IsEnabled("bankbemer") {
-		logs.Info("bank bemer component has been disabled")
+		log.Info("bank bemer component has been disabled")
 		return nil
 	}
 
@@ -146,12 +147,12 @@ func (Benbebots) FAMILYGUY() *state.State {
 
 			guilds, err := client.Guilds()
 			if err != nil {
-				logs.Fatal("%s", err)
+				log.Fatal("%s", err)
 			}
 			for _, guild := range guilds {
 				members, err := client.Members(guild.ID)
 				if err != nil {
-					logs.Fatal("%s", err)
+					log.Fatal("%s", err)
 				}
 				for _, member := range members {
 					users

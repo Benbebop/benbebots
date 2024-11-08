@@ -1,21 +1,19 @@
-package logger
+package log
 
-type SLogCompat struct {
-	DL *DiscordLogger
-}
+type SLogCompat struct{}
 
 func (l *SLogCompat) Debug(msg string, args ...any) {
-	l.DL.out(-1, msg, args)
+	Debug(msg, args...)
 }
 
 func (l *SLogCompat) Error(msg string, args ...any) {
-	l.DL.out(2, msg, args)
+	Error(msg, args...)
 }
 
 func (l *SLogCompat) Info(msg string, args ...any) {
-	l.DL.out(0, msg, args)
+	Info(msg, args...)
 }
 
 func (l *SLogCompat) Warn(msg string, args ...any) {
-	l.DL.out(1, msg, args)
+	Warn(msg, args...)
 }
