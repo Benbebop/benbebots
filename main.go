@@ -309,7 +309,11 @@ func main() {
 			reflect.ValueOf(Benbebots{}),
 		}
 		if argLen > 2 && os.Args[1] == "test" {
-			bot, found := bots.MethodByName(strings.ToUpper(os.Args[2]))
+			u := strings.ToUpper(os.Args[2])
+			if u == "NONE" {
+				return
+			}
+			bot, found := bots.MethodByName(u)
 			if !found {
 				log.Fatal("bot %s does not exist", os.Args[2])
 			}
