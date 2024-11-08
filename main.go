@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"net/url"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"reflect"
@@ -22,6 +23,7 @@ import (
 	"benbebop.net/benbebots/internal/log"
 	"benbebop.net/benbebots/internal/platform"
 	"github.com/diamondburned/arikawa/v3/api"
+	"github.com/diamondburned/arikawa/v3/api/webhook"
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/session"
@@ -87,7 +89,10 @@ var config struct {
 	StatusHook string                `toml:"status_hook"`
 	LogLevel   int                   `toml:"log_level"`
 	Components components.Components `toml:"components"`
-	Dirs       struct {
+	Programs   struct {
+		FFMpeg string `toml:"ffmpeg" exe:"ffmpeg"`
+	} `toml:"programs"`
+	Dirs struct {
 		Cache string `toml:"cache"`
 		Temp  string `toml:"temp"`
 	} `toml:"directories"`
@@ -147,6 +152,10 @@ func main() {
 		log.PrintLogLevel = config.LogLevel
 		log.FileLogLevel = 2
 		log.WebLogLevel = 2
+		log.Webhook, err = webhook.NewFromURL(config.LogHook)
+		if err != nil {
+			log.FatalQuick(err)
+		}
 
 		log.Assert(log.CatchCrash())
 
@@ -155,6 +164,22 @@ func main() {
 		}
 		ws.WSDebug = func(v ...interface{}) {
 			log.Debug("%s", fmt.Sprint(v...))
+		}
+	}
+
+	{ // programs
+		programs := reflect.ValueOf(&config.Programs).Elem()
+
+		for i := 0; i < programs.NumField(); i++ {
+			program := programs.Field(i)
+
+			if program.Interface().(string) == "" {
+				p, err := exec.LookPath(programs.Type().Field(i).Tag.Get("exe"))
+				if err != nil {
+					log.FatalQuick(err)
+				}
+				program.SetString(p)
+			}
 		}
 	}
 
