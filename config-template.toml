@@ -85,5 +85,7 @@ frequency = 00:00:00
 mirror = 0
 
 [bot.don_cheadle]
+font_file = ""
+src = ""
 send_time = 00:00:00
-webhook = ""
+channel = 0
