@@ -397,11 +397,13 @@ func (Benbebots) DONCHEADLE() *api.Client {
 
 			var raw bytes.Buffer
 			var words []string
-			s, _ := log.Assert(json.NewDecoder(io.TeeReader(resp.Body, &raw)).Decode(&words))
-			if s {
+			err = json.NewDecoder(io.TeeReader(resp.Body, &raw)).Decode(&words)
+			resp.Body = io.NopCloser(bytes.NewReader(raw.Bytes()))
+			if err != nil {
+				log.DumpResponse(resp, true, 2, "%s", err)
 				continue
-			} else if len(words) <= 0 {
-				resp.Body = io.NopCloser(bytes.NewReader(raw.Bytes()))
+			}
+			if len(words) <= 0 {
 				log.DumpResponse(resp, true, 2, "no words returned")
 				continue
 			}
