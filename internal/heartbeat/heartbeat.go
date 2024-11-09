@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"benbebop.net/benbebots/internal/log"
 	"github.com/diamondburned/arikawa/v3/gateway"
 )
 
@@ -51,6 +52,9 @@ func (h *Heartbeater) Heartbeat(*gateway.HeartbeatAckEvent) {
 	}
 	bytes = make([]byte, 8)
 	binary.LittleEndian.PutUint64(bytes, uint64(timestamp.UnixMilli()))
-	os.WriteFile(h.Filepath, bytes, 0777)
+	err = os.WriteFile(h.Filepath, bytes, 0777)
+	if err != nil {
+		log.ErrorQuick(err)
+	}
 	h.Unlock()
 }
