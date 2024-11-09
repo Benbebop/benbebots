@@ -187,7 +187,7 @@ func main() {
 	}
 
 	{ // heartbeater
-		heartbeater.Filepath = config.Dirs.Temp + "heartbeat"
+		heartbeater.Filepath = filepath.Join(config.Dirs.Temp, "heartbeat")
 		heartbeater.Webhook = config.StatusHook
 	}
 
