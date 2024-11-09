@@ -165,6 +165,9 @@ func main() {
 		ws.WSDebug = func(v ...interface{}) {
 			log.Debug("%s", fmt.Sprint(v...))
 		}
+
+		log.Debug("Cache Dir: %s", config.Dirs.Cache)
+		log.Debug("Temp Dir: %s", config.Dirs.Temp)
 	}
 
 	{ // programs
