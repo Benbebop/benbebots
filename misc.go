@@ -375,7 +375,7 @@ func (Benbebots) DONCHEADLE() *api.Client {
 	}
 	client := api.NewClient("Bot " + tokens["doncheadle"].Password)
 
-	var textArgs = "drawtext=fontcolor=white:borderw=4:fontsize=62:fontfile='" + config.Bot.DonCheadle.Font + "':x=(w-text_w)/2"
+	var textArgs = "drawtext=fontcolor=white:borderw=3:fontsize=62:fontfile='" + config.Bot.DonCheadle.Font + "':x=(w-text_w)/2"
 
 	go func() {
 		var release io.Closer

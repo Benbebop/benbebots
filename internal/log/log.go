@@ -32,6 +32,7 @@ const (
 	LevelError
 	LevelFatal
 	LevelPanic
+	levelLogger
 	LevelNone
 )
 
@@ -67,6 +68,9 @@ func out(level int, short string) uint32 {
 		label = "INF"
 	case LevelDebug:
 		label = "DBG"
+	case levelLogger:
+		fmt.Printf("[LGR] %s\n", long)
+		return 0
 	}
 	if level >= FileLogLevel {
 		// add traceback
@@ -74,7 +78,10 @@ func out(level int, short string) uint32 {
 
 		// generate id
 		hasher := sha1.New()
-		hasher.Write(traceSterliser.ReplaceAll([]byte(long), []byte("")))
+		_, err := hasher.Write(traceSterliser.ReplaceAll([]byte(long), []byte("")))
+		if err != nil {
+			internalError(err)
+		}
 		id := binary.BigEndian.Uint32(hasher.Sum(nil))
 
 		idStr := hex.EncodeToString(binary.BigEndian.AppendUint32(nil, id))
@@ -84,19 +91,24 @@ func out(level int, short string) uint32 {
 		}
 
 		if level >= WebLogLevel {
-			Webhook.Execute(webhook.ExecuteData{
+			err := Webhook.Execute(webhook.ExecuteData{
 				Content: fmt.Sprintf("`%s` %s", idStr, short),
 			})
+			if err != nil {
+				internalError(err)
+			}
 		}
 
 		// create log file
 		file, err := os.OpenFile(filepath.Join(Directory, idStr+".log"), os.O_CREATE|os.O_WRONLY, logPerms)
 		if err != nil {
+			internalError(err)
 			return 0
 		}
 		defer file.Close()
 		_, err = file.Write(traceSelfRemover.ReplaceAll([]byte(long), []byte("")))
 		if err != nil {
+			internalError(err)
 			return 0
 		}
 
@@ -108,9 +120,12 @@ func out(level int, short string) uint32 {
 	}
 
 	if level >= WebLogLevel {
-		Webhook.Execute(webhook.ExecuteData{
+		err := Webhook.Execute(webhook.ExecuteData{
 			Content: short,
 		})
+		if err != nil {
+			internalError(err)
+		}
 	}
 
 	return 0
@@ -137,6 +152,10 @@ func DumpResponse(resp *http.Response, body bool, level int, msg string, args ..
 		return 0, err
 	}
 	return Dump(bytes.NewReader(b), level, msg, args...), nil
+}
+
+func internalError(err error) {
+	out(levelLogger, err.Error())
 }
 
 func Fatal(msg string, args ...any) {
