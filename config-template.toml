@@ -24,6 +24,7 @@ ffmpeg = ""
 [directories]
 cache = ""
 temp = ""
+run = ""
 
 [servers] # spesific servers targeted by benbebots
 benbebots = 0 # this is the bot's home server

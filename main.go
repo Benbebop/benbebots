@@ -21,7 +21,6 @@ import (
 	"benbebop.net/benbebots/internal/generated/version"
 	"benbebop.net/benbebots/internal/heartbeat"
 	"benbebop.net/benbebots/internal/log"
-	"benbebop.net/benbebots/internal/platform"
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/api/webhook"
 	"github.com/diamondburned/arikawa/v3/discord"
@@ -77,6 +76,8 @@ func Start(s *session.Session) {
 
 type Benbebots struct{}
 
+const defaultFileMode fs.FileMode = 0700
+
 var (
 	cron        gocron.Scheduler
 	lvldb       *leveldb.DB
@@ -95,6 +96,7 @@ var config struct {
 	Dirs struct {
 		Cache string `toml:"cache"`
 		Temp  string `toml:"temp"`
+		Run   string `toml:"run"`
 	} `toml:"directories"`
 	Servers struct {
 		Benbebots discord.GuildID `toml:"benbebots"`
@@ -128,22 +130,24 @@ func main() {
 
 	{ // directories
 		if config.Dirs.Cache == "" {
-			dir, err := platform.GetDataDir(fs.FileMode(0777))
+			dir, err := os.UserCacheDir()
 			if err != nil {
 				fmt.Println(err)
 				os.Exit(1)
 			}
-			config.Dirs.Cache = dir
+			config.Dirs.Cache = filepath.Join(dir, "benbebots")
 		}
+		os.MkdirAll(config.Dirs.Cache, defaultFileMode)
 
 		if config.Dirs.Temp == "" {
-			dir, err := platform.GetTempDir(fs.FileMode(0777))
-			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
-			}
-			config.Dirs.Temp = dir
+			config.Dirs.Temp = filepath.Join(os.TempDir(), "benbebots")
 		}
+		os.MkdirAll(config.Dirs.Temp, defaultFileMode)
+
+		if config.Dirs.Run == "" {
+			config.Dirs.Run = "/run/benbebots/"
+		}
+		os.MkdirAll(config.Dirs.Run, defaultFileMode)
 	}
 
 	{ // logger
@@ -171,6 +175,7 @@ func main() {
 
 		log.Debug("Cache Dir: %s", config.Dirs.Cache)
 		log.Debug("Temp Dir: %s", config.Dirs.Temp)
+		log.Debug("Run Dir: %s", config.Dirs.Run)
 	}
 
 	{ // programs
