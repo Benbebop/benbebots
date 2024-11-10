@@ -30,7 +30,6 @@ func (Benbebots) FAMILYGUY() *state.State {
 
 	client := state.New("Bot " + tokens["familyGuy"].Password)
 	client.AddIntents(gateway.IntentGuildMembers) // privileged
-	client.AddHandler(AnnounceReady)
 	client.AddHandler(heartbeater.Init)
 	client.AddHandler(heartbeater.Heartbeat)
 
@@ -128,7 +127,6 @@ func (Benbebots) FAMILYGUY() *state.State {
 		}
 	})
 
-	Start(client.Session)
 	return client
 }
 

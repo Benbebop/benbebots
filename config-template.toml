@@ -1,6 +1,7 @@
 log_hook = ""
 status_hook = ""
 log_level = 0
+http_interactions = false
 
 [components]
 pinger = true

@@ -76,7 +76,6 @@ func (Benbebots) CANNEDFOOD() *session.Session {
 			log.Fatal("%s", err)
 		}
 	}
-	client.AddHandler(AnnounceReady)
 	client.AddHandler(heartbeater.Init)
 	client.AddHandler(heartbeater.Heartbeat)
 
@@ -292,7 +291,6 @@ func (Benbebots) CANNEDFOOD() *session.Session {
 		}
 	})
 
-	Start(client)
 	return client
 }
 
@@ -348,12 +346,6 @@ func (Benbebots) FNAF() *api.Client { // gnerb
 		}
 	}()
 
-	me, err := client.Me()
-	if err == nil {
-		AnnounceReady(&gateway.ReadyEvent{
-			User: *me,
-		})
-	}
 	return client
 }
 

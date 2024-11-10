@@ -6,13 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -35,45 +36,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
-func AnnounceReady(ready *gateway.ReadyEvent) {
-	log.Info("%s is ready", ready.User.Username)
-}
-
-func Start(s *session.Session) {
-	ready := make(chan *gateway.ReadyEvent)
-
-	rm := s.AddHandler(ready)
-
-	go func() {
-		ctx := context.Background()
-		opts := s.GatewayOpts()
-
-		for {
-			if err := s.Open(ctx); err != nil {
-				if opts.ErrorIsFatalClose(err) || ctx.Err() != nil {
-					log.Fatal("%s", err)
-				}
-				log.Warn("%s", err)
-				continue
-			}
-
-			if err := s.Wait(ctx); err != nil {
-				if opts.ErrorIsFatalClose(err) {
-					log.Fatal("%s", err)
-				}
-				if ctx.Err() != nil {
-					break
-				}
-				log.Warn("%s", err)
-			}
-		}
-	}()
-
-	<-ready
-	rm()
-	close(ready)
-}
-
 type Benbebots struct{}
 
 const defaultFileMode fs.FileMode = 0700
@@ -89,6 +51,7 @@ var config struct {
 	LogHook    string                `toml:"log_hook"`
 	StatusHook string                `toml:"status_hook"`
 	LogLevel   int                   `toml:"log_level"`
+	Http       bool                  `toml:"http_interactions"`
 	Components components.Components `toml:"components"`
 	Programs   struct {
 		FFMpeg string `toml:"ffmpeg" exe:"ffmpeg"`
@@ -301,6 +264,26 @@ func main() {
 		return
 	}
 
+	var socket net.Listener
+	var mux *http.ServeMux
+	{ // http
+		spath := filepath.Join(config.Dirs.Run, "http.socket")
+		os.Remove(spath)
+		var err error
+		socket, err = net.Listen("unix", spath)
+		if err != nil {
+			log.FatalQuick(err)
+		}
+
+		mux = http.NewServeMux()
+		go func() {
+			err := http.Serve(socket, mux)
+			if err != nil {
+				log.Debug("%s", err)
+			}
+		}()
+	}
+
 	bots := reflect.TypeFor[Benbebots]()
 	var clients struct {
 		sync.Mutex
@@ -319,56 +302,96 @@ func main() {
 		values := []reflect.Value{
 			reflect.ValueOf(Benbebots{}),
 		}
-		if argLen > 2 && os.Args[1] == "test" {
-			u := strings.ToUpper(os.Args[2])
-			if u == "NONE" {
-				return
-			}
-			bot, found := bots.MethodByName(u)
-			if !found {
-				log.Fatal("bot %s does not exist", os.Args[2])
-			}
+		clients.sessions = make([]*session.Session, 0, bots.NumMethod())
+		for i := 0; i < bots.NumMethod(); i++ {
+			bot := bots.Method(i)
 			waitGroup.Add(1)
 			go func() {
-				client := bot.Func.Call(values)[0].Interface().(*session.Session)
-				waitGroup.Done()
-				if client == nil {
-					return
-				}
+				rs := bot.Func.Call(values)
+				for _, r := range rs {
+					r := r.Interface()
+					switch r := r.(type) {
+					case *session.Session, *state.State:
+						s, ok := r.(*session.Session)
+						if !ok {
+							r := r.(*state.State)
+							if r == nil {
+								continue
+							}
+							s = r.Session
+						} else if s == nil {
+							continue
+						}
+						/*if config.Http {
+							app, err := s.CurrentApplication()
+							if err == nil {
+								srv, err := webhook.NewInteractionServer(app.VerifyKey, nil)
+								if err != nil {
+									log.FatalQuick(err)
+								}
+								prefix := filepath.Join("/interactions/", strings.ToLower(bot.Name))
+								mux.Handle(prefix, http.StripPrefix(prefix, srv))
+							} else {
+								log.Warn("%s", err)
+							}
+						}*/
 
-				clients.Lock()
-				clients.sessions = []*session.Session{client}
-				clients.Unlock()
-			}()
-		} else {
-			clients.sessions = make([]*session.Session, 0, bots.NumMethod())
-			for i := 0; i < bots.NumMethod(); i++ {
-				bot := bots.Method(i)
-				waitGroup.Add(1)
-				go func() {
-					rs := bot.Func.Call(values)
-					clients.Lock()
-					for _, r := range rs {
-						r := r.Interface()
-						switch r := r.(type) {
-						case *state.State:
-							if r != nil {
-								clients.sessions = append(clients.sessions, r.Session)
+						ready := make(chan *gateway.ReadyEvent)
+
+						rm := s.AddHandler(ready)
+
+						go func() {
+							ctx := context.Background()
+							opts := s.GatewayOpts()
+
+							for {
+								if err := s.Open(ctx); err != nil {
+									if opts.ErrorIsFatalClose(err) || ctx.Err() != nil {
+										log.Fatal("%s", err)
+									}
+									log.Warn("%s", err)
+									continue
+								}
+
+								if err := s.Wait(ctx); err != nil {
+									if opts.ErrorIsFatalClose(err) {
+										log.Fatal("%s", err)
+									}
+									if ctx.Err() != nil {
+										break
+									}
+									log.Warn("%s", err)
+								}
 							}
-						case *session.Session:
-							if r != nil {
-								clients.sessions = append(clients.sessions, r)
-							}
-						case error:
-							if r != nil {
-								log.Fatal("%s", r)
-							}
+						}()
+
+						ev := <-ready
+						rm()
+						close(ready)
+
+						log.Info("%s is ready", ev.User.Username)
+
+						clients.Lock()
+						clients.sessions = append(clients.sessions, s)
+						clients.Unlock()
+					case *api.Client:
+						if r == nil {
+							continue
+						}
+
+						u, err := r.Me()
+						if err != nil {
+							log.Fatal("%s", err)
+						}
+						log.Info("%s is ready", u.Username)
+					case error:
+						if r != nil {
+							log.Fatal("%s", r)
 						}
 					}
-					clients.Unlock()
-					waitGroup.Done()
-				}()
-			}
+				}
+				waitGroup.Done()
+			}()
 		}
 		waitGroup.Wait()
 
@@ -394,6 +417,8 @@ func main() {
 		code = 0
 		log.Info("interrupt recieved, closing")
 	}
+
+	log.Assert(socket.Close())
 
 	clients.Lock()
 	var notSuccess bool
