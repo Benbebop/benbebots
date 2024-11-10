@@ -45,9 +45,11 @@ var (
 	OnFatal       func()
 )
 
+type pkgPathSubject struct{}
+
 var (
 	traceSterliser   *regexp.Regexp = regexp.MustCompile("0[xX][0-9a-fA-F]+|goroutine [0-9]+")
-	traceSelfRemover *regexp.Regexp = regexp.MustCompile(regexp.QuoteMeta(reflect.TypeFor[struct{}]().PkgPath()) + ".+[\n\r]+.+[\n\r]+")
+	traceSelfRemover *regexp.Regexp = regexp.MustCompile(regexp.QuoteMeta(reflect.TypeFor[pkgPathSubject]().PkgPath()) + ".+[\n\r]+.+[\n\r]+")
 )
 
 func out(level int, short string) uint32 {
