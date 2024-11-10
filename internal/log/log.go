@@ -160,6 +160,11 @@ func internalError(err error) {
 	out(levelLogger, err.Error())
 }
 
+func Stop() {
+	out(LevelFatal, "Stop Called")
+	OnFatal()
+}
+
 func Fatal(msg string, args ...any) {
 	out(LevelFatal, fmt.Sprintf(msg, args...))
 	OnFatal()
