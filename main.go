@@ -153,6 +153,9 @@ func main() {
 		log.FileLogLevel = 2
 		log.WebLogLevel = 2
 		log.Webhook, err = webhook.NewFromURL(config.LogHook)
+		log.OnFatal = func() {
+			os.Exit(1)
+		}
 		if err != nil {
 			log.FatalQuick(err)
 		}
