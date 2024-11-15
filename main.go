@@ -57,9 +57,10 @@ var config struct {
 		FFMpeg string `toml:"ffmpeg" exe:"ffmpeg"`
 	} `toml:"programs"`
 	Dirs struct {
-		Cache string `toml:"cache"`
-		Temp  string `toml:"temp"`
 		Run   string `toml:"run"`
+		Cache string `toml:"cache"`
+		Log   string `toml:"log"`
+		Temp  string `toml:"temp"`
 	} `toml:"directories"`
 	Servers struct {
 		Benbebots discord.GuildID `toml:"benbebots"`
@@ -78,7 +79,13 @@ func main() {
 	var err error
 
 	{ // config
-		f, err := os.Open("config.toml")
+		var path string
+		if ed, ok := os.LookupEnv("CONFIGURATION_DIRECTORY"); ok {
+			path = filepath.Join(ed, "config.toml")
+		} else {
+			path = "config.toml"
+		}
+		f, err := os.Open(path)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -92,30 +99,81 @@ func main() {
 	}
 
 	{ // directories
-		if config.Dirs.Cache == "" {
-			dir, err := os.UserCacheDir()
-			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
+		config.Dirs.Run = func() string {
+			if config.Dirs.Run != "" {
+				return config.Dirs.Run
 			}
-			config.Dirs.Cache = filepath.Join(dir, "benbebots")
-		}
+
+			if ed, ok := os.LookupEnv("RUNTIME_DIRECTORY"); ok {
+				return ed
+			}
+
+			if wd, err := os.Getwd(); err == nil {
+				return filepath.Join(wd, "runtime")
+			}
+
+			return "."
+		}()
+		os.MkdirAll(config.Dirs.Run, defaultFileMode)
+
+		config.Dirs.Log = func() string {
+			if config.Dirs.Log != "" {
+				return config.Dirs.Log
+			}
+
+			if ed, ok := os.LookupEnv("LOGS_DIRECTORY"); ok {
+				return ed
+			}
+
+			if config.Dirs.Cache != "" {
+				return filepath.Join(config.Dirs.Cache, "log")
+			}
+
+			if cd, err := os.UserCacheDir(); err == nil {
+				return filepath.Join(cd, "benbebots/log")
+			}
+
+			if wd, err := os.Getwd(); err == nil {
+				return filepath.Join(wd, "log")
+			}
+
+			return "."
+		}()
+		os.MkdirAll(config.Dirs.Log, defaultFileMode)
+
+		config.Dirs.Cache = func() string {
+			if config.Dirs.Cache != "" {
+				return config.Dirs.Cache
+			}
+
+			if ed, ok := os.LookupEnv("CACHE_DIRECTORY"); ok {
+				return ed
+			}
+
+			if cd, err := os.UserCacheDir(); err == nil {
+				return filepath.Join(cd, "benbebots")
+			}
+
+			if wd, err := os.Getwd(); err == nil {
+				return filepath.Join(wd, "cache")
+			}
+
+			return "."
+		}()
 		os.MkdirAll(config.Dirs.Cache, defaultFileMode)
 
-		if config.Dirs.Temp == "" {
-			config.Dirs.Temp = filepath.Join(os.TempDir(), "benbebots")
-		}
-		os.MkdirAll(config.Dirs.Temp, defaultFileMode)
+		config.Dirs.Temp = func() string {
+			if config.Dirs.Temp != "" {
+				return config.Dirs.Temp
+			}
 
-		if config.Dirs.Run == "" {
-			config.Dirs.Run = "/run/benbebots/"
-		}
-		os.MkdirAll(config.Dirs.Run, defaultFileMode)
+			return filepath.Join(os.TempDir(), "benbebots")
+		}()
+		os.MkdirAll(config.Dirs.Temp, defaultFileMode)
 	}
 
 	{ // logger
-		log.Directory = filepath.Join(config.Dirs.Cache, "logs")
-		os.MkdirAll(log.Directory, os.ModePerm)
+		log.Directory = config.Dirs.Log
 		log.PrintLogLevel = config.LogLevel
 		log.FileLogLevel = 2
 		log.WebLogLevel = 2
@@ -136,9 +194,10 @@ func main() {
 			log.Debug("%s", fmt.Sprint(v...))
 		}
 
-		log.Debug("Cache Dir: %s", config.Dirs.Cache)
-		log.Debug("Temp Dir: %s", config.Dirs.Temp)
-		log.Debug("Run Dir: %s", config.Dirs.Run)
+		dirs := reflect.ValueOf(config.Dirs)
+		for i := 0; i < dirs.NumField(); i++ {
+			log.Debug("%s dir: %s", dirs.Type().Field(i).Name, dirs.Field(i).String())
+		}
 	}
 
 	{ // programs
