@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -14,6 +15,8 @@ import (
 	"github.com/diamondburned/arikawa/v3/discord"
 )
 
+type CommandLine struct{}
+
 const (
 	commandFile    = "internal/generated/commands/commands.go"
 	commandFileOld = commandFile + "_old"
@@ -23,7 +26,9 @@ const constEntry = `	%s discord.CommandID = %d
 	%s string = "%s"
 `
 
-func UpdateCommands(removeUnused bool) {
+func (CommandLine) UPDATE_COMMANDS(args []string) {
+	removeUnused := len(args) >= 1 && args[0] == "remove"
+
 	log.OnFatal = func() {
 		os.Rename(commandFileOld, commandFile)
 		os.Exit(1)
@@ -165,7 +170,7 @@ import "github.com/diamondburned/arikawa/v3/discord"
 	}
 }
 
-func ResetStats() error {
+func (CommandLine) RESET_STATS(args []string) error {
 	// canned foods
 	token, err := lvldb.Get([]byte("cannedFoodToken"), nil)
 	if err != nil {
@@ -301,4 +306,23 @@ func ResetStats() error {
 	log.Info("found %d family guy clips sent", total)
 
 	return nil
+}
+
+var clType = reflect.TypeFor[CommandLine]()
+
+func RunCommandLine() bool {
+	if len(os.Args) <= 1 {
+		return false
+	}
+
+	toRun, ok := clType.MethodByName(strings.ReplaceAll(strings.ToUpper(os.Args[1]), "-", "_"))
+	if !ok {
+		return false
+	}
+
+	toRun.Func.Call([]reflect.Value{
+		reflect.ValueOf(CommandLine{}),
+		reflect.ValueOf(os.Args[2:]),
+	})
+	return true
 }

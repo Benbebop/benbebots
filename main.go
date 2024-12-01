@@ -27,6 +27,11 @@ func main() {
 		select {}
 	}
 
+	ran := benbebots.RunCommandLine()
+	if ran {
+		return
+	}
+
 	go benbebots.Run()
 
 	signal.Notify(exit, os.Interrupt, syscall.SIGTERM)
