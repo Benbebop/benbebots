@@ -1,4 +1,4 @@
-package main
+package benbebots
 
 import (
 	"encoding/binary"
@@ -23,7 +23,7 @@ const constEntry = `	%s discord.CommandID = %d
 	%s string = "%s"
 `
 
-func updateCommands(removeUnused bool) {
+func UpdateCommands(removeUnused bool) {
 	log.OnFatal = func() {
 		os.Rename(commandFileOld, commandFile)
 		os.Exit(1)
@@ -165,7 +165,7 @@ import "github.com/diamondburned/arikawa/v3/discord"
 	}
 }
 
-func resetStats() error {
+func ResetStats() error {
 	// canned foods
 	token, err := lvldb.Get([]byte("cannedFoodToken"), nil)
 	if err != nil {

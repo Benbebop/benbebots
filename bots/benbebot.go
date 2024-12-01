@@ -1,4 +1,4 @@
-package main
+package benbebots
 
 import (
 	"bufio"
@@ -1007,7 +1007,7 @@ func (benbebot) PING_EVERYTHING(client *state.State) {
 
 		var str string
 		for _, mention := range mentions {
-			if len(str)+len(mention) > discordMaxMessageSize {
+			if len(str)+len(mention) > 2000 {
 				_, err := client.SendMessage(message.ChannelID, str)
 				if err != nil {
 					log.ErrorQuick(err)

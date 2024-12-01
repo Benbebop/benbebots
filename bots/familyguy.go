@@ -1,4 +1,4 @@
-package main
+package benbebots
 
 import (
 	"fmt"
@@ -129,41 +129,3 @@ func (Benbebots) FAMILYGUY() *state.State {
 
 	return client
 }
-
-/*func (Benbebots) BANKBEMER() *session.Session {
-	if !component.IsEnabled("bankbemer") {
-		log.Info("bank bemer component has been disabled")
-		return nil
-	}
-
-	client := state.New("Bot " + tokens["bankbemer"].Password)
-
-	var wake <-chan time.Time
-	client.AddHandler(func(ready *gateway.ReadyEvent) {
-		for {
-			var users []discord.UserID
-
-			guilds, err := client.Guilds()
-			if err != nil {
-				log.Fatal("%s", err)
-			}
-			for _, guild := range guilds {
-				members, err := client.Members(guild.ID)
-				if err != nil {
-					log.Fatal("%s", err)
-				}
-				for _, member := range members {
-					users
-				}
-			}
-			wake = time.After()
-			time := <-wake
-			if time.IsZero() {
-				continue
-			}
-		}
-	})
-
-	return client.Session
-}
-*/
