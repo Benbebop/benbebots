@@ -3,16 +3,20 @@ package benbebots
 import (
 	"encoding/binary"
 	"fmt"
+	"net/http"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
 
 	"benbebop.net/benbebots/internal/log"
 	"benbebop.net/benbebots/internal/stats"
+	"benbebop.net/benbebots/internal/wordfile"
 	"benbebop.net/benbebots/resource"
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
+	"golang.org/x/net/html"
 )
 
 type CommandLine struct{}
@@ -306,6 +310,117 @@ func (CommandLine) RESET_STATS(args []string) error {
 	log.Info("found %d family guy clips sent", total)
 
 	return nil
+}
+
+func (CommandLine) UPDATE_WORDS(args []string) {
+	wr, err := wordfile.NewWordWriter(filepath.Join(config.Dirs.Cache, "words.dat"))
+	if err != nil {
+		log.FatalQuick(err)
+		return
+	}
+
+	req, err := http.NewRequest(http.MethodGet, "https://www.merriam-webster.com/browse/dictionary", nil)
+	if err != nil {
+		log.FatalQuick(err)
+		return
+	}
+
+	var word string
+
+	for req.URL.Path != "" {
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			log.FatalQuick(err)
+			return
+		}
+		defer resp.Body.Close()
+		req.URL.Path = ""
+
+		t := html.NewTokenizer(resp.Body)
+		tt := t.Next()
+		for tt != html.ErrorToken {
+			switch tt {
+			case html.StartTagToken:
+				token := t.Token()
+				for _, v := range token.Attr {
+					if v.Key == "class" && v.Val == "button next" { // if the tag designates the next page
+						for _, v := range token.Attr {
+							if v.Key == "href" {
+								req.URL.Path = v.Val
+								break
+							}
+						}
+						break
+					} else if v.Key == "class" && v.Val == "browse-link-ellipsis" { // if tag designates a sub page
+						for _, v := range token.Attr {
+							if v.Key == "data-link" {
+								subReq := req
+								subReq.URL.Path = v.Val
+								resp, err := http.DefaultClient.Do(req)
+								if err != nil {
+									log.FatalQuick(err)
+									return
+								}
+								defer resp.Body.Close()
+
+								t := html.NewTokenizer(resp.Body)
+								tt := t.Next()
+								for tt != html.ErrorToken {
+									switch tt {
+									case html.StartTagToken:
+										token := t.Token()
+										for _, v := range token.Attr {
+											if v.Key == "class" && v.Val == "pb-4 pr-4 d-block" {
+												for _, v := range token.Attr {
+													if v.Key == "href" {
+														newword := filepath.Base(v.Val)
+														if word == newword {
+															break
+														}
+														word = newword
+														if strings.ToUpper(word[0:1]) == word[0:1] {
+															break
+														}
+														if strings.Contains(word, " ") {
+															break
+														}
+														err = wr.Add(word)
+														if err != nil {
+															log.FatalQuick(err)
+															return
+														}
+														log.Debug("added word: %s", word)
+														break
+													}
+												}
+											}
+										}
+									}
+
+									tt = t.Next()
+								}
+								resp.Body.Close()
+								break
+							}
+						}
+						break
+					}
+				}
+			}
+
+			tt = t.Next()
+		}
+		resp.Body.Close()
+	}
+
+	err = wr.Close()
+	if err != nil {
+		log.FatalQuick(err)
+	}
+}
+
+func (CommandLine) PRINT_WORD(args []string) {
+
 }
 
 var clType = reflect.TypeFor[CommandLine]()

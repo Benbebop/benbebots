@@ -1,23 +1,22 @@
 package benbebots
 
 import (
-	"bytes"
-	"encoding/json"
+	"errors"
 	"io"
-	"net/http"
+	"math/rand/v2"
+	"os"
 	"os/exec"
-	"regexp"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"benbebop.net/benbebots/internal/log"
 	"benbebop.net/benbebots/internal/scheduler"
+	"benbebop.net/benbebots/internal/wordfile"
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/utils/sendpart"
 )
-
-const RANDOM_WORD_URL = "https://random-word-api.herokuapp.com/word"
 
 type DonCheadleConfig struct {
 	Font     string            `toml:"font_file"`
@@ -26,12 +25,15 @@ type DonCheadleConfig struct {
 	Channel  discord.ChannelID `toml:"channel"`
 }
 
-var wordSteriliser, _ = regexp.Compile("[^a-zA-Z]")
-
 func (Benbebots) DONCHEADLE() *api.Client {
 	if !config.Components.IsEnabled("don_cheadle") {
 		log.Info("don cheadle component has been disabled")
 		return nil
+	}
+	wordArchive := filepath.Join(config.Dirs.Cache, "words.dat")
+	if _, err := os.Stat(wordArchive); errors.Is(err, os.ErrNotExist) {
+		log.Info("word archive does not exist, generating")
+		CommandLine{}.UPDATE_WORDS([]string{})
 	}
 	client := api.NewClient("Bot " + tokens["doncheadle"].Password)
 
@@ -48,26 +50,17 @@ func (Benbebots) DONCHEADLE() *api.Client {
 			log.Info("sending next don cheadle wotd in %fh", wait.Hours())
 			time.Sleep(wait)
 
-			resp, err := http.Get(RANDOM_WORD_URL)
+			wr, err := wordfile.NewWordReader(wordArchive)
 			if err != nil {
 				log.ErrorQuick(err)
 				continue
 			}
-			release = resp.Body
-
-			var raw bytes.Buffer
-			var words []string
-			err = json.NewDecoder(io.TeeReader(resp.Body, &raw)).Decode(&words)
-			resp.Body = io.NopCloser(bytes.NewReader(raw.Bytes()))
+			wordb, err := wr.Get(rand.IntN(wr.Length()))
 			if err != nil {
-				log.DumpResponse(resp, true, 2, "%s", err)
+				log.ErrorQuick(err)
 				continue
 			}
-			if len(words) <= 0 {
-				log.DumpResponse(resp, true, 2, "no words returned")
-				continue
-			}
-			word := wordSteriliser.ReplaceAllString(words[0], "")
+			word := string(wordb)
 
 			c := exec.Command(config.Programs.FFMpeg,
 				"-i", config.Bot.DonCheadle.Source,
@@ -93,7 +86,7 @@ func (Benbebots) DONCHEADLE() *api.Client {
 			_, err = client.SendMessageComplex(config.Bot.DonCheadle.Channel, api.SendMessageData{
 				Files: []sendpart.File{
 					{
-						Name:   words[0] + ".jpg",
+						Name:   word + ".jpg",
 						Reader: out,
 					},
 				},
