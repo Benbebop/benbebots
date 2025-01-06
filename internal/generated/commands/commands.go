@@ -13,6 +13,8 @@ const ( // Benberot
 	SubscribeName string = "subscribe"
 	Download discord.CommandID = 1303049519243726880
 	DownloadName string = "download"
+	FirstAM discord.CommandID = 1325562010640978023
+	FirstAMName string = "firstam"
 )
 
 const ( // bread bag

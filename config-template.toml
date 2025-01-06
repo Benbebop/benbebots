@@ -17,6 +17,7 @@ permaroles = true
 ping_everything = true
 extra_webhooks = true
 don_cheatle = true
+firstam = true
 
 [programs]
 ytdlp = ""
@@ -80,6 +81,9 @@ webhook = ""
 
 [bot.benbebot.notifications]
 callback = "" # callback url that will be used in subs
+webhook = ""
+
+[bot.benbebot.firstam]
 webhook = ""
 
 [bot.bank_bemer]

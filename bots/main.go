@@ -260,8 +260,7 @@ func InitHttp() error {
 
 	mux = http.NewServeMux()
 	go func() {
-		err := http.Serve(socket, mux)
-		if err != nil {
+		if err := http.Serve(socket, mux); !errors.Is(err, http.ErrServerClosed) {
 			log.Debug("%s", err)
 		}
 	}()

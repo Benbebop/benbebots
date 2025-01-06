@@ -62,6 +62,12 @@ func GetCommandData() map[string]map[discord.GuildID]constNames { // just so it 
 					Description: "download a video",
 					Options:     []discord.CommandOption{},
 				},
+				"FirstAM": {
+					Type:        discord.ChatInputCommand,
+					Name:        "firstam",
+					Description: "generate a new firstam webhook url",
+					Options:     []discord.CommandOption{},
+				},
 			},
 			822165179692220476: {
 				"Permarole": {

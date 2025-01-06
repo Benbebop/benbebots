@@ -4,6 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	crand "crypto/rand"
+	"crypto/subtle"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -1230,12 +1233,166 @@ func (benbebot) EXTRA_WEBHOOKS(client *state.State) {
 	})
 }
 
+type firstAMConfig struct {
+	Webhook string `toml:"webhook"`
+}
+
+const faKeyLength = 24
+
+var errNotScrobble = errors.New("not a scrobble")
+
+type validateScrobbleEvent bool
+
+func (b *validateScrobbleEvent) UnmarshalText(data []byte) error {
+	if string(data) != "scrobble" {
+		return errNotScrobble
+	}
+	*b = true
+	return nil
+}
+
+func (benbebot) FIRSTAM(client *state.State, router *cmdroute.Router) {
+	wh, err := webhook.NewFromURL(config.Bot.Benbebots.ExtraWebhooks.Webhook)
+	if err != nil {
+		log.Fatal("%s", err)
+	}
+
+	mux.HandleFunc("POST /firstam/{user}/{id}", func(w http.ResponseWriter, r *http.Request) {
+		userId, err := discord.ParseSnowflake(r.PathValue("user")) // TODO: contribute to arikawa to deprecate this and replace it with snowflake.UnmarshalText
+		if err != nil {
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(http.StatusBadRequest)
+			io.WriteString(w, err.Error())
+			w.Write([]byte{'\n'})
+			return
+		}
+		key, err := base64.RawURLEncoding.DecodeString(r.PathValue("id"))
+		if err != nil {
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(http.StatusBadRequest)
+			io.WriteString(w, err.Error())
+			w.Write([]byte{'\n'})
+			return
+		} else if len(key) != faKeyLength {
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(http.StatusBadRequest)
+			io.WriteString(w, "invalid key length\n")
+			return
+		}
+
+		userKey, err := lvldb.Get(binary.BigEndian.AppendUint64([]byte("firstAMKey"), uint64(userId)), nil)
+		if errors.Is(err, leveldb.ErrNotFound) {
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(http.StatusNotFound)
+			io.WriteString(w, "user not found\n")
+			return
+		} else if err != nil {
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(http.StatusInternalServerError)
+			io.WriteString(w, err.Error())
+			w.Write([]byte{'\n'})
+			return
+		}
+
+		if subtle.ConstantTimeCompare(userKey, key) != 1 {
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+
+		event := struct {
+			IsScrobble validateScrobbleEvent `json:"eventName"`
+			Data       struct {
+				Song struct {
+					Parsed struct {
+						OriginUrl string `json:"originUrl"`
+					} `json:"parsed"`
+					Metadata struct {
+						TrackUrl string `json:"trackUrl"`
+					} `json:"metadata"`
+				} `json:"song"`
+			} `json:"data"`
+		}{}
+
+		err = json.NewDecoder(r.Body).Decode(&event)
+		if errors.Is(err, errNotScrobble) {
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			io.WriteString(w, "unsupported eventName\n")
+			return
+		} else if err != nil {
+			if _, ok := err.(*json.SyntaxError); ok {
+				w.WriteHeader(http.StatusBadRequest)
+			} else if _, ok := err.(*json.UnmarshalTypeError); ok {
+				w.WriteHeader(http.StatusBadRequest)
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+			io.WriteString(w, err.Error())
+			w.Write([]byte{'\n'})
+			return
+		} else if !event.IsScrobble {
+			w.WriteHeader(http.StatusBadRequest)
+			io.WriteString(w, "provide an eventName\n")
+			return
+		}
+
+		member, err := client.Member(config.Servers.Benbebots, discord.UserID(userId))
+		if err != nil {
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(http.StatusGone)
+			io.WriteString(w, err.Error())
+			w.Write([]byte{'\n'})
+			return
+		}
+
+		err = wh.Execute(webhook.ExecuteData{
+			Content:   fmt.Sprintf("%s\n%s", event.Data.Song.Metadata.TrackUrl, event.Data.Song.Parsed.OriginUrl),
+			Username:  member.User.Username,
+			AvatarURL: member.User.AvatarURL(),
+		})
+		if err != nil {
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(http.StatusInternalServerError)
+			io.WriteString(w, err.Error())
+			w.Write([]byte{'\n'})
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	router.AddFunc(commands.FirstAMName, func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+		s := data.Event.SenderID()
+
+		id := make([]byte, faKeyLength)
+		_, err := crand.Read(id)
+		if err != nil {
+			return log.InteractionResponse(log.ErrorQuick(err), err.Error())
+		}
+
+		err = lvldb.Put(binary.BigEndian.AppendUint64([]byte("firstAMKey"), uint64(s)), id, nil)
+		if err != nil {
+			return log.InteractionResponse(log.ErrorQuick(err), err.Error())
+		}
+
+		return &api.InteractionResponseData{
+			Content: option.NewNullableString(fmt.Sprintf(
+				"https://api.benbebop.net/discord/firstam/%s/%s",
+				s.String(),
+				base64.RawURLEncoding.EncodeToString(id),
+			)),
+			Flags: discord.EphemeralMessage,
+		}
+	})
+}
+
 type BenbebotConfig struct {
 	MOTD           motdConfig           `toml:"motd"`
 	AdExtractor    adExtractorConfig    `toml:"ad_extractor"`
 	Pinger         pingerConfig         `toml:"pinger"`
 	PingEverything pingEverythingConfig `toml:"ping_everything"`
 	ExtraWebhooks  extraWebhooksConfig  `toml:"extra_webhooks"`
+	FirstAM        firstAMConfig        `toml:"firstam"`
 }
 
 func (Benbebots) BENBEBOT() *session.Session {
