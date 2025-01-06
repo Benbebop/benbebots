@@ -256,6 +256,7 @@ func InitHttp() error {
 	if err != nil {
 		log.FatalQuick(err)
 	}
+	log.Assert(os.Chmod(spath, 0770))
 	cleaner.Add(socket)
 
 	mux = http.NewServeMux()
