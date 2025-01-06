@@ -260,8 +260,10 @@ func InitHttp() error {
 	cleaner.Add(socket)
 
 	mux = http.NewServeMux()
+	root := http.NewServeMux()
+	root.Handle("/discord/", mux)
 	go func() {
-		if err := http.Serve(socket, mux); !errors.Is(err, http.ErrServerClosed) {
+		if err := http.Serve(socket, root); !errors.Is(err, http.ErrServerClosed) {
 			log.Debug("%s", err)
 		}
 	}()
