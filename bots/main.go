@@ -249,6 +249,15 @@ func InitLeveldb() (err error) {
 	return nil
 }
 
+type muxLogger struct {
+	mux *http.ServeMux
+}
+
+func (l muxLogger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	log.Debug("new request from %s: %s", r.RemoteAddr, r.URL.Path)
+	l.mux.ServeHTTP(w, r)
+}
+
 func InitHttp() error {
 	spath := filepath.Join(config.Dirs.Run, "http.socket")
 	os.Remove(spath)
@@ -261,7 +270,9 @@ func InitHttp() error {
 
 	mux = http.NewServeMux()
 	root := http.NewServeMux()
-	root.Handle("/discord/", mux)
+	root.Handle("/discord/", muxLogger{
+		mux: mux,
+	})
 	go func() {
 		if err := http.Serve(socket, root); !errors.Is(err, http.ErrServerClosed) {
 			log.Debug("%s", err)
