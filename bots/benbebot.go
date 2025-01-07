@@ -1252,7 +1252,7 @@ func (b *validateScrobbleEvent) UnmarshalText(data []byte) error {
 }
 
 func (benbebot) FIRSTAM(client *state.State, router *cmdroute.Router) {
-	wh, err := webhook.NewFromURL(config.Bot.Benbebots.ExtraWebhooks.Webhook)
+	wh, err := webhook.NewFromURL(config.Bot.Benbebots.FirstAM.Webhook)
 	if err != nil {
 		log.Fatal("%s", err)
 	}
