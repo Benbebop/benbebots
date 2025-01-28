@@ -29,6 +29,7 @@ import (
 	"benbebop.net/benbebots/internal/log"
 	"benbebop.net/benbebots/internal/soundcloud"
 	"benbebop.net/benbebots/internal/stats"
+	"benbebop.net/benbebots/internal/webscrobbler"
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/api/cmdroute"
 	"github.com/diamondburned/arikawa/v3/api/webhook"
@@ -1239,18 +1240,6 @@ type firstAMConfig struct {
 
 const faKeyLength = 24
 
-var errNotScrobble = errors.New("not a scrobble")
-
-type validateScrobbleEvent bool
-
-func (b *validateScrobbleEvent) UnmarshalText(data []byte) error {
-	if string(data) != "scrobble" {
-		return errNotScrobble
-	}
-	*b = true
-	return nil
-}
-
 func (benbebot) FIRSTAM(client *state.State, router *cmdroute.Router) {
 	wh, err := webhook.NewFromURL(config.Bot.Benbebots.FirstAM.Webhook)
 	if err != nil {
@@ -1300,26 +1289,10 @@ func (benbebot) FIRSTAM(client *state.State, router *cmdroute.Router) {
 			return
 		}
 
-		event := struct {
-			IsScrobble validateScrobbleEvent `json:"eventName"`
-			Data       struct {
-				Song struct {
-					Parsed struct {
-						OriginUrl string `json:"originUrl"`
-					} `json:"parsed"`
-					Metadata struct {
-						TrackUrl string `json:"trackUrl"`
-					} `json:"metadata"`
-				} `json:"song"`
-			} `json:"data"`
-		}{}
+		var event webscrobbler.Event
 
 		err = json.NewDecoder(r.Body).Decode(&event)
-		if errors.Is(err, errNotScrobble) {
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			io.WriteString(w, "unsupported eventName\n")
-			return
-		} else if err != nil {
+		if err != nil {
 			if _, ok := err.(*json.SyntaxError); ok {
 				w.WriteHeader(http.StatusBadRequest)
 			} else if _, ok := err.(*json.UnmarshalTypeError); ok {
@@ -1329,10 +1302,6 @@ func (benbebot) FIRSTAM(client *state.State, router *cmdroute.Router) {
 			}
 			io.WriteString(w, err.Error())
 			w.Write([]byte{'\n'})
-			return
-		} else if !event.IsScrobble {
-			w.WriteHeader(http.StatusBadRequest)
-			io.WriteString(w, "provide an eventName\n")
 			return
 		}
 
@@ -1345,8 +1314,45 @@ func (benbebot) FIRSTAM(client *state.State, router *cmdroute.Router) {
 			return
 		}
 
+		var embeds []discord.Embed
+		for _, song := range append(event.Data.Songs, event.Data.Song) {
+			embed := discord.NewEmbed()
+			if song.Metadata.TrackArtURL != "" {
+				embed.Image = &discord.EmbedImage{}
+				embed.Image.URL = song.Metadata.TrackArtURL
+			} else if song.Parsed.TrackArt != "" {
+				embed.Image = &discord.EmbedImage{}
+				embed.Image.URL = song.Parsed.TrackArt
+			}
+
+			if song.Processed.Track != "" {
+				embed.Title = song.Processed.Track
+			} else if song.Parsed.Track != "" {
+				embed.Title = song.Parsed.Track
+			}
+
+			if song.Metadata.TrackURL != "" {
+				embed.URL = song.Metadata.TrackURL
+			} else if song.Parsed.OriginURL != "" {
+				embed.URL = song.Parsed.OriginURL
+			}
+
+			if song.Processed.Artist != "" {
+				embed.Author = &discord.EmbedAuthor{}
+				embed.Author.Name = song.Processed.Artist
+			} else if song.Parsed.Artist != "" {
+				embed.Author = &discord.EmbedAuthor{}
+				embed.Author.Name = song.Parsed.Artist
+			}
+			if embed.Author != nil && song.Metadata.ArtistURL != "" {
+				embed.Author.URL = song.Metadata.ArtistURL
+			}
+
+			embeds = append(embeds, *embed)
+		}
+
 		err = wh.Execute(webhook.ExecuteData{
-			Content:   fmt.Sprintf("%s\n%s", event.Data.Song.Metadata.TrackUrl, event.Data.Song.Parsed.OriginUrl),
+			Embeds:    embeds,
 			Username:  member.User.Username,
 			AvatarURL: member.User.AvatarURL(),
 		})
@@ -1358,7 +1364,7 @@ func (benbebot) FIRSTAM(client *state.State, router *cmdroute.Router) {
 			return
 		}
 
-		w.WriteHeader(http.StatusNoContent)
+		w.WriteHeader(http.StatusOK)
 	})
 
 	router.AddFunc(commands.FirstAMName, func(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
