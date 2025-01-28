@@ -1305,6 +1305,11 @@ func (benbebot) FIRSTAM(client *state.State, router *cmdroute.Router) {
 			return
 		}
 
+		if event.EventName != "scrobble" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
 		member, err := client.Member(config.Servers.Benbebots, discord.UserID(userId))
 		if err != nil {
 			w.Header().Set("Content-Type", "text/plain")
