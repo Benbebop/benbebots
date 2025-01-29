@@ -1338,6 +1338,8 @@ func (benbebot) FIRSTAM(client *state.State, router *cmdroute.Router) {
 				embed.Image.URL = song.Parsed.TrackArt
 			}
 			if embed.Image != nil {
+				embed.Image.Height = 300
+				embed.Image.Width = 300
 				embed.Color = func() discord.Color {
 					resp, err := http.Get(embed.Image.URL)
 					if err != nil {
