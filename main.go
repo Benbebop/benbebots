@@ -7,6 +7,7 @@ import (
 
 	benbebots "benbebop.net/benbebots/bots"
 	"benbebop.net/benbebots/internal/log"
+	"gopkg.in/gographics/imagick.v2/imagick"
 )
 
 func main() {
@@ -19,6 +20,7 @@ func main() {
 	benbebots.InitTokens()
 	benbebots.InitLeveldb()
 	benbebots.InitHttp()
+	imagick.Initialize()
 
 	exit := make(chan os.Signal, 1)
 
@@ -46,6 +48,7 @@ func main() {
 		log.Info("interrupt recieved, closing")
 	}
 
+	imagick.Terminate()
 	code = max(code, benbebots.Close())
 	os.Exit(code)
 }

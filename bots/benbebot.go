@@ -45,6 +45,7 @@ import (
 	"github.com/go-co-op/gocron/v2"
 	"github.com/google/go-querystring/query"
 	"github.com/syndtr/goleveldb/leveldb"
+	"gopkg.in/gographics/imagick.v2/imagick"
 )
 
 type MRadio struct {
@@ -1319,8 +1320,15 @@ func (benbebot) FIRSTAM(client *state.State, router *cmdroute.Router) {
 			return
 		}
 
+		songs := event.Data.Songs
+		if len(songs) <= 0 {
+			songs = []webscrobbler.Song{
+				event.Data.Song,
+			}
+		}
+
 		var embeds []discord.Embed
-		for _, song := range append(event.Data.Songs, event.Data.Song) {
+		for _, song := range songs {
 			embed := discord.NewEmbed()
 			if song.Metadata.TrackArtURL != "" {
 				embed.Image = &discord.EmbedImage{}
@@ -1328,6 +1336,61 @@ func (benbebot) FIRSTAM(client *state.State, router *cmdroute.Router) {
 			} else if song.Parsed.TrackArt != "" {
 				embed.Image = &discord.EmbedImage{}
 				embed.Image.URL = song.Parsed.TrackArt
+			}
+			if embed.Image != nil {
+				embed.Color = func() discord.Color {
+					resp, err := http.Get(embed.Image.URL)
+					if err != nil {
+						return discord.NullColor
+					}
+
+					imgData, err := io.ReadAll(resp.Body)
+					if err != nil {
+						return discord.NullColor
+					}
+
+					mw := imagick.NewMagickWand()
+					err = mw.ReadImageBlob(imgData)
+					if err != nil {
+						log.ErrorQuick(err)
+						return discord.NullColor
+					}
+
+					err = mw.ResizeImage(1, 1, imagick.FILTER_BOX, 0)
+					if err != nil {
+						log.ErrorQuick(err)
+						return discord.NullColor
+					}
+
+					err = mw.SetDepth(8)
+					if err != nil {
+						log.ErrorQuick(err)
+						return discord.NullColor
+					}
+					err = mw.SetFormat("RGB")
+					if err != nil {
+						log.ErrorQuick(err)
+						return discord.NullColor
+					}
+					err = mw.SetSize(1, 1)
+					if err != nil {
+						log.ErrorQuick(err)
+						return discord.NullColor
+					}
+					rawData, err := mw.GetImageBlob()
+					if err != nil {
+						log.ErrorQuick(err)
+						return discord.NullColor
+					}
+
+					rawData = append(rawData, '\x00')
+					if e := mw.GetImageEndian(); e == imagick.ENDIAN_LSB {
+						return discord.Color(binary.LittleEndian.Uint32(rawData))
+					} else if e == imagick.ENDIAN_MSB {
+						return discord.Color(binary.BigEndian.Uint32(rawData))
+					}
+					return discord.NullColor
+				}()
 			}
 
 			if song.Processed.Track != "" {

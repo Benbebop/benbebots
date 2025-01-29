@@ -26,6 +26,7 @@ require (
 	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/sys v0.26.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
+	gopkg.in/gographics/imagick.v2 v2.7.0 // indirect
 )
 
 replace github.com/pelletier/go-toml/v2 => github.com/Benbebop/go-toml/v2 v2.0.0-20241011025433-2ff7476b4ac4
