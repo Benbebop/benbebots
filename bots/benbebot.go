@@ -1241,6 +1241,12 @@ type firstAMConfig struct {
 
 const faKeyLength = 24
 
+type fColor struct {
+	R float64
+	G float64
+	B float64
+}
+
 func (benbebot) FIRSTAM(client *state.State, router *cmdroute.Router) {
 	wh, err := webhook.NewFromURL(config.Bot.Benbebots.FirstAM.Webhook)
 	if err != nil {
@@ -1352,46 +1358,54 @@ func (benbebot) FIRSTAM(client *state.State, router *cmdroute.Router) {
 					}
 
 					mw := imagick.NewMagickWand()
+					defer mw.Destroy()
 					err = mw.ReadImageBlob(imgData)
 					if err != nil {
 						log.ErrorQuick(err)
 						return discord.NullColor
 					}
-
-					err = mw.ResizeImage(1, 1, imagick.FILTER_BOX, 0)
+					err = mw.ResizeImage(50, 50, imagick.FILTER_BOX, 0)
 					if err != nil {
 						log.ErrorQuick(err)
 						return discord.NullColor
 					}
 
-					err = mw.SetDepth(8)
-					if err != nil {
-						log.ErrorQuick(err)
-						return discord.NullColor
-					}
-					err = mw.SetFormat("RGB")
-					if err != nil {
-						log.ErrorQuick(err)
-						return discord.NullColor
-					}
-					err = mw.SetSize(1, 1)
-					if err != nil {
-						log.ErrorQuick(err)
-						return discord.NullColor
-					}
-					rawData, err := mw.GetImageBlob()
-					if err != nil {
-						log.ErrorQuick(err)
-						return discord.NullColor
+					var colors []fColor
+					h, w := int(mw.GetImageHeight()), int(mw.GetImageWidth())
+					for y := 0; y < h; y++ {
+						for x := 0; x < w; x++ {
+							color, err := mw.GetImagePixelColor(x, y)
+							if err != nil {
+								color.Destroy()
+								log.ErrorQuick(err)
+								return discord.NullColor
+							}
+							colors = append(colors, fColor{
+								R: color.GetRed(),
+								G: color.GetGreen(),
+								B: color.GetBlue(),
+							})
+							color.Destroy()
+						}
 					}
 
-					rawData = append(rawData, '\x00')
-					if e := mw.GetImageEndian(); e == imagick.ENDIAN_LSB {
-						return discord.Color(binary.LittleEndian.Uint32(rawData))
-					} else if e == imagick.ENDIAN_MSB {
-						return discord.Color(binary.BigEndian.Uint32(rawData))
+					var highest fColor
+					var highestValue float64
+					for _, color := range colors { // make this way faster
+						var density float64
+						for _, color2 := range colors {
+							distance := math.Pow(color.R-color2.R, 2) + math.Pow(color.G-color2.G, 2) + math.Pow(color.B-color2.B, 2)
+							if distance < 1 {
+								density += 1 - distance
+							}
+						}
+						if density > highestValue {
+							highest = color
+							highestValue = density
+						}
 					}
-					return discord.NullColor
+
+					return discord.Color(uint32(highest.R*math.MaxUint8)<<16 | uint32(highest.G*math.MaxUint8)<<8 | uint32(highest.B*math.MaxUint8))
 				}()
 			}
 
