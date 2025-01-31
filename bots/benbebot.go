@@ -1413,9 +1413,6 @@ func (benbebot) FIRSTAM(client *state.State, router *cmdroute.Router) {
 
 					return discord.Color(uint32(highest.R*math.MaxUint8)<<16 | uint32(highest.G*math.MaxUint8)<<8 | uint32(highest.B*math.MaxUint8))
 				}()
-				if embed.Color == discord.NullColor {
-					embed.Image = nil
-				}
 			}
 
 			if song.Processed.Track != "" {
