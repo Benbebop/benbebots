@@ -1247,6 +1247,8 @@ type fColor struct {
 	B float64
 }
 
+const coverArtResize = 50
+
 func (benbebot) FIRSTAM(client *state.State, router *cmdroute.Router) {
 	wh, err := webhook.NewFromURL(config.Bot.Benbebots.FirstAM.Webhook)
 	if err != nil {
@@ -1364,16 +1366,20 @@ func (benbebot) FIRSTAM(client *state.State, router *cmdroute.Router) {
 						log.ErrorQuick(err)
 						return discord.NullColor
 					}
-					err = mw.ResizeImage(50, 50, imagick.FILTER_BOX, 0)
+
+					if mw.GetImageHeight() != mw.GetImageWidth() {
+						return discord.NullColor
+					}
+
+					err = mw.ResizeImage(coverArtResize, coverArtResize, imagick.FILTER_POINT, 0)
 					if err != nil {
 						log.ErrorQuick(err)
 						return discord.NullColor
 					}
 
 					var colors []fColor
-					h, w := int(mw.GetImageHeight()), int(mw.GetImageWidth())
-					for y := 0; y < h; y++ {
-						for x := 0; x < w; x++ {
+					for y := 0; y < coverArtResize; y++ {
+						for x := 0; x < coverArtResize; x++ {
 							color, err := mw.GetImagePixelColor(x, y)
 							if err != nil {
 								color.Destroy()
@@ -1407,6 +1413,9 @@ func (benbebot) FIRSTAM(client *state.State, router *cmdroute.Router) {
 
 					return discord.Color(uint32(highest.R*math.MaxUint8)<<16 | uint32(highest.G*math.MaxUint8)<<8 | uint32(highest.B*math.MaxUint8))
 				}()
+				if embed.Color == discord.NullColor {
+					embed.Image = nil
+				}
 			}
 
 			if song.Processed.Track != "" {
